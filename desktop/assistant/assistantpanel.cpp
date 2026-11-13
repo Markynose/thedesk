@@ -2056,9 +2056,10 @@ void AssistantPanel::keyPressEvent(QKeyEvent* event) {
         return;
     }
     if (d->introStep >= 0) {
-        if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter || event->key() == Qt::Key_Right) && d->introStep < 4) introNext();
+        const bool forward = event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter || event->key() == Qt::Key_Right;
+        if (forward && d->introStep < 4) introNext();
+        else if (forward || event->key() == Qt::Key_Escape) finishIntro(); // the last step, or skipping: done, it doesn't come back
         else if (event->key() == Qt::Key_Left || event->key() == Qt::Key_Backspace) introBack();
-        else if (event->key() == Qt::Key_Escape) close(); // it shows again next time
         return;
     }
     // not QDialog's: its Escape rejects, past close() (and the bar while it works)
