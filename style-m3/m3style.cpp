@@ -90,9 +90,19 @@ namespace {
     } // namespace Button
 
     constexpr int StateLayerSize = 40; // checkbox, radio, switch, icon button
-    constexpr int FieldHeight = 40;    // filled text field at density -4
     constexpr int FieldPadding = 12;
-    constexpr int MenuItemHeight = 40;
+
+    // Density for a precision pointer (M3 layout density: each step is 4 dp
+    // smaller): Platform/density = 0, -1 or -2, read once per app
+    int density() {
+        static const int value = [] {
+            tSettings settings(QStringLiteral("theSuite"), QStringLiteral("theDesk.platform"));
+            return qBound(-2, settings.value(QStringLiteral("Platform/density")).toInt(), 0);
+        }();
+        return value;
+    }
+    int fieldHeight() { return 40 + 4 * density(); } // filled text field at density -4, then the setting
+    int menuItemHeight() { return 40 + 4 * density(); }
     constexpr int MenuPadding = 4;     // SegmentedMenuTokens.GroupPadding
 
     // ---- Painting helpers ---------------------------------------------------
@@ -567,6 +577,8 @@ void M3Style::polish(QWidget* widget) {
     if (connectedGroup(widget) && widget->layout()) widget->layout()->setSpacing(2);
     // Standard button groups: the pressed button widens, its neighbours give way
     if (widget->property("m3ButtonGroup").toString().toLower() == QLatin1String("standard") && widget->layout()) StandardButtonGroup::attach(widget);
+    // every app's dialog buttons squash like a standard group (unless a group of another kind was asked for)
+    if (qobject_cast<QDialogButtonBox*>(widget) && widget->layout() && !widget->property("m3ButtonGroup").isValid()) StandardButtonGroup::attach(widget);
     // QCalendarWidget as an M3 date picker: a quiet header in the surface's
     // colours, OnSurfaceVariant weekday names, weekends like any other day
     if (auto* calendar = qobject_cast<QCalendarWidget*>(widget); calendar && !calendar->property("m3Calendar").toBool()) {
@@ -854,15 +866,15 @@ QSize M3Style::sizeFromContents(ContentsType type, const QStyleOption* option, c
         case CT_LineEdit:
             if (insideComposite(widget)) return QProxyStyle::sizeFromContents(type, option, size, widget);
             if (searchBar(widget)) return QSize(size.width() + 2 * FieldPadding, qMax(size.height() + 8, 56));
-            return QSize(size.width() + 2 * FieldPadding, qMax(size.height() + 8, FieldHeight));
+            return QSize(size.width() + 2 * FieldPadding, qMax(size.height() + 8, fieldHeight()));
         case CT_ComboBox:
-            return QSize(size.width() + 2 * FieldPadding + 24 + 8, qMax(size.height() + 8, FieldHeight));
+            return QSize(size.width() + 2 * FieldPadding + 24 + 8, qMax(size.height() + 8, fieldHeight()));
         case CT_SpinBox:
-            return QSize(size.width() + 2 * FieldPadding + 24, qMax(size.height() + 8, FieldHeight));
+            return QSize(size.width() + 2 * FieldPadding + 24, qMax(size.height() + 8, fieldHeight()));
         case CT_CheckBox:
         case CT_RadioButton: {
             QSize s = QProxyStyle::sizeFromContents(type, option, size, widget);
-            return QSize(s.width() + 4, qMax(s.height(), StateLayerSize));
+            return QSize(s.width() + 4, qMax(s.height(), StateLayerSize + 4 * density()));
         }
         case CT_MenuItem: {
             auto* item = qstyleoption_cast<const QStyleOptionMenuItem*>(option);
@@ -872,17 +884,17 @@ QSize M3Style::sizeFromContents(ContentsType type, const QStyleOption* option, c
             if (item->maxIconWidth > 0 || item->checkType != QStyleOptionMenuItem::NotCheckable) w += 24 + 12;
             if (item->menuItemType == QStyleOptionMenuItem::SubMenu) w += 24;
             if (item->text.contains(QLatin1Char('\t'))) w += 32;
-            return QSize(qMax(w, 112 + 2 * MenuPadding), MenuItemHeight); // M3 menus are at least 112 wide
+            return QSize(qMax(w, 112 + 2 * MenuPadding), menuItemHeight()); // M3 menus are at least 112 wide
         }
         case CT_MenuBarItem:
             return QSize(size.width() + 24, qMax(size.height() + 8, 32));
         case CT_TabBarTab: {
             QSize s = QProxyStyle::sizeFromContents(type, option, size, widget);
-            return QSize(s.width(), qMax(s.height(), 48)); // PrimaryNavigationTabTokens.ContainerHeight
+            return QSize(s.width(), qMax(s.height(), 48 + 4 * density())); // PrimaryNavigationTabTokens.ContainerHeight
         }
         case CT_HeaderSection: {
             QSize s = QProxyStyle::sizeFromContents(type, option, size, widget);
-            return QSize(s.width() + 8, qMax(s.height(), 36));
+            return QSize(s.width() + 8, qMax(s.height(), 36 + 4 * density()));
         }
         case CT_ItemViewItem: {
             QSize s = QProxyStyle::sizeFromContents(type, option, size, widget);
@@ -1146,7 +1158,13 @@ namespace {
         if (v == QLatin1String("m")) return sizes[2];
         if (v == QLatin1String("l")) return sizes[3];
         if (v == QLatin1String("xl")) return sizes[4];
-        return sizes[1];
+        // the default size follows the density (the asked-for ones don't)
+        static const ButtonSize dense = [] {
+            ButtonSize size = sizes[1];
+            size.height += 4 * density();
+            return size;
+        }();
+        return dense;
     }
 
     bool hasButtonSize(const QWidget* widget) {
@@ -1679,7 +1697,7 @@ void M3Style::drawField(const QRectF& rect, const QStyleOption* option, QPainter
         painter->restore();
         return;
     }
-    QRectF r = rect.height() > FieldHeight + 16 ? centred(rect, rect.width(), FieldHeight) : rect;
+    QRectF r = rect.height() > fieldHeight() + 16 ? centred(rect, rect.width(), fieldHeight()) : rect;
     QPainterPath shape = roundedRect(r, Shape::ExtraSmall, Shape::ExtraSmall, 0, 0);
 
     painter->save();

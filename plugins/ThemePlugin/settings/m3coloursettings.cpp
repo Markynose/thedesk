@@ -154,6 +154,7 @@ struct M3ColourSettingsPrivate {
         QComboBox* style;
         QComboBox* mode;
         QComboBox* contrast;
+        QComboBox* density;
         bool loading = false;
 };
 
@@ -189,6 +190,10 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
     d->contrast->addItem(tr("Standard"), 0.0);
     d->contrast->addItem(tr("Medium"), 0.5);
     d->contrast->addItem(tr("High"), 1.0);
+    d->density = new QComboBox(parent);
+    d->density->addItem(tr("Default"), 0);
+    d->density->addItem(tr("Compact"), -1);
+    d->density->addItem(tr("Dense"), -2);
 
     auto addRow = [&](int r, const QString& label, QWidget* w) {
         auto* l = new QLabel(label, parent);
@@ -230,6 +235,8 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
     addRow(row + 1, tr("Style"), d->style);
     addRow(row + 2, tr("Mode"), connectedGroup(d->mode, {tr("Dark"), tr("Light"), tr("Horizon")}, {QString(), QString(), tr("Follow the horizon: light by day, dark at night")}));
     addRow(row + 3, tr("Contrast"), connectedGroup(d->contrast, {tr("Standard"), tr("Medium"), tr("High")}, {}));
+    // M3 density for a mouse or touchpad: each step makes controls 4 px shorter (apps pick it up when they start)
+    addRow(row + 4, tr("Density"), connectedGroup(d->density, {tr("Default"), tr("Compact"), tr("Dense")}, {QString(), tr("4 px shorter controls, for a mouse or touchpad"), tr("8 px shorter controls, for a mouse or touchpad")}));
 
     connect(d->style, &QComboBox::currentIndexChanged, this, [this] {
         if (!d->loading) d->settings->setValue(QStringLiteral("Palette/m3.variant"), d->style->currentData());
@@ -240,8 +247,11 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
     connect(d->contrast, &QComboBox::currentIndexChanged, this, [this] {
         if (!d->loading) d->settings->setValue(QStringLiteral("Palette/m3.contrast"), d->contrast->currentData());
     });
+    connect(d->density, &QComboBox::currentIndexChanged, this, [this] {
+        if (!d->loading) d->settings->setValue(QStringLiteral("Platform/density"), d->density->currentData());
+    });
     connect(settings, &tSettings::settingChanged, this, [this](QString key) {
-        if (key.startsWith(QStringLiteral("Palette/m3."))) load();
+        if (key.startsWith(QStringLiteral("Palette/m3.")) || key == QStringLiteral("Platform/density")) load();
     });
     load();
 }
@@ -275,5 +285,6 @@ void M3ColourSettings::load() {
     i = d->mode->findData(mode.isEmpty() ? QStringLiteral("dark") : mode);
     d->mode->setCurrentIndex(qMax(0, i));
     d->contrast->setCurrentIndex(contrast >= 0.75 ? 2 : contrast >= 0.25 ? 1 : 0);
+    d->density->setCurrentIndex(qBound(0, -d->settings->value(QStringLiteral("Platform/density")).toInt(), 2));
     d->loading = false;
 }
