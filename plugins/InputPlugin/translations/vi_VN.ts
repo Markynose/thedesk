@@ -22,7 +22,7 @@
 <context>
     <name>InputSettingsPane</name>
     <message>
-        <location filename="../settings/inputsettingspane.cpp" line="55"/>
+        <location filename="../settings/inputsettingspane.cpp" line="56"/>
         <source>Input</source>
         <translation>Đầu vào</translation>
     </message>

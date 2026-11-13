@@ -1243,12 +1243,12 @@ Save your documents and close all apps before starting the reset. This won&apos;
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="76"/>
+        <location filename="../main.cpp" line="77"/>
         <source>Safe Mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="76"/>
+        <location filename="../main.cpp" line="77"/>
         <source>You&apos;re holding the CTRL key. Start theDesk in Safe Mode?</source>
         <translation type="unfinished"></translation>
     </message>

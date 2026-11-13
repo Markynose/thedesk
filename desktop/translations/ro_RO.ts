@@ -1369,12 +1369,12 @@ O să continuăm cu resetarea în %n secunde dacă nu faceți nimic.</translatio
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="76"/>
+        <location filename="../main.cpp" line="77"/>
         <source>Safe Mode</source>
         <translation>Modul de siguranță</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="76"/>
+        <location filename="../main.cpp" line="77"/>
         <source>You&apos;re holding the CTRL key. Start theDesk in Safe Mode?</source>
         <translation>Țineți apăsata tasta CTRL. Porniți theDesk în modul de siguranță?</translation>
     </message>

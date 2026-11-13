@@ -331,53 +331,53 @@
 <context>
     <name>CallCard</name>
     <message>
-        <location filename="../iphone/callcard.cpp" line="125"/>
-        <location filename="../iphone/callcard.cpp" line="293"/>
+        <location filename="../iphone/callcard.cpp" line="128"/>
+        <location filename="../iphone/callcard.cpp" line="301"/>
         <source>Incoming call</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../iphone/callcard.cpp" line="126"/>
+        <location filename="../iphone/callcard.cpp" line="129"/>
         <source>Incoming call from %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../iphone/callcard.cpp" line="293"/>
+        <location filename="../iphone/callcard.cpp" line="301"/>
         <source>%1 · Incoming call</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../iphone/callcard.cpp" line="294"/>
+        <location filename="../iphone/callcard.cpp" line="302"/>
         <source>Answered</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../iphone/callcard.cpp" line="294"/>
+        <location filename="../iphone/callcard.cpp" line="302"/>
         <source>Answered on %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../iphone/callcard.cpp" line="295"/>
+        <location filename="../iphone/callcard.cpp" line="303"/>
         <source>Declined</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../iphone/callcard.cpp" line="320"/>
+        <location filename="../iphone/callcard.cpp" line="328"/>
         <source>Decline</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../iphone/callcard.cpp" line="321"/>
+        <location filename="../iphone/callcard.cpp" line="329"/>
         <source>Answer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../iphone/callcard.cpp" line="329"/>
+        <location filename="../iphone/callcard.cpp" line="337"/>
         <source>Talk on your iPhone</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../iphone/callcard.cpp" line="329"/>
+        <location filename="../iphone/callcard.cpp" line="337"/>
         <source>Talk on %1</source>
         <translation type="unfinished"></translation>
     </message>

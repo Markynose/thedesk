@@ -19,37 +19,37 @@
 <context>
     <name>EventHandler</name>
     <message>
-        <location filename="../eventhandler.cpp" line="98"/>
+        <location filename="../eventhandler.cpp" line="100"/>
         <source>No Audio Devices</source>
         <translation>Không có thiết bị âm thanh</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="166"/>
+        <location filename="../eventhandler.cpp" line="174"/>
         <source>Speakers</source>
         <translation>Loa</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="170"/>
+        <location filename="../eventhandler.cpp" line="178"/>
         <source>Headphones</source>
         <translation>Tai nghe</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="182"/>
+        <location filename="../eventhandler.cpp" line="190"/>
         <source>Volume</source>
         <translation>Âm lượng</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="149"/>
+        <location filename="../eventhandler.cpp" line="157"/>
         <source>Mute</source>
         <translation>Im lặng</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="150"/>
+        <location filename="../eventhandler.cpp" line="158"/>
         <source>Unmute Quiet Mode before changing the volume</source>
         <translation>Đổi khỏi chế độ im lặng trước khi đổi âm lượng</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="174"/>
+        <location filename="../eventhandler.cpp" line="182"/>
         <source>Line Out</source>
         <translation>Dòng ra</translation>
     </message>

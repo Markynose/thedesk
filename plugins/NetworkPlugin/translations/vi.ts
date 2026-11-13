@@ -746,7 +746,7 @@
         <translation>Vui lòng liên hệ với quản trị hệ thống của bạn</translation>
     </message>
     <message>
-        <location filename="../statusCenter/networkstatuscenterpane.cpp" line="159"/>
+        <location filename="../statusCenter/networkstatuscenterpane.cpp" line="164"/>
         <source>Network</source>
         <translation>Mạng</translation>
     </message>

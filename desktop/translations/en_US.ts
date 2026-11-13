@@ -1251,12 +1251,12 @@ We&apos;ll reset your settings in %n seconds if you don&apos;t do anything.</tra
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="76"/>
+        <location filename="../main.cpp" line="77"/>
         <source>Safe Mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="76"/>
+        <location filename="../main.cpp" line="77"/>
         <source>You&apos;re holding the CTRL key. Start theDesk in Safe Mode?</source>
         <translation>The CTRL key was held. Start theDesk in Safe Mode?</translation>
     </message>

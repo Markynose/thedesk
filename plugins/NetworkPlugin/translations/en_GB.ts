@@ -736,7 +736,7 @@
 <context>
     <name>NetworkStatusCenterPane</name>
     <message>
-        <location filename="../statusCenter/networkstatuscenterpane.cpp" line="159"/>
+        <location filename="../statusCenter/networkstatuscenterpane.cpp" line="164"/>
         <source>Network</source>
         <translation>Network</translation>
     </message>

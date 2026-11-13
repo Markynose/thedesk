@@ -19,37 +19,37 @@
 <context>
     <name>EventHandler</name>
     <message>
-        <location filename="../eventhandler.cpp" line="98"/>
+        <location filename="../eventhandler.cpp" line="100"/>
         <source>No Audio Devices</source>
         <translation>Nenhum dispositivo de áudio</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="149"/>
+        <location filename="../eventhandler.cpp" line="157"/>
         <source>Mute</source>
         <translation>Mudo</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="150"/>
+        <location filename="../eventhandler.cpp" line="158"/>
         <source>Unmute Quiet Mode before changing the volume</source>
         <translation>Desative o modo silencioso antes de mudar o volume</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="166"/>
+        <location filename="../eventhandler.cpp" line="174"/>
         <source>Speakers</source>
         <translation>Alto-falantes</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="170"/>
+        <location filename="../eventhandler.cpp" line="178"/>
         <source>Headphones</source>
         <translation>Fones de ouvido</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="174"/>
+        <location filename="../eventhandler.cpp" line="182"/>
         <source>Line Out</source>
         <translation>Saída de linha (Line Out)</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="182"/>
+        <location filename="../eventhandler.cpp" line="190"/>
         <source>Volume</source>
         <translation>Volume</translation>
     </message>

@@ -19,37 +19,37 @@
 <context>
     <name>EventHandler</name>
     <message>
-        <location filename="../eventhandler.cpp" line="98"/>
+        <location filename="../eventhandler.cpp" line="100"/>
         <source>No Audio Devices</source>
         <translation>Ses Cihazı Yok</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="166"/>
+        <location filename="../eventhandler.cpp" line="174"/>
         <source>Speakers</source>
         <translation>Hoparlörler</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="170"/>
+        <location filename="../eventhandler.cpp" line="178"/>
         <source>Headphones</source>
         <translation>Kulaklıklar</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="182"/>
+        <location filename="../eventhandler.cpp" line="190"/>
         <source>Volume</source>
         <translation>Ses</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="149"/>
+        <location filename="../eventhandler.cpp" line="157"/>
         <source>Mute</source>
         <translation>Sessiz</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="150"/>
+        <location filename="../eventhandler.cpp" line="158"/>
         <source>Unmute Quiet Mode before changing the volume</source>
         <translation>Sesi değiştirmeden önce Sessiz Modu Açın</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="174"/>
+        <location filename="../eventhandler.cpp" line="182"/>
         <source>Line Out</source>
         <translation>Hat Çıkışı</translation>
     </message>

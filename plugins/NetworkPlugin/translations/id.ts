@@ -579,7 +579,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../statusCenter/networkstatuscenterpane.cpp" line="159"/>
+        <location filename="../statusCenter/networkstatuscenterpane.cpp" line="164"/>
         <source>Network</source>
         <translation type="unfinished"></translation>
     </message>

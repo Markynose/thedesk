@@ -4,22 +4,22 @@
 <context>
     <name>EventHandler</name>
     <message>
-        <location filename="../eventhandler.cpp" line="91"/>
+        <location filename="../eventhandler.cpp" line="93"/>
         <source>Screenshot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="92"/>
+        <location filename="../eventhandler.cpp" line="94"/>
         <source>Copied, and saved in Pictures</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="103"/>
+        <location filename="../eventhandler.cpp" line="105"/>
         <source>Unable to take screenshot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="104"/>
+        <location filename="../eventhandler.cpp" line="106"/>
         <source>Sorry, the screenshot was unable to be taken.</source>
         <translation type="unfinished"></translation>
     </message>

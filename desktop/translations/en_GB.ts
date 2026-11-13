@@ -1321,12 +1321,12 @@ We&apos;ll go ahead and reset your preferences in %n seconds if you don&apos;t d
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="76"/>
+        <location filename="../main.cpp" line="77"/>
         <source>Safe Mode</source>
         <translation>Safe Mode</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="76"/>
+        <location filename="../main.cpp" line="77"/>
         <source>You&apos;re holding the CTRL key. Start theDesk in Safe Mode?</source>
         <translation>You&apos;re holding the CTRL key. Start theDesk in Safe Mode?</translation>
     </message>

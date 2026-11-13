@@ -746,7 +746,7 @@
         <translation>Entre em contato seu administrador de sistema</translation>
     </message>
     <message>
-        <location filename="../statusCenter/networkstatuscenterpane.cpp" line="159"/>
+        <location filename="../statusCenter/networkstatuscenterpane.cpp" line="164"/>
         <source>Network</source>
         <translation>Rede</translation>
     </message>

@@ -19,37 +19,37 @@
 <context>
     <name>EventHandler</name>
     <message>
-        <location filename="../eventhandler.cpp" line="98"/>
+        <location filename="../eventhandler.cpp" line="100"/>
         <source>No Audio Devices</source>
         <translation>Geen Audio-apparaten</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="149"/>
+        <location filename="../eventhandler.cpp" line="157"/>
         <source>Mute</source>
         <translation>Stil</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="150"/>
+        <location filename="../eventhandler.cpp" line="158"/>
         <source>Unmute Quiet Mode before changing the volume</source>
         <translation>Zet Stiltemodus uit voordat je het volume aanpast</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="166"/>
+        <location filename="../eventhandler.cpp" line="174"/>
         <source>Speakers</source>
         <translation>Speakers</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="170"/>
+        <location filename="../eventhandler.cpp" line="178"/>
         <source>Headphones</source>
         <translation>Koptelefoons</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="174"/>
+        <location filename="../eventhandler.cpp" line="182"/>
         <source>Line Out</source>
         <translation type="unfinished">Lijn Uit</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="182"/>
+        <location filename="../eventhandler.cpp" line="190"/>
         <source>Volume</source>
         <translation>Volume</translation>
     </message>
