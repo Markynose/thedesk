@@ -1,0 +1,15 @@
+# ~/.xprofile: sourced by LightDM's Xsession before theDesk starts.
+# Environment here reaches every GUI app (the Gateway doesn't read ~/.zshenv).
+
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
+export XCURSOR_THEME=theDesk-M3
+export XCURSOR_SIZE=24
+export EDITOR='code --wait'
+export VISUAL='code --wait'
+
+# Firefox: smooth scrolling + touchpad gestures on X11
+export MOZ_USE_XINPUT2=1

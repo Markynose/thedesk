@@ -1,0 +1,711 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
+<TS version="2.1" language="he_IL">
+<context>
+    <name>BurnJob</name>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="215"/>
+        <location filename="../jobs/burnjob.cpp" line="267"/>
+        <source>Preparing to burn</source>
+        <translation>מתכונן לצריבה</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="144"/>
+        <source>Waiting for other jobs to finish</source>
+        <translation>מחכה לעבודות אחרות</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="96"/>
+        <source>Failed to stage files</source>
+        <translation>העלאת קבצים נכשלה</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="103"/>
+        <source>Staging files for burn</source>
+        <translation>מעלה קבצים לצריבה</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="112"/>
+        <source>Generating Disc Image</source>
+        <translation>יוצר תמונת דיסק</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="235"/>
+        <source>Failed to burn disc</source>
+        <translation>צריבת דיסק נכשלה</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="240"/>
+        <source>Couldn&apos;t Burn %1</source>
+        <translation>לא ניתן לצרוב %1</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="241"/>
+        <source>Could not burn %1 to disc.</source>
+        <translation>לא ניתן לצרוב %1 לדיסק.</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="282"/>
+        <source>Burning Files (%1)
+%2 of %3</source>
+        <translation>צורב קבצים (%1) %2 מ-%3</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="285"/>
+        <source>Burning Files</source>
+        <translation>צורב קבצים</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="344"/>
+        <source>Burn Complete</source>
+        <translation>צריבה הושלמה בהצלחה</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="350"/>
+        <source>Burned %1</source>
+        <translation>צרב %1</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="351"/>
+        <source>The folder %1 has been burned to disc.</source>
+        <translation>התיקייה %1 נצרבה לדיסק.</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="393"/>
+        <source>Burn %1</source>
+        <translation type="unfinished">צרוב %1</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="276"/>
+        <source>Erasing Disc</source>
+        <translation>מוחק דיסק</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="177"/>
+        <source>Failed to burn files</source>
+        <translation>לא ניתן לצרוב קבצים</translation>
+    </message>
+    <message>
+        <location filename="../jobs/burnjob.cpp" line="296"/>
+        <source>Finalizing Disc</source>
+        <translation></translation>
+    </message>
+</context>
+<context>
+    <name>BurnJobProgress</name>
+    <message>
+        <location filename="../jobs/widgets/burnjobprogress.ui" line="90"/>
+        <source>...</source>
+        <translation>...</translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/burnjobprogress.ui" line="113"/>
+        <source>CANCEL BURN OPERATION?</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/burnjobprogress.ui" line="120"/>
+        <source>Cancelling the burn operation at this point may ruin the disc.</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/burnjobprogress.ui" line="135"/>
+        <source>Continue Burning</source>
+        <translation>המשך צריבה</translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/burnjobprogress.ui" line="142"/>
+        <source>Cancel Anyway</source>
+        <translation></translation>
+    </message>
+    <message>
+        <source>Burn %1</source>
+        <translation type="vanished">צרוב %1</translation>
+    </message>
+</context>
+<context>
+    <name>BurnPopover</name>
+    <message>
+        <location filename="../popovers/burnpopover.ui" line="82"/>
+        <source>BURN OPTIONS</source>
+        <translation>הגדרות צריבה</translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.ui" line="92"/>
+        <source>Disc Name</source>
+        <translation>שם דיסק</translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.ui" line="99"/>
+        <source>Burn</source>
+        <translation>צרוב</translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.ui" line="204"/>
+        <source>The disc in the drive is not blank. To burn these files to the disc, the disc will need to be erased.
+
+Once the disc in the drive is erased, all the data on it will be gone forever.</source>
+        <translation>הדיסק בכונן אינו ריק. כדי לצרוב קבצים אלה, תצתרך למחוק את הדיסק.
+
+לאחר מחיקת הדיסק, כל המידע עליו יעלם לתמיד.</translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.ui" line="70"/>
+        <source>Burner</source>
+        <translation>צורב</translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.ui" line="127"/>
+        <source>HEADS UP</source>
+        <translation>שים לב</translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.ui" line="182"/>
+        <source>Burn Disc</source>
+        <translation>צרוב דיסק</translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.ui" line="197"/>
+        <source>DISC NOT BLANK</source>
+        <translation>דיסק לא ריק</translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.ui" line="216"/>
+        <source>Erase and Burn</source>
+        <translation>מוחק וצרוב</translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.cpp" line="72"/>
+        <location filename="../popovers/burnpopover.cpp" line="73"/>
+        <source>Burn %1</source>
+        <translation>צרוב %1</translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.cpp" line="90"/>
+        <source>Insert a burnable disc into the drive.</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/burnpopover.cpp" line="94"/>
+        <source>The disc in the drive has already been written.</source>
+        <translation></translation>
+    </message>
+</context>
+<context>
+    <name>DeletePermanentlyPopover</name>
+    <message>
+        <location filename="../popovers/deletepermanentlypopover.ui" line="35"/>
+        <source>Delete Permanently</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/deletepermanentlypopover.ui" line="51"/>
+        <source>THIS IS IT</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/deletepermanentlypopover.ui" line="58"/>
+        <source>Once the files are gone, they&apos;re gone forever.</source>
+        <translation></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../popovers/deletepermanentlypopover.cpp" line="39"/>
+        <source>Delete %n files</source>
+        <translation>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>FileTransferJob</name>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="153"/>
+        <source>Counting files to transfer...</source>
+        <translation></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../jobs/filetransferjob.cpp" line="180"/>
+        <location filename="../jobs/filetransferjob.cpp" line="224"/>
+        <source>Counted %n files to transfer...</source>
+        <translation>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="253"/>
+        <source>Checking for file conflicts</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="282"/>
+        <source>Waiting for conflict resolution</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="290"/>
+        <source>File Conflicts</source>
+        <translation></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../jobs/filetransferjob.cpp" line="291"/>
+        <source>%n files in the destination folder have the same file name as files being transferred. Resolve the file conflicts to continue transferring files.</source>
+        <translation>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="293"/>
+        <source>Resolve File Conflicts</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="130"/>
+        <location filename="../jobs/filetransferjob.cpp" line="315"/>
+        <location filename="../jobs/filetransferjob.cpp" line="511"/>
+        <source>Copying Files</source>
+        <translation></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../jobs/filetransferjob.cpp" line="336"/>
+        <source>Moved %n files</source>
+        <translation>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../jobs/filetransferjob.cpp" line="337"/>
+        <source>Successfully moved %n files</source>
+        <translation>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../jobs/filetransferjob.cpp" line="339"/>
+        <source>Copied %n files</source>
+        <translation>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../jobs/filetransferjob.cpp" line="340"/>
+        <source>Successfully copied %n files</source>
+        <translation>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="347"/>
+        <source>Files Transferred</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="403"/>
+        <source>Moving %n</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="433"/>
+        <source>Copying %1
+%2 of %3
+
+Total progress: %4 of %5</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="450"/>
+        <source>Cancelling operation...</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="511"/>
+        <source>Moving Files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="360"/>
+        <source>Waiting for error resolution</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="368"/>
+        <source>File Transfer Error</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="369"/>
+        <source>An error occurred trying to transfer files.</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="370"/>
+        <source>Resolve</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/filetransferjob.cpp" line="484"/>
+        <source>Cancelled</source>
+        <translation></translation>
+    </message>
+</context>
+<context>
+    <name>FileTransferJobWidget</name>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.ui" line="104"/>
+        <source>FILE CONFLICTS</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.ui" line="126"/>
+        <source>Replace All</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.ui" line="133"/>
+        <source>Skip Conflicting</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.ui" line="143"/>
+        <source>Manually Resolve Conflicts</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.ui" line="150"/>
+        <location filename="../jobs/widgets/filetransferjobwidget.ui" line="204"/>
+        <source>Cancel Operation</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.ui" line="168"/>
+        <source>TRANSFER ERROR</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.ui" line="190"/>
+        <source>Skip this file</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.ui" line="197"/>
+        <source>Try Again</source>
+        <translation></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../jobs/widgets/filetransferjobwidget.cpp" line="43"/>
+        <source>%n files in the destination folder have the same file name as files being transferred</source>
+        <translation>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.cpp" line="48"/>
+        <source>An error occurred while trying to copy a file.</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.cpp" line="50"/>
+        <source>An error occurred while trying to move a file.</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.cpp" line="57"/>
+        <source>Copying Files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../jobs/widgets/filetransferjobwidget.cpp" line="57"/>
+        <source>Moving Files</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ItemPropertiesPopover</name>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="35"/>
+        <source>Properties</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="60"/>
+        <source>Details</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="76"/>
+        <source>Permissions</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="186"/>
+        <source>Last Accessed</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="138"/>
+        <source>DETAILS</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="125"/>
+        <source>Size</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="234"/>
+        <source>Name</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="165"/>
+        <source>Type</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="248"/>
+        <source>Free Space</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="266"/>
+        <source>Others</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="308"/>
+        <source>Read</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="318"/>
+        <source>Owner</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="325"/>
+        <source>Group</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="338"/>
+        <source>ACCESS CONTROLS</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="352"/>
+        <source>Write</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="345"/>
+        <source>Executable</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.ui" line="193"/>
+        <source>Last Modified</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.cpp" line="66"/>
+        <location filename="../popovers/itempropertiespopover.cpp" line="67"/>
+        <source>Counting...</source>
+        <translation></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../popovers/itempropertiespopover.cpp" line="73"/>
+        <source>%n items</source>
+        <translation>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../popovers/itempropertiespopover.cpp" line="76"/>
+        <location filename="../popovers/itempropertiespopover.cpp" line="82"/>
+        <source>%1 bytes</source>
+        <translation>%1 בייטים</translation>
+    </message>
+</context>
+<context>
+    <name>MainWindow</name>
+    <message>
+        <location filename="../mainwindow.ui" line="14"/>
+        <source>theFile</source>
+        <translation>theFile</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="134"/>
+        <source>Exit</source>
+        <translation>צא</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="137"/>
+        <source>Ctrl+Q</source>
+        <translation>Ctrl+Q</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="146"/>
+        <source>New Tab</source>
+        <translation>כרטיסייה חדשה</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="149"/>
+        <source>Ctrl+T</source>
+        <translation>Ctrl+T</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="158"/>
+        <source>Close Tab</source>
+        <translation>סגור כרטיסייה</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="161"/>
+        <source>Ctrl+W</source>
+        <translation>Ctrl+W</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="169"/>
+        <source>Show Hidden Files</source>
+        <translation>הצג קבצים מוסתרים</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="172"/>
+        <source>Ctrl+H</source>
+        <translation>Ctrl+H</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="181"/>
+        <location filename="../mainwindow.cpp" line="232"/>
+        <source>Go</source>
+        <translation>לך ל-</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="184"/>
+        <source>Ctrl+L</source>
+        <translation>Ctrl+L</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="193"/>
+        <source>Copy</source>
+        <translation>העתק</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="196"/>
+        <source>Ctrl+C</source>
+        <translation>Ctrl+C</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="205"/>
+        <source>Cut</source>
+        <translation>גזור</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="208"/>
+        <source>Ctrl+X</source>
+        <translation>Ctrl+X</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="217"/>
+        <source>Paste</source>
+        <translation>הדבק</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="220"/>
+        <source>Ctrl+V</source>
+        <translation>Ctrl+V</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="229"/>
+        <source>Move to Trash</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="232"/>
+        <source>Del</source>
+        <translation>Del</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="241"/>
+        <source>Select All</source>
+        <translation>בחר הכל</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="244"/>
+        <source>Ctrl+A</source>
+        <translation>Ctrl+A</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="253"/>
+        <source>New Window</source>
+        <translation>חלון חדש</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="256"/>
+        <source>Ctrl+N</source>
+        <translation>Ctrl+N</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="265"/>
+        <location filename="../mainwindow.cpp" line="190"/>
+        <source>New Folder</source>
+        <translation>תיקייה חדשה</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="268"/>
+        <source>Ctrl+Shift+N</source>
+        <translation>Ctrl+Shift+N</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="277"/>
+        <source>Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="280"/>
+        <source>Ctrl+,</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="182"/>
+        <source>Open</source>
+        <translation>פתח</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="232"/>
+        <source>Enter a location to go to</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="301"/>
+        <source>General</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>main</name>
+    <message>
+        <location filename="../main.cpp" line="42"/>
+        <source>File Manager</source>
+        <translation>מנהל קבצים</translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="64"/>
+        <location filename="../main.cpp" line="64"/>
+        <source>folder</source>
+        <translation>תיקייה</translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="64"/>
+        <source>Folder to show</source>
+        <translation>התיקייה להצגה</translation>
+    </message>
+</context>
+</TS>

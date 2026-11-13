@@ -1,0 +1,9 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name[]=$($PNAME)
+GenericName[]=$($project-description)
+Exec=$($LCPNAME) %U
+Icon=$($desktop-id)
+StartupWMClass=$($PNAME)

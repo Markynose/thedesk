@@ -1,0 +1,438 @@
+{
+    "dark": {
+        "bases": {
+            "window": 40,
+            "windowText": {
+                "normal": "white",
+                "inactive": "white",
+                "disabled": 150
+            },
+            "base": 40,
+            "text": "white",
+            "placeholderText": 150,
+            "tooltipText": "white",
+            "alternateBase": 40,
+            "link": [0,200,255]
+        },
+        "accents": {
+            "blue": {
+                "button": {
+                    "normal": [0,50,150],
+                    "inactive": [0,50,150],
+                    "disabled": [0,30,100]
+                },
+                "buttonText": {
+                    "normal": "white",
+                    "inactive": "white",
+                    "disabled": 150
+                },
+                "highlight": [0,80,170],
+                "highlightText": "white"
+            },
+            "green": {
+                "button": {
+                    "normal": [0,85,0],
+                    "inactive": [0,85,0],
+                    "disabled": [0,50,0]
+                },
+                "buttonText": {
+                    "normal": "white",
+                    "inactive": "white",
+                    "disabled": 150
+                },
+                "highlight": [0,100,0],
+                "highlightText": "white"
+            },
+            "orange": {
+                "button": {
+                    "normal": [200,50,0],
+                    "inactive": [200,50,0],
+                    "disabled": [100,25,0]
+                },
+                "buttonText": {
+                    "normal": "white",
+                    "inactive": "white",
+                    "disabled": 150
+                },
+                "highlight": [200,100,0],
+                "highlightText": "white"
+            },
+            "pink": {
+                "button": {
+                    "normal": [150,0,150],
+                    "inactive": [150,0,150],
+                    "disabled": [100,0,100]
+                },
+                "buttonText": {
+                    "normal": "white",
+                    "inactive": "white",
+                    "disabled": 150
+                },
+                "highlight": [200,0,200],
+                "highlightText": "white"
+            }
+        }
+    },
+    "light": {
+        "bases": {
+            "window": 210,
+            "windowText": {
+                "normal": "black",
+                "inactive": "black",
+                "disabled": 100
+            },
+            "base": 210,
+            "text": "black",
+            "placeholderText": 100,
+            "tooltipText": "black",
+            "alternateBase": 210,
+            "link": [0,100,255]
+        },
+        "accents": {
+            "blue": {
+                "button": {
+                    "normal": [0,200,255],
+                    "inactive": [0,200,255],
+                    "disabled": [0,150,200]
+                },
+                "buttonText": {
+                    "normal": "black",
+                    "inactive": "black",
+                    "disabled": 100
+                },
+                "highlight": [0,175,200],
+                "highlightText": "black"
+            },
+            "green": {
+                "button": {
+                    "normal": [36,175,62],
+                    "inactive": [36,175,62],
+                    "disabled": [0,150,200]
+                },
+                "buttonText": {
+                    "normal": "black",
+                    "inactive": "black",
+                    "disabled": 100
+                },
+                "highlight": [45,220,77],
+                "highlightText": "black"
+            },
+            "orange": {
+                "button": {
+                    "normal": [255,100,0],
+                    "inactive": [255,100,0],
+                    "disabled": [150,50,0]
+                },
+                "buttonText": {
+                    "normal": "black",
+                    "inactive": "black",
+                    "disabled": 100
+                },
+                "highlight": [255,150,50],
+                "highlightText": "black"
+            },
+            "pink": {
+                "button": {
+                    "normal": [255,0,255],
+                    "inactive": [255,0,255],
+                    "disabled": [100,0,100]
+                },
+                "buttonText": {
+                    "normal": "black",
+                    "inactive": "black",
+                    "disabled": 150
+                },
+                "highlight": [255,0,255],
+                "highlightText": "black"
+            }
+        }
+    },
+    "gruvbox": {
+        "bases": {
+            "window": [
+                40,
+                40,
+                40
+            ],
+            "windowText": {
+                "normal": [
+                    235,
+                    219,
+                    178
+                ],
+                "inactive": [
+                    235,
+                    219,
+                    178
+                ],
+                "disabled": [
+                    124,
+                    111,
+                    100
+                ]
+            },
+            "base": [
+                29,
+                32,
+                33
+            ],
+            "text": [
+                235,
+                219,
+                178
+            ],
+            "placeholderText": [
+                146,
+                131,
+                116
+            ],
+            "tooltipText": [
+                235,
+                219,
+                178
+            ],
+            "alternateBase": [
+                50,
+                48,
+                47
+            ],
+            "link": [
+                131,
+                165,
+                152
+            ]
+        },
+        "accents": {
+            "orange": {
+                "button": {
+                    "normal": [
+                        80,
+                        73,
+                        69
+                    ],
+                    "inactive": [
+                        80,
+                        73,
+                        69
+                    ],
+                    "disabled": [
+                        60,
+                        56,
+                        54
+                    ]
+                },
+                "buttonText": {
+                    "normal": [
+                        235,
+                        219,
+                        178
+                    ],
+                    "inactive": [
+                        235,
+                        219,
+                        178
+                    ],
+                    "disabled": [
+                        124,
+                        111,
+                        100
+                    ]
+                },
+                "highlight": [
+                    254,
+                    128,
+                    25
+                ],
+                "highlightText": [
+                    40,
+                    40,
+                    40
+                ]
+            },
+            "yellow": {
+                "button": {
+                    "normal": [
+                        80,
+                        73,
+                        69
+                    ],
+                    "inactive": [
+                        80,
+                        73,
+                        69
+                    ],
+                    "disabled": [
+                        60,
+                        56,
+                        54
+                    ]
+                },
+                "buttonText": {
+                    "normal": [
+                        235,
+                        219,
+                        178
+                    ],
+                    "inactive": [
+                        235,
+                        219,
+                        178
+                    ],
+                    "disabled": [
+                        124,
+                        111,
+                        100
+                    ]
+                },
+                "highlight": [
+                    250,
+                    189,
+                    47
+                ],
+                "highlightText": [
+                    40,
+                    40,
+                    40
+                ]
+            },
+            "aqua": {
+                "button": {
+                    "normal": [
+                        80,
+                        73,
+                        69
+                    ],
+                    "inactive": [
+                        80,
+                        73,
+                        69
+                    ],
+                    "disabled": [
+                        60,
+                        56,
+                        54
+                    ]
+                },
+                "buttonText": {
+                    "normal": [
+                        235,
+                        219,
+                        178
+                    ],
+                    "inactive": [
+                        235,
+                        219,
+                        178
+                    ],
+                    "disabled": [
+                        124,
+                        111,
+                        100
+                    ]
+                },
+                "highlight": [
+                    142,
+                    192,
+                    124
+                ],
+                "highlightText": [
+                    40,
+                    40,
+                    40
+                ]
+            },
+            "blue": {
+                "button": {
+                    "normal": [
+                        80,
+                        73,
+                        69
+                    ],
+                    "inactive": [
+                        80,
+                        73,
+                        69
+                    ],
+                    "disabled": [
+                        60,
+                        56,
+                        54
+                    ]
+                },
+                "buttonText": {
+                    "normal": [
+                        235,
+                        219,
+                        178
+                    ],
+                    "inactive": [
+                        235,
+                        219,
+                        178
+                    ],
+                    "disabled": [
+                        124,
+                        111,
+                        100
+                    ]
+                },
+                "highlight": [
+                    131,
+                    165,
+                    152
+                ],
+                "highlightText": [
+                    40,
+                    40,
+                    40
+                ]
+            },
+            "green": {
+                "button": {
+                    "normal": [
+                        80,
+                        73,
+                        69
+                    ],
+                    "inactive": [
+                        80,
+                        73,
+                        69
+                    ],
+                    "disabled": [
+                        60,
+                        56,
+                        54
+                    ]
+                },
+                "buttonText": {
+                    "normal": [
+                        235,
+                        219,
+                        178
+                    ],
+                    "inactive": [
+                        235,
+                        219,
+                        178
+                    ],
+                    "disabled": [
+                        124,
+                        111,
+                        100
+                    ]
+                },
+                "highlight": [
+                    184,
+                    187,
+                    38
+                ],
+                "highlightText": [
+                    40,
+                    40,
+                    40
+                ]
+            }
+        }
+    }
+}

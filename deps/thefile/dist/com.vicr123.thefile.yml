@@ -1,0 +1,74 @@
+app-id: com.vicr123.thefile
+runtime: org.kde.Platform
+runtime-version: '6.4'
+sdk: org.kde.Sdk
+command: thefile
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=network
+  - --filesystem=host
+  - --device=all
+  - --system-talk-name=org.freedesktop.UDisks2
+  - --talk-name=com.vicr123.qnearbyshare
+cleanup:
+  - '/include'
+  - '/qt'
+  - '/share/man'
+  - '/share/the-libs'
+  - '/bin/tltrdesktop'
+  - '/lib/debug'
+  - '/lib/pkgconfig'
+  - '/share/applications/com.vicr123.thefrisbee.desktop'
+  - '/bin/thefrisbee'
+modules:
+  - name: qcoro
+    buildsystem: cmake-ninja
+    sources:
+      - type: git
+        url: https://github.com/danvratil/qcoro
+        branch: main
+    config-opts:
+      - -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+  - name: libcontemporary
+    buildsystem: cmake-ninja
+    sources:
+      - type: git
+        url: https://github.com/vicr123/libcontemporary
+        branch: blueprint
+  - name: contemporary
+    buildsystem: cmake-ninja
+    sources:
+      - type: git
+        url: https://github.com/vicr123/contemporary-theme
+        branch: blueprint
+  - name: contemporary-icons
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/share/icons/contemporary
+      - cp -r * /app/share/icons/contemporary/
+    sources:
+      - type: git
+        url: https://github.com/vicr123/contemporary-icons
+        branch: blueprint
+  - name: libtdesktopenvironment
+    buildsystem: cmake-ninja
+    sources:
+      - type: git
+        url: https://github.com/theCheeseboard/libtdesktopenvironment
+  - name: thefrisbee
+    buildsystem: cmake-ninja
+    builddir: true
+    sources:
+      - type: git
+        url: https://github.com/theCheeseboard/thefrisbee
+        branch: blueprint
+  - name: thefile
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DBUILD_PLUGIN_IDEVICE=OFF
+    sources:
+      - type: git
+        url: https://github.com/theCheeseboard/thefile
+        branch: master

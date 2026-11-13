@@ -1,0 +1,41 @@
+cmake_minimum_required(VERSION 3.24.0)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
+
+project(thedesk VERSION 1.0.0 LANGUAGES CXX)
+
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    link_directories(/usr/local/lib)
+ENDIF()
+
+find_package(QT REQUIRED NAMES Qt6)
+set(KF_VERSION_MAJOR ${QT_VERSION_MAJOR} CACHE STRING "Major version of KDE Frameworks to link to")
+
+# Material 3 colour (static helpers linked into the targets below)
+add_subdirectory(deps/material-color-utilities)
+add_subdirectory(m3)
+
+add_subdirectory(libthedesk)
+add_subdirectory(startdesk)
+add_subdirectory(greeter)
+add_subdirectory(desktop)
+add_subdirectory(platform)
+add_subdirectory(style-m3)
+add_subdirectory(tools/splash-preview)
+add_subdirectory(tools/m3-cursors)
+add_subdirectory(tools/boot-theme)
+add_subdirectory(plugins)
+add_subdirectory(polkitagent)
+add_subdirectory(locker)
+add_subdirectory(desktop-portal)
+# Wayfire plugins are only needed for the Wayland session; build them only
+# when Wayfire is available (or when explicitly requested).
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(WAYFIRE_CHECK QUIET wayfire)
+endif()
+option(THEDESK_BUILD_WAYFIRE_PLUGINS "Build the Wayfire plugins for the Wayland session" ${WAYFIRE_CHECK_FOUND})
+if(THEDESK_BUILD_WAYFIRE_PLUGINS)
+    add_subdirectory(wayfire-plugins)
+else()
+    message(STATUS "Wayfire not found: skipping wayfire-plugins (X11 session only)")
+endif()

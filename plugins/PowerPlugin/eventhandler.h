@@ -1,0 +1,46 @@
+/****************************************
+ *
+ *   INSERT-PROJECT-NAME-HERE - INSERT-GENERIC-NAME-HERE
+ *   Copyright (C) 2020 Victor Tran
+ *
+ *   This program is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * *************************************/
+#ifndef EVENTHANDLER_H
+#define EVENTHANDLER_H
+
+#include <QObject>
+
+class DesktopUPowerDevice;
+struct EventHandlerPrivate;
+class EventHandler : public QObject {
+        Q_OBJECT
+    public:
+        explicit EventHandler(QObject* parent = nullptr);
+        ~EventHandler();
+
+        // Where the charging ripple's badge lands (the bar's battery)
+        void setBatteryChunk(QWidget* chunk);
+
+    signals:
+
+    private:
+        EventHandlerPrivate* d;
+
+        void checkIdleTimer();
+        void trackDevice(DesktopUPowerDevice* device);
+        void removeDevice(DesktopUPowerDevice* device);
+};
+
+#endif // KEYBOARDHANDLER_H

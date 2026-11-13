@@ -1,0 +1,217 @@
+/****************************************
+ *
+ *   INSERT-PROJECT-NAME-HERE - INSERT-GENERIC-NAME-HERE
+ *   Copyright (C) 2020 Victor Tran
+ *
+ *   This program is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * *************************************/
+#include "authwindow.h"
+
+#include <QFile>
+#include <m3usercard.h>
+#include <pwd.h>
+#include <unistd.h>
+#include "ui_authwindow.h"
+
+#include "common.h"
+#include "identitypopover.h"
+#include <PolkitQt1/Agent/Session>
+#include <QScreen>
+#include <QShortcut>
+#include <Screens/systempopover.h>
+#include <ttoast.h>
+
+struct AuthWindowPrivate {
+        PolkitQt1::Identity::List identities;
+        PolkitQt1::Agent::AsyncResult* callback = nullptr;
+
+        PolkitQt1::Agent::Session* session = nullptr;
+        QString cookie;
+};
+
+AuthWindow::AuthWindow(QWidget* parent) :
+    QWidget(parent),
+    ui(new Ui::AuthWindow) {
+    ui->setupUi(this);
+
+    // M3E user card in place of the name label (follows the identity below)
+    auto* userCard = new M3UserCard(this);
+    userCard->setObjectName(QStringLiteral("m3UserCard"));
+    userCard->setCardSize(M3UserCard::Compact);
+    userCard->setGreeting(tr("Authenticating as"));
+    ui->horizontalLayout_2->insertWidget(ui->horizontalLayout_2->indexOf(ui->usernameLabel), userCard, 1);
+    ui->usernameLabel->setVisible(false);
+
+    d = new AuthWindowPrivate();
+    ui->titleLabel->setBackButtonShown(true);
+    ui->stackedWidget->setCurrentAnimation(tStackedWidget::Fade);
+
+    QShortcut* escShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    connect(escShortcut, &QShortcut::activated, this, [=] {
+        ui->titleLabel->backButtonClicked();
+    });
+}
+
+AuthWindow::~AuthWindow() {
+    delete d;
+    delete ui;
+}
+
+void AuthWindow::setMessage(QString message) {
+    ui->messageLabel->setText(message);
+    ui->customMessageLabel->setText(message);
+}
+
+void AuthWindow::setIdentities(PolkitQt1::Identity::List identities) {
+    d->identities = identities;
+    ui->changeIdentity->setVisible(!identities.isEmpty());
+    ui->customChangeIdentity->setVisible(!identities.isEmpty());
+}
+
+void AuthWindow::setCallback(PolkitQt1::Agent::AsyncResult* result) {
+    d->callback = result;
+}
+
+void AuthWindow::setCookie(QString cookie) {
+    d->cookie = cookie;
+}
+
+void AuthWindow::showAuthWindow() {
+    initiateSession(d->identities.first());
+
+    QTimer::singleShot(0, [=] {
+        auto* popover = new SystemPopover(this);
+        popover->setPopoverWidth(600);
+        popover->setPopoverSide(tPopover::Bottom);
+        connect(ui->titleLabel, &tTitleLabel::backButtonClicked, popover, &tPopover::dismiss);
+        connect(this, &AuthWindow::dismiss, popover, &tPopover::dismiss);
+        connect(popover, &tPopover::dismissed, this, [=] {
+            if (d->session) {
+                d->session->setProperty("cancelled", true);
+                d->session->cancel();
+                d->session->deleteLater();
+            }
+
+            if (d->callback) {
+                d->callback->setError("org.freedesktop.PolicyKit1.Error.Cancelled");
+                d->callback->setCompleted();
+            }
+
+            popover->deleteLater();
+        });
+        popover->show();
+    });
+}
+
+void AuthWindow::cancel() {
+    ui->titleLabel->backButtonClicked();
+}
+
+void AuthWindow::initiateSession(PolkitQt1::Identity identity) {
+    if (d->session) {
+        d->session->setProperty("cancelled", true);
+        d->session->cancel();
+        d->session->deleteLater();
+    }
+
+    ui->stackedWidget->setCurrentWidget(ui->loadingPage, false);
+    ui->usernameLabel->setText(Common::stringForIdentity(identity));
+    ui->customUsernameLabel->setText(Common::stringForIdentity(identity));
+    if (auto* userCard = this->findChild<M3UserCard*>(QStringLiteral("m3UserCard"))) {
+        // Our own picture for our own account; other accounts get their
+        // AccountsService icon, or their initial
+        auto unixUser = identity.toUnixUserIdentity();
+        if (unixUser.isValid() && unixUser.uid() == getuid()) {
+            userCard->setUser(QString());
+        } else {
+            QString icon = unixUser.isValid() ? QStringLiteral("/var/lib/AccountsService/icons/") + QString::fromLocal8Bit(getpwuid(unixUser.uid()) ? getpwuid(unixUser.uid())->pw_name : "") : QString();
+            userCard->setUser(Common::stringForIdentity(identity), QFile::exists(icon) ? icon : QString());
+        }
+    }
+    d->session = new PolkitQt1::Agent::Session(identity, d->cookie);
+    d->session->setProperty("cancelled", false);
+    connect(d->session, &PolkitQt1::Agent::Session::request, this, [=](QString request, bool echo) {
+        if (request.startsWith("password:", Qt::CaseInsensitive)) {
+            // Use the password pane
+            ui->passwordBox->setText("");
+            ui->passwordBox->setEchoMode(echo ? QLineEdit::Normal : QLineEdit::Password);
+            ui->stackedWidget->setCurrentWidget(ui->passwordPage);
+            ui->passwordBox->setFocus();
+        } else {
+            // Use the request pane
+            ui->responseBox->setText("");
+            ui->responseBox->setPlaceholderText(request);
+            ui->responseBox->setEchoMode(echo ? QLineEdit::Normal : QLineEdit::Password);
+            ui->stackedWidget->setCurrentWidget(ui->customResponsePage);
+            ui->responseBox->setFocus();
+        }
+    });
+    connect(d->session, &PolkitQt1::Agent::Session::completed, this, [=](bool gainedAuthorisation) {
+        if (!d->session->property("cancelled").toBool()) {
+            if (gainedAuthorisation) {
+                d->session->deleteLater();
+                d->session = nullptr;
+
+                d->callback->setCompleted();
+                emit dismiss();
+            } else {
+                initiateSession(identity);
+            }
+        }
+    });
+    connect(d->session, &PolkitQt1::Agent::Session::showError, this, [=](QString error) {
+        tToast* toast = new tToast(this);
+        toast->setTitle(tr("Error"));
+        toast->setText(error);
+        connect(toast, &tToast::dismissed, toast, &tToast::deleteLater);
+        toast->show(this);
+    });
+    connect(d->session, &PolkitQt1::Agent::Session::showInfo, this, [=](QString info) {
+        tToast* toast = new tToast(this);
+        toast->setTitle(tr("Message"));
+        toast->setText(info);
+        connect(toast, &tToast::dismissed, toast, &tToast::deleteLater);
+        toast->show(this);
+    });
+    d->session->initiate();
+}
+
+void AuthWindow::on_okPasswordButton_clicked() {
+    ui->stackedWidget->setCurrentWidget(ui->loadingPage);
+    d->session->setResponse(ui->passwordBox->text());
+}
+
+void AuthWindow::on_changeIdentity_clicked() {
+    IdentityPopover* id = new IdentityPopover(d->identities, this);
+    tPopover* popover = new tPopover(id);
+    popover->setPopoverWidth(SC_DPI(400));
+    popover->setPopoverSide(tPopover::Bottom);
+    connect(id, &IdentityPopover::selectIdentity, this, [=](PolkitQt1::Identity identity) {
+        this->initiateSession(identity);
+    });
+    connect(id, &IdentityPopover::done, popover, &tPopover::dismiss);
+    connect(popover, &tPopover::dismissed, popover, &tPopover::deleteLater);
+    connect(popover, &tPopover::dismissed, id, &IdentityPopover::deleteLater);
+    popover->show(this);
+}
+
+void AuthWindow::on_customChangeIdentity_clicked() {
+    ui->changeIdentity->click();
+}
+
+void AuthWindow::on_okResponseButton_clicked() {
+    ui->stackedWidget->setCurrentWidget(ui->loadingPage);
+    d->session->setResponse(ui->responseBox->text());
+}

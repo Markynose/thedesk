@@ -1,0 +1,5 @@
+#%PAM-1.0
+# PAM service for the theDesk screen locker (td-locker-checker).
+# Only authentication is needed to unlock a running session.
+auth    include    system-auth
+-auth   optional   pam_gnome_keyring.so

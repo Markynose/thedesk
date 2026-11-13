@@ -1,0 +1,1330 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
+<TS version="2.1" language="zh_CN" sourcelanguage="en_US">
+<context>
+    <name>About</name>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="165"/>
+        <source>DISTRIBUTION</source>
+        <translation>发行</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="182"/>
+        <source>You&apos;re using</source>
+        <translation>你正在使用</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="262"/>
+        <source>Device Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="362"/>
+        <location filename="../systemsettings/about/about.cpp" line="148"/>
+        <source>Processor</source>
+        <translation>处理器</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="248"/>
+        <source>THIS DEVICE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="276"/>
+        <source>Available Memory</source>
+        <translation>可用内存</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="236"/>
+        <source>Available Swap</source>
+        <translation>可用虚拟内存</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="307"/>
+        <source>Qt Version</source>
+        <translation>Qt 版本</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="255"/>
+        <source>Kernel Version</source>
+        <translation>内核版本</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="297"/>
+        <source>Change Device Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="269"/>
+        <source>Window System</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="283"/>
+        <source>Device Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="369"/>
+        <source>Video</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="444"/>
+        <source>Desktop Environment</source>
+        <translation>桌面环境</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="473"/>
+        <source>Website</source>
+        <translation>网页</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="484"/>
+        <source>File Bug</source>
+        <translation>上传Bug</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="495"/>
+        <source>Sources</source>
+        <translation>来源</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="506"/>
+        <source>View Debug Log</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="463"/>
+        <location filename="../systemsettings/about/about.cpp" line="157"/>
+        <source>Acknowledgements</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="73"/>
+        <location filename="../systemsettings/about/about.cpp" line="74"/>
+        <location filename="../systemsettings/about/about.cpp" line="110"/>
+        <location filename="../systemsettings/about/about.cpp" line="207"/>
+        <location filename="../systemsettings/about/about.cpp" line="212"/>
+        <source>Unknown</source>
+        <translation>未知</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="122"/>
+        <source>theDesk %1 - Blueprint</source>
+        <translation>theDesk %1 - 蓝图</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="123"/>
+        <source>You compiled theDesk on %1</source>
+        <translation>你在 %1 编译了 theDesk</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="125"/>
+        <source>theDesk %1</source>
+        <translation>theDesk %1。</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="129"/>
+        <source>Copyright © Victor Tran %1. Licensed under the terms of the GNU General Public License, version 3 or later.</source>
+        <translation>版权  © Victor Tran %1 根据GNU通用公共许可版本3或更高版本许可。</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="149"/>
+        <source>Graphics</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="150"/>
+        <source>Memory</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="151"/>
+        <source>Swap</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="152"/>
+        <source>Kernel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="153"/>
+        <source>Window system</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="154"/>
+        <source>Qt</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="155"/>
+        <source>theDesk</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="160"/>
+        <source>Debug log</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.cpp" line="163"/>
+        <source>Source code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/about.ui" line="35"/>
+        <location filename="../systemsettings/about/about.cpp" line="229"/>
+        <source>About</source>
+        <translation>关于</translation>
+    </message>
+</context>
+<context>
+    <name>AboutPage</name>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="350"/>
+        <source>Version %1 · Material 3 Expressive · a desktop for X11</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="378"/>
+        <source>Copyright © Victor Tran and contributors %1; the Material 3 Expressive redesign, its contributors. Licensed under the terms of the GNU General Public License, version 3 or later.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="392"/>
+        <source>Play it again</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>Acknowledgements</name>
+    <message>
+        <location filename="../systemsettings/about/acknowledgements.ui" line="35"/>
+        <source>Acknowledgements</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>AppSearchProvider</name>
+    <message>
+        <source>Application</source>
+        <translation type="obsolete">应用程序</translation>
+    </message>
+</context>
+<context>
+    <name>AppSelectionModel</name>
+    <message>
+        <source>Application</source>
+        <translation type="vanished">应用程序</translation>
+    </message>
+</context>
+<context>
+    <name>AroundYou</name>
+    <message>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="138"/>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="181"/>
+        <source>USB drive</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="146"/>
+        <source>Open at %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="182"/>
+        <source>Safe to remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>AroundYouChunk</name>
+    <message>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="1231"/>
+        <source>Around you</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>AroundYouSheet</name>
+    <message>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="397"/>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="775"/>
+        <source>Around you</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="680"/>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="709"/>
+        <source>Connecting…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="702"/>
+        <source>Letting go…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="779"/>
+        <source>Nothing around you right now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="779"/>
+        <source>Drag a device onto your computer to connect it, or away to let it go</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../aroundyou/aroundyousheet.cpp" line="467"/>
+        <source>How should it be used?</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>Background</name>
+    <message>
+        <location filename="../background/background.ui" line="176"/>
+        <source>Sorry, there was a problem displaying the background.</source>
+        <translation>抱歉，显示背景时出现问题。</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="198"/>
+        <source>Try Again</source>
+        <translation>请重试</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="376"/>
+        <source>Background</source>
+        <translation>背景</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="424"/>
+        <source>IMAGE</source>
+        <translation>图片</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="431"/>
+        <source>Select an image to display on your background and lock screen</source>
+        <translation>选择要在背景和锁定屏幕上显示的图像</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="519"/>
+        <source>COMMUNITY BACKGROUNDS</source>
+        <translation>社区背景</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="526"/>
+        <source>Images from the theDesk community will be cycled through every so often.</source>
+        <translation>来自theDesk社区的图像循环播放。</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="533"/>
+        <source>Show image information</source>
+        <translation>显示图片信息</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="581"/>
+        <source>STRETCH</source>
+        <translation>拉伸</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="588"/>
+        <source>Select how you&apos;d like the background image to be sized</source>
+        <translation>选择你想要更换大小的背景</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="600"/>
+        <source>Stretch To Fit</source>
+        <translation>拉抻到屏幕</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="626"/>
+        <source>Zoom and Crop</source>
+        <translation>放大和裁剪</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="652"/>
+        <source>Center</source>
+        <translation>居中</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="678"/>
+        <source>Tile</source>
+        <translation>叠加</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="704"/>
+        <source>Zoom To Fit</source>
+        <translation>放大以填充</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="754"/>
+        <source>Change Background</source>
+        <translation>更换背景</translation>
+    </message>
+    <message>
+        <location filename="../background/background.ui" line="762"/>
+        <source>End Session</source>
+        <translation>结束进程</translation>
+    </message>
+    <message>
+        <location filename="../background/background.cpp" line="257"/>
+        <source>by %1</source>
+        <translation>与 %1</translation>
+    </message>
+    <message>
+        <location filename="../background/background.cpp" line="357"/>
+        <source>For desktop</source>
+        <translation>桌面</translation>
+    </message>
+    <message>
+        <location filename="../background/background.cpp" line="389"/>
+        <source>Select Background</source>
+        <translation>选择背景</translation>
+    </message>
+    <message>
+        <location filename="../background/background.cpp" line="428"/>
+        <source>Set Background</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../background/background.cpp" line="429"/>
+        <source>Set as Desktop Background</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../background/background.cpp" line="432"/>
+        <source>Set as Lock Screen Background</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../background/background.cpp" line="436"/>
+        <source>Set for both</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ChangeHostnamePopover</name>
+    <message>
+        <location filename="../systemsettings/about/changehostnamepopover.ui" line="35"/>
+        <source>Change Device Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/changehostnamepopover.ui" line="62"/>
+        <source>New Device Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/changehostnamepopover.ui" line="69"/>
+        <source>This device name is used over the network to identify this device. It is also used to identify this device over Bluetooth.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/changehostnamepopover.ui" line="79"/>
+        <source>Network Compatible Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/changehostnamepopover.ui" line="95"/>
+        <source>Rename this Device</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ChunkContainer</name>
+    <message>
+        <location filename="../bar/chunkcontainer.ui" line="41"/>
+        <source>Open Status Center</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>CommandLine</name>
+    <message>
+        <location filename="../cli/commandline.cpp" line="37"/>
+        <source>Start theDesk in Safe Mode</source>
+        <translation>在安全模式中启动theDesk</translation>
+    </message>
+    <message>
+        <location filename="../cli/commandline.cpp" line="40"/>
+        <source>Internal use; the path to a local socket to communicate with the session manager</source>
+        <translation>内部使用; 与会话管理器进行通信的本地套接字的路径</translation>
+    </message>
+    <message>
+        <location filename="../cli/commandline.cpp" line="40"/>
+        <source>path</source>
+        <translation>路径</translation>
+    </message>
+</context>
+<context>
+    <name>CurrentAppWidgetMenu</name>
+    <message>
+        <location filename="../bar/currentappwidgetmenu.ui" line="75"/>
+        <source>Close Window</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../bar/currentappwidgetmenu.ui" line="188"/>
+        <source>QUIT IMMEDIATELY</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../bar/currentappwidgetmenu.ui" line="204"/>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../bar/currentappwidgetmenu.cpp" line="62"/>
+        <source>Force Stop</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../bar/currentappwidgetmenu.cpp" line="63"/>
+        <location filename="../bar/currentappwidgetmenu.cpp" line="65"/>
+        <source>Force Stop %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../bar/currentappwidgetmenu.cpp" line="64"/>
+        <source>%1 will be forced to exit and won&apos;t have a chance to save any unsaved data.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>DeviceCard</name>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="233"/>
+        <source>Laptop</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="233"/>
+        <source>Computer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="235"/>
+        <source>Rename</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="265"/>
+        <source>This device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="271"/>
+        <source>Named %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>EndSession</name>
+    <message>
+        <location filename="../session/endsession.ui" line="57"/>
+        <source>End Session</source>
+        <translation>结束进程</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="115"/>
+        <source>Power Off</source>
+        <translation>关机</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="122"/>
+        <source>Turns off your computer.</source>
+        <translation>将关闭你的计算机。</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="134"/>
+        <location filename="../session/endsession.ui" line="369"/>
+        <location filename="../session/endsession.cpp" line="286"/>
+        <source>Reboot</source>
+        <translation>重启</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="141"/>
+        <source>Turns off your computer and turns it on again</source>
+        <translation>重启</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="148"/>
+        <source>Reboot and install updates</source>
+        <translation>重启安装更新</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="155"/>
+        <source>Turns off your computer, installs pending updates and turns it on again</source>
+        <translation>关机， 安装更新后重启</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="162"/>
+        <source>Log Out</source>
+        <translation>注销</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="169"/>
+        <source>Ends your session but keeps your computer on for other people to use</source>
+        <translation>结束会话，但让计算机保持打开状态以供其他人使用</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="176"/>
+        <source>Suspend</source>
+        <translation>暂停</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="183"/>
+        <source>Puts your computer in a low power state so it reopens quickly</source>
+        <translation>使您的计算机处于低功耗状态，因此快速重新打开</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="190"/>
+        <source>Lock</source>
+        <translation>锁定</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="197"/>
+        <source>Locks your workspace with your password</source>
+        <translation>锁定工作区域</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="204"/>
+        <source>Turn Off Screen</source>
+        <translation>关闭屏幕</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="211"/>
+        <source>Turns off the screen, but keeps everything else running in the background</source>
+        <translation>关闭屏幕，但让其他所有内容在后台运行</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="218"/>
+        <source>Switch Users</source>
+        <translation>更换用户</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="225"/>
+        <source>Switches to the logon screen, but keeps your session in the background</source>
+        <translation>切换到登录屏幕，但将会话保持在后台</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="232"/>
+        <source>Hibernate</source>
+        <translation>休眠</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="239"/>
+        <source>Powers off your computer, but restores the session when powered back on</source>
+        <translation>关闭计算机电源，但重新开机后恢复会话</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="334"/>
+        <source>Updates are available. What do you want to do?</source>
+        <translation>有可用的更新。 你想让我做什么？</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="349"/>
+        <source>Reboot and update</source>
+        <translation>重启与安装更新</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="356"/>
+        <source>We&apos;ll perform system updates once this device has rebooted.</source>
+        <translation>该设备重新启动后，我们将执行系统更新。</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.ui" line="376"/>
+        <source>We&apos;ll reboot your device normally.</source>
+        <translation>我们将正常重启您的设备。</translation>
+    </message>
+    <message>
+        <source>power off the system</source>
+        <translation type="vanished">关闭系统</translation>
+    </message>
+    <message>
+        <source>reboot the system</source>
+        <translation type="vanished">重启系统</translation>
+    </message>
+    <message>
+        <source>reboot the system and install any pending updates</source>
+        <translation type="vanished">重新启动系统并安装所有挂起的更新</translation>
+    </message>
+    <message>
+        <source>log you out</source>
+        <translation type="vanished">讲注销</translation>
+    </message>
+    <message>
+        <source>suspend the system</source>
+        <translation type="vanished">休眠此系统</translation>
+    </message>
+    <message>
+        <source>lock the screen</source>
+        <translation type="vanished">锁定屏幕</translation>
+    </message>
+    <message>
+        <source>turn off the screen</source>
+        <translation type="vanished">关闭屏幕</translation>
+    </message>
+    <message>
+        <source>switch users</source>
+        <translation type="vanished">更换用户</translation>
+    </message>
+    <message>
+        <source>hibernate the system</source>
+        <translation type="vanished">休眠此系统</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.cpp" line="106"/>
+        <source>Ready to head out,</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.cpp" line="285"/>
+        <source>Advanced Reboot</source>
+        <translation>高级重启</translation>
+    </message>
+    <message>
+        <location filename="../session/endsession.cpp" line="295"/>
+        <source>Reboot into System UEFI Setup</source>
+        <translation>重新启动进入系统UEFI设置</translation>
+    </message>
+    <message>
+        <source>Hey %1, ready to head out? We&apos;ll %2 in %n seconds if you don&apos;t do anything.</source>
+        <translation type="vanished">你好 %1， 准备出门了吗？ 我们将 在 %2 %n 秒内将你登出。</translation>
+    </message>
+</context>
+<context>
+    <name>Launcher</name>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="118"/>
+        <source>just now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../gateway/launcher.cpp" line="119"/>
+        <source>%n min ago</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../gateway/launcher.cpp" line="120"/>
+        <source>%n h ago</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="121"/>
+        <source>yesterday</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="341"/>
+        <source>Search apps, files and settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="466"/>
+        <location filename="../gateway/launcher.cpp" line="768"/>
+        <source>Lock</source>
+        <translation type="unfinished">锁定</translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="467"/>
+        <location filename="../gateway/launcher.cpp" line="769"/>
+        <source>Sleep</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="468"/>
+        <location filename="../gateway/launcher.cpp" line="770"/>
+        <source>Restart...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="470"/>
+        <location filename="../gateway/launcher.cpp" line="745"/>
+        <source>System Settings</source>
+        <translation type="unfinished">系统设置</translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="471"/>
+        <source>Status Center</source>
+        <translation type="unfinished">状态中心</translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="472"/>
+        <source>End session...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="500"/>
+        <location filename="../gateway/launcher.cpp" line="572"/>
+        <source>Pinned</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="500"/>
+        <source>Your apps</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="504"/>
+        <location filename="../gateway/launcher.cpp" line="568"/>
+        <source>All apps</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="537"/>
+        <source>Pick up where you left off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="572"/>
+        <source>Back</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="585"/>
+        <source>Development</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="586"/>
+        <source>Internet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="587"/>
+        <source>Media</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="588"/>
+        <source>Graphics</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="589"/>
+        <source>Office</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="590"/>
+        <source>Games</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="591"/>
+        <source>Education</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="592"/>
+        <source>Utilities</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="593"/>
+        <location filename="../gateway/launcher.cpp" line="748"/>
+        <location filename="../gateway/launcher.cpp" line="824"/>
+        <location filename="../gateway/launcher.cpp" line="825"/>
+        <source>Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="613"/>
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="669"/>
+        <location filename="../gateway/launcher.cpp" line="671"/>
+        <location filename="../gateway/launcher.cpp" line="824"/>
+        <source>Sum</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="678"/>
+        <source>Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="696"/>
+        <source>Application</source>
+        <translation type="unfinished">应用程序</translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="697"/>
+        <location filename="../gateway/launcher.cpp" line="824"/>
+        <location filename="../gateway/launcher.cpp" line="825"/>
+        <source>Apps</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="704"/>
+        <location filename="../gateway/launcher.cpp" line="758"/>
+        <location filename="../gateway/launcher.cpp" line="810"/>
+        <source>Open</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="768"/>
+        <source>lock</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="769"/>
+        <source>sleep suspend</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="770"/>
+        <source>restart reboot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="771"/>
+        <source>shut down power off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="771"/>
+        <source>Shut down...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="772"/>
+        <source>log out sign out</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="772"/>
+        <source>Log out...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="779"/>
+        <source>This session</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="781"/>
+        <location filename="../gateway/launcher.cpp" line="824"/>
+        <location filename="../gateway/launcher.cpp" line="825"/>
+        <source>Session</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="803"/>
+        <location filename="../gateway/launcher.cpp" line="824"/>
+        <location filename="../gateway/launcher.cpp" line="825"/>
+        <source>Files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="812"/>
+        <source>Show in folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="871"/>
+        <source>Search the web for “%1”</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="1201"/>
+        <source>move</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="1201"/>
+        <source>Enter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="1201"/>
+        <source>open</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="1201"/>
+        <source>Tab</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="1201"/>
+        <source>actions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="1201"/>
+        <source>Esc</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="1201"/>
+        <source>clear</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="1367"/>
+        <source>Unpin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gateway/launcher.cpp" line="1371"/>
+        <source>Pin</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>MainGatewayWidget</name>
+    <message>
+        <source>Gateway</source>
+        <translation type="vanished">网关</translation>
+    </message>
+    <message>
+        <source>Preparing the Gateway...</source>
+        <translation type="vanished">准备网关中。。。</translation>
+    </message>
+    <message>
+        <source>Type to search...</source>
+        <translation type="vanished">输入以搜索。。。</translation>
+    </message>
+    <message>
+        <source>Status Center</source>
+        <translation type="obsolete">状态中心</translation>
+    </message>
+    <message>
+        <source>System Settings</source>
+        <translation type="obsolete">系统设置</translation>
+    </message>
+    <message>
+        <source>End Session</source>
+        <translation type="vanished">结束进程</translation>
+    </message>
+</context>
+<context>
+    <name>ManagePluginPopover</name>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/managepluginpopover.ui" line="135"/>
+        <source>ERROR DETAILS</source>
+        <translation>错误信息</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/managepluginpopover.ui" line="190"/>
+        <source>ACTIONS</source>
+        <translation>行动</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/managepluginpopover.ui" line="199"/>
+        <source>Activate Plugin</source>
+        <translation>启动插件</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/managepluginpopover.ui" line="206"/>
+        <source>Deactivate Plugin</source>
+        <translation>取消插件</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/managepluginpopover.ui" line="213"/>
+        <location filename="../systemsettings/pluginmanagement/managepluginpopover.ui" line="276"/>
+        <location filename="../systemsettings/pluginmanagement/managepluginpopover.ui" line="296"/>
+        <source>Blacklist Plugin</source>
+        <translation>黑名单插件</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/managepluginpopover.ui" line="220"/>
+        <source>Remove Plugin from Blacklist</source>
+        <translation>将此插件从黑名单中移除</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/managepluginpopover.ui" line="283"/>
+        <source>Placing this plugin on the blacklist will prevent it from being loaded next time you log in. If the plugin is not already deactivated, we&apos;ll also deactivate it for you.</source>
+        <translation>将此插件放置在黑名单上可防止您下次登录时加载该插件。如果尚未停用该插件，我们还将为您停用它。</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/managepluginpopover.cpp" line="43"/>
+        <source>UUID: %1</source>
+        <translation>UUID: %1</translation>
+    </message>
+</context>
+<context>
+    <name>PluginManagement</name>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/pluginmanagement.ui" line="35"/>
+        <location filename="../systemsettings/pluginmanagement/pluginmanagement.cpp" line="72"/>
+        <source>Plugins</source>
+        <translation>插件</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/pluginmanagement.ui" line="75"/>
+        <source>Plugins add core and extra functionality to theDesk.</source>
+        <translation>插件为theDesk添加了核心功能和额外功能。</translation>
+    </message>
+</context>
+<context>
+    <name>PluginModel</name>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/pluginmodel.cpp" line="52"/>
+        <source>Loaded</source>
+        <translation>已加载</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/pluginmodel.cpp" line="54"/>
+        <source>Blacklisted</source>
+        <translation>已加入黑名单</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/pluginmodel.cpp" line="56"/>
+        <source>Unavailable</source>
+        <translation>不可用</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/pluginmanagement/pluginmodel.cpp" line="58"/>
+        <source>Inactive</source>
+        <translation>待用</translation>
+    </message>
+</context>
+<context>
+    <name>Recovery</name>
+    <message>
+        <location filename="../systemsettings/recovery/recovery.ui" line="35"/>
+        <location filename="../systemsettings/recovery/recovery.cpp" line="67"/>
+        <source>Recovery</source>
+        <translation>复原</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/recovery/recovery.ui" line="113"/>
+        <source>RESET THEDESK</source>
+        <translation>重置TheDesk</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/recovery/recovery.ui" line="120"/>
+        <source>If things aren&apos;t working correctly, resetting theDesk might help.
+
+Here&apos;s what will happen:
+- User settings will be cleared and reset to defaults
+- The next time you log into theDesk, you&apos;ll need to run through the setup again
+
+Save your documents and close all apps before starting the reset. This won&apos;t take long, but you&apos;ll need to log out to perform the reset. You won&apos;t be able to use your device while the reset is taking place.</source>
+        <translation>如果一切工作不正常，重置桌面可能会有所帮助。
+
+将会发生以下情况：
+-用户设置将被清除并重置为默认值
+-下次登录桌面时，您需要再次运行设置
+
+在开始重置之前，请保存您的文档并关闭所有应用。 这不会花很长时间，但是您需要注销才能执行重置。 重置发生时，您将无法使用设备。</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/recovery/recovery.ui" line="138"/>
+        <source>Log Out and Reset theDesk</source>
+        <translation>注销并重置桌面</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/recovery/recovery.ui" line="203"/>
+        <source>RESET DEVICE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/recovery/recovery.ui" line="210"/>
+        <source>If resetting theDesk didn&apos;t work, or if you just need a fresh start, you can reset this device.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/recovery/recovery.ui" line="222"/>
+        <source>Reset this device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1, log out and reset theDesk settings? This action is irreversible.
+
+We&apos;ll go ahead and reset your settings in %n seconds if you don&apos;t do anything.</source>
+        <translation type="vanished">％1，注销并重置桌面设置？ 此动作是不可逆的。
+
+如果您什么都不做，我们将在％n秒内继续进行设置。</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/recovery/recovery.cpp" line="92"/>
+        <source>%1, log out and reset theDesk settings? This action is irreversible.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>RunDialog</name>
+    <message>
+        <location filename="../run/rundialog.ui" line="35"/>
+        <source>Run</source>
+        <translation>运行</translation>
+    </message>
+    <message>
+        <location filename="../run/rundialog.ui" line="60"/>
+        <source>Enter a command to run.</source>
+        <translation>输入要运行的命令。</translation>
+    </message>
+    <message>
+        <location filename="../run/rundialog.ui" line="73"/>
+        <source>Run this command</source>
+        <translation>运行此命令</translation>
+    </message>
+</context>
+<context>
+    <name>StatusCenterLeftPane</name>
+    <message>
+        <location filename="../statuscenter/statuscenterleftpane.ui" line="54"/>
+        <source>Status Center</source>
+        <translation>状态中心</translation>
+    </message>
+</context>
+<context>
+    <name>StatusCenterQuickSwitch</name>
+    <message>
+        <location filename="../statuscenter/statuscenterquickswitch.cpp" line="177"/>
+        <source>On</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../statuscenter/statuscenterquickswitch.cpp" line="177"/>
+        <source>Off</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SystemCard</name>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="148"/>
+        <source>Based on Arch Linux</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="149"/>
+        <source>Based on %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="155"/>
+        <source>Rolling release · %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="155"/>
+        <source>Rolling release</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="156"/>
+        <source>Version %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/about/aboutcards.cpp" line="178"/>
+        <source>Your system</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SystemSettings</name>
+    <message>
+        <location filename="../systemsettings/systemsettings.cpp" line="190"/>
+        <source>System Settings</source>
+        <translation>系统设置</translation>
+    </message>
+</context>
+<context>
+    <name>SystemSettingsLeftPane</name>
+    <message>
+        <location filename="../systemsettings/systemsettingsleftpane.ui" line="35"/>
+        <source>System Settings</source>
+        <translation>系统设置</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/systemsettingsleftpane.ui" line="103"/>
+        <source>LOG OUT</source>
+        <translation>注销</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/systemsettingsleftpane.ui" line="110"/>
+        <source>You&apos;ve changed some settings that require you to log out for them to apply completely</source>
+        <translation>您更改了一些设置，要求您注销才能完全应用</translation>
+    </message>
+    <message>
+        <location filename="../systemsettings/systemsettingsleftpane.ui" line="135"/>
+        <source>Log Out</source>
+        <translation>注销</translation>
+    </message>
+</context>
+<context>
+    <name>TaskbarApplicationWidget</name>
+    <message>
+        <location filename="../bar/taskbarapplicationwidget.cpp" line="155"/>
+        <source>Move to desktop</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../bar/taskbarapplicationwidget.cpp" line="152"/>
+        <source>For %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../bar/taskbarapplicationwidget.cpp" line="160"/>
+        <source>All Desktops</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../bar/taskbarapplicationwidget.cpp" line="178"/>
+        <source>New Desktop</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../bar/taskbarapplicationwidget.cpp" line="183"/>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../bar/taskbarapplicationwidget.cpp" line="188"/>
+        <source>For %n %1 windows</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../bar/taskbarapplicationwidget.cpp" line="190"/>
+        <source>For %n windows</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../bar/taskbarapplicationwidget.cpp" line="192"/>
+        <source>Close All</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TaskbarDesktopWidget</name>
+    <message>
+        <location filename="../bar/taskbardesktopwidget.cpp" line="188"/>
+        <source>Desktop %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>main</name>
+    <message>
+        <location filename="../main.cpp" line="76"/>
+        <source>Safe Mode</source>
+        <translation>安全模式</translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="76"/>
+        <source>You&apos;re holding the CTRL key. Start theDesk in Safe Mode?</source>
+        <translation>您按住CTRL键。 以安全模式启动theDesk？</translation>
+    </message>
+</context>
+</TS>

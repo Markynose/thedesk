@@ -1,0 +1,73 @@
+# Starship prompt in Material 3 Expressive: the folder and git branch as
+# tonal chips, the arrow in Primary. Two lines, minimal: dir, git, duration,
+# status.
+#
+# The colours come from the "thedesk" palette below. In a theDesk session
+# startdesk writes a copy of this file with the palette in the session's
+# colours (~/.cache/thedesk/starship.toml, following the living horizon) and
+# zsh points STARSHIP_CONFIG at it; the palette here is only the fallback.
+"$schema" = 'https://starship.rs/config-schema.json'
+
+palette = "thedesk"
+add_newline = true
+format = """
+$username$hostname$directory$git_branch$git_state$git_status$cmd_duration$jobs
+$character"""
+
+[username]
+show_always = false                 # only over SSH / as root
+style_user = "fg:tertiary"
+style_root = "bold fg:error"
+format = "[$user]($style)@"
+
+[hostname]
+ssh_only = true
+style = "fg:tertiary"
+format = "[$hostname]($style) "
+
+# Chips: round caps (Nerd Font, kitty maps them to IosevkaTerm) around a
+# filled container
+[directory]
+style = "bold bg:primary_container fg:on_primary_container"
+read_only_style = "bg:primary_container fg:error"
+truncation_length = 4
+truncate_to_repo = true
+read_only = " 󰌾"
+format = "[](fg:primary_container)[$path]($style)[$read_only]($read_only_style)[](fg:primary_container) "
+
+[git_branch]
+symbol = " "
+style = "bg:secondary_container fg:on_secondary_container"
+format = "[](fg:secondary_container)[$symbol$branch]($style)[](fg:secondary_container) "
+
+[git_state]
+style = "bold fg:tertiary"
+
+[git_status]
+style = "fg:tertiary"
+format = "([$all_status$ahead_behind]($style) )"
+
+[cmd_duration]
+min_time = 2000
+style = "fg:on_surface_variant"
+format = "[󱎫 $duration]($style) "
+
+[jobs]
+style = "fg:tertiary"
+
+[character]
+success_symbol = "[❯](bold fg:primary)"
+error_symbol = "[❯](bold fg:error)"
+
+[palettes.thedesk]
+# Fallback (the evening horizon); a theDesk session writes its own
+primary = "#f9ba72"
+on_primary = "#482a00"
+primary_container = "#663d00"
+on_primary_container = "#ffddba"
+secondary_container = "#58432b"
+on_secondary_container = "#fdddbd"
+tertiary = "#bdcd9d"
+error = "#ffb4ab"
+on_surface_variant = "#d4c4b5"
+outline = "#9d8e81"

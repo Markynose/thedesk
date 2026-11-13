@@ -1,0 +1,35 @@
+name: "macOS CI"
+on:
+  push:
+    branches:
+      - "master"
+      - "blueprint"
+      - "features/*"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macOS-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: vicr123/libcontemporary/prepare-vars@actions
+        id: vars
+      - uses: vicr123/libcontemporary/brew-universalinstall@actions
+        name: "Install Dependencies"
+        with:
+          packages: "qt:cmake:ninja:pkg-config"
+      - uses: vicr123/libcontemporary/build-project@actions
+        name: "Build QCoro"
+        with:
+          project: "danvratil/qcoro"
+          commitish: ${{ steps.vars.outputs.qcoroVersion }}
+      - uses: actions/checkout@v1
+        with:
+          submodules: 'recursive'
+      - uses: vicr123/libcontemporary/build-project@actions
+        name: "Build project"
+        with:
+          project: "."

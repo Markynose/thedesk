@@ -1,0 +1,44 @@
+name: "Linux CI"
+on:
+  push:
+    branches:
+      - "master"
+      - "blueprint"
+      - "features/*"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        qt: [6.4.2, 6.5]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: vicr123/libcontemporary/prepare-vars@actions
+        id: vars
+        with:
+          qtVersion: ${{ matrix.qt }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y cmake ninja-build
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ steps.vars.outputs.qtVersion }}
+          arch: gcc_64
+          modules: addons.qtmultimedia addons.qtwebsockets qt5compat
+          cache: true
+      - uses: vicr123/libcontemporary/build-project@actions
+        name: "Build QCoro"
+        with:
+          project: "danvratil/qcoro"
+          commitish: ${{ steps.vars.outputs.qcoroVersion }}
+      - uses: actions/checkout@v1
+        with:
+          submodules: 'recursive'
+      - uses: vicr123/libcontemporary/build-project@actions
+        name: "Build project"
+        with:
+          project: "."

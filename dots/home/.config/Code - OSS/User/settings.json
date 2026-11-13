@@ -1,0 +1,39 @@
+{
+    // Look: Gruvbox Dark (extension jdinhlife.gruvbox, installed by scripts/install-dots.sh)
+    "workbench.colorTheme": "Gruvbox Dark Medium",
+    "workbench.startupEditor": "none",
+    "workbench.tips.enabled": false,
+    "window.titleBarStyle": "native",
+    "window.menuBarVisibility": "toggle",
+    "editor.fontFamily": "'IosevkaTerm Nerd Font', monospace",
+    "editor.fontSize": 14,
+    "editor.fontLigatures": false,
+    "editor.minimap.enabled": false,
+    "editor.renderWhitespace": "trailing",
+    "editor.rulers": [100],
+    "editor.cursorBlinking": "solid",
+    "editor.smoothScrolling": false,
+    "terminal.integrated.fontFamily": "'IosevkaTerm Nerd Font Mono'",
+    "terminal.integrated.defaultProfile.linux": "zsh",
+
+    // Editing
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.exclude": { "**/build": true },
+
+    // C++ / CMake for hacking on theDesk (clangd + CMake Tools)
+    "cmake.configureOnOpen": false,
+    "cmake.buildDirectory": "${workspaceFolder}/build/thedesk",
+    "cmake.generator": "Ninja",
+    "cmake.configureSettings": {
+        "QT_FIND_PRIVATE_MODULES": "ON",
+        "KF_VERSION_MAJOR": "6"
+    },
+    "clangd.arguments": ["--compile-commands-dir=${workspaceFolder}/build/thedesk", "--header-insertion=never"],
+    "C_Cpp.intelliSenseEngine": "disabled",
+
+    // Privacy
+    "telemetry.telemetryLevel": "off",
+    "update.mode": "none",
+    "extensions.autoUpdate": "off"
+}

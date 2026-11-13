@@ -1,0 +1,12 @@
+#!/bin/sh
+# bspc-resize west|east|north|south [step]
+# Move the focused window's edge in that direction, growing or shrinking it
+# depending on which side of its split it sits. Bound in theDesk.conf.
+step=${2:-24}
+case $1 in
+    west)  bspc node -z left  -"$step" 0 || bspc node -z right -"$step" 0 ;;
+    east)  bspc node -z right  "$step" 0 || bspc node -z left   "$step" 0 ;;
+    north) bspc node -z top    0 -"$step" || bspc node -z bottom 0 -"$step" ;;
+    south) bspc node -z bottom 0  "$step" || bspc node -z top    0  "$step" ;;
+    *) echo "usage: bspc-resize west|east|north|south [step]" >&2; exit 2 ;;
+esac

@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>thedesk.script</file>
+    </qresource>
+</RCC>

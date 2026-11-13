@@ -1,0 +1,106 @@
+/****************************************
+ *
+ *   INSERT-PROJECT-NAME-HERE - INSERT-GENERIC-NAME-HERE
+ *   Copyright (C) 2020 Victor Tran
+ *
+ *   This program is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * *************************************/
+#include "plugin.h"
+
+#include "settings/displaysettings.h"
+#include "tsettings.h"
+#include <QApplication>
+#include <QDebug>
+#include <QDir>
+#include <QKeySequence>
+#include <Screens/screendaemon.h>
+#include <Screens/systemscreen.h>
+#include <hudmanager.h>
+#include <keygrab.h>
+#include <localemanager.h>
+#include <statemanager.h>
+#include <statuscentermanager.h>
+#include <tapplication.h>
+
+#include <Screens/screendaemon.h>
+
+#include "newdisplay/newdisplaycontroller.h"
+#include "redshift/redshiftdaemon.h"
+
+struct PluginPrivate {
+        DisplaySettings* settingsPage;
+        RedshiftDaemon* daemon;
+        NewDisplayController* newDisplays;
+        KeyGrab* displaysKey;
+
+        tSettings* settings;
+};
+
+Plugin::Plugin() {
+    d = new PluginPrivate();
+}
+
+Plugin::~Plugin() {
+    delete d;
+}
+
+void Plugin::activate() {
+    tApplication::addPluginTranslator(CNTP_TARGET_NAME);
+
+    tSettings::registerDefaults(QDir::cleanPath(qApp->applicationDirPath() + "/../plugins/DisplayPlugin/thedesk-display.conf"));
+    tSettings::registerDefaults("/usr/share/defaults/thedesk-display.conf");
+
+    d->settingsPage = new DisplaySettings();
+    d->daemon = new RedshiftDaemon();
+
+    StateManager::statusCenterManager()->addPane(d->settingsPage, StatusCenterManager::SystemSettings);
+
+    // Keep screen configuration up to date
+    ScreenDaemon::instance()->enableAutomaticRestore();
+
+    // A display connected in a new combination: ask how to use it
+    d->newDisplays = new NewDisplayController();
+
+    // Super+P: how to use the displays (as on Windows)
+    d->displaysKey = new KeyGrab(QKeySequence(Qt::MetaModifier | Qt::Key_P), QStringLiteral("displays"));
+    connect(d->displaysKey, &KeyGrab::activated, this, [this] {
+        if (!d->newDisplays->askAgain()) {
+            StateManager::hudManager()->showHud({
+                {QStringLiteral("icon"), QStringLiteral("video-display")},
+                {QStringLiteral("title"), tr("Displays")},
+                {QStringLiteral("text"), tr("No other display is connected")}
+            });
+        }
+    });
+
+    d->settings = new tSettings();
+    connect(d->settings, &tSettings::settingChanged, this, [this] {
+        ScreenDaemon::instance()->setDpi(d->settings->value("Display/dpi").toInt());
+    });
+    ScreenDaemon::instance()->setDpi(d->settings->value("Display/dpi").toInt());
+}
+
+void Plugin::deactivate() {
+    d->daemon->deleteLater();
+    d->newDisplays->deleteLater();
+    d->displaysKey->deleteLater();
+
+    StateManager::statusCenterManager()->removePane(d->settingsPage);
+    d->settingsPage->deleteLater();
+
+    d->settings->deleteLater();
+
+    tApplication::removePluginTranslator(CNTP_TARGET_NAME);
+}

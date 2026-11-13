@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=theDesk
+Comment=theDesk's login screen: the living horizon, Material 3 Expressive
+Exec=thedesk-greeter
+Type=Application

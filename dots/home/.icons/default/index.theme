@@ -1,0 +1,4 @@
+# Default X cursor theme (used when an app doesn't pick one)
+[Icon Theme]
+Name=Default
+Inherits=theDesk-M3

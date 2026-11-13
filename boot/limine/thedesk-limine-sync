@@ -1,0 +1,20 @@
+#!/bin/sh
+# mkinitcpio post hook (installed to /etc/initcpio/post/): Limine can only
+# read FAT, so keep copies of the kernel and initramfs on the EFI system
+# partition, next to its config. Does nothing until Limine is installed there.
+# mkinitcpio passes: $1 kernel, $2 initramfs image, [$3 UKI]
+ESP=@ESP@ # filled in by scripts/install-limine.sh
+[ -f "$ESP/EFI/limine/limine.conf" ] || exit 0
+
+image=$2
+[ -n "$image" ] && [ -f "$image" ] || exit 0
+name=$(basename "$image" .img)  # initramfs-linux, initramfs-linux-fallback
+name=${name#initramfs-}
+copy() { # copy via a temporary name so a full or interrupted copy can't leave a broken file
+    install -m644 "$1" "$ESP/.$2.new" && mv -f "$ESP/.$2.new" "$ESP/$2"
+}
+copy "$image" "initramfs-$name.img" || exit 1
+kernel=$1
+[ -f "$kernel" ] || kernel=/boot/vmlinuz-${name%-fallback}
+[ -f "$kernel" ] && copy "$kernel" "vmlinuz-${name%-fallback}"
+exit 0

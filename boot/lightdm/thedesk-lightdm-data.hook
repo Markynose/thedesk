@@ -1,0 +1,13 @@
+# Keep /var/lib/lightdm-data passable (1771) after LightDM upgrades: each
+# session writes its colours and picture for theDesk's greeter into its own
+# folder there (installed by scripts/install-greeter.sh)
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = lightdm
+
+[Action]
+Description = Letting sessions reach their LightDM greeter data folder...
+When = PostTransaction
+Exec = /bin/chmod 1771 /var/lib/lightdm-data

@@ -1,0 +1,23 @@
+{
+    "inputparams": {
+        "project-description": {
+            "prompt": "Project Description (example: Audio Player): ",
+            "readableName": "Project Description"
+        },
+        "desktop-id": {
+            "prompt": "Desktop ID (example: com.vicr123.thebeat): ",
+            "readableName": "Desktop ID"
+        },
+        "copyright-holder": {
+            "prompt": "Copyright Holder: ",
+            "readableName": "Copyright Holder"
+        },
+        "organization": {
+            "prompt": "Organization: ",
+            "readableName": "Organization"
+        }
+    },
+    "params": {
+        "folderparam1": "lib$LCPNAME"
+    }
+}

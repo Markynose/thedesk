@@ -1,0 +1,9 @@
+QT.libcontemporary.VERSION = 1.0
+QT.libcontemporary.MAJOR_VERSION = 1
+QT.libcontemporary.MINOR_VERSION = 1
+QT.libcontemporary.name = libcontemporary
+QT.libcontemporary.module = libcontemporary
+QT.libcontemporary.depends = core dbus
+QT.libcontemporary.includes = $$QT_MODULE_INCLUDE_BASE $$QT_MODULE_INCLUDE_BASE/libcontemporary/
+QT.libcontemporary.libs = $$QT_MODULE_LIB_BASE
+QT_MODULES += thelib

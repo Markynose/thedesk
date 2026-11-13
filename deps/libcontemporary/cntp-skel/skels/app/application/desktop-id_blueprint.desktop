@@ -1,0 +1,9 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name[]=$($PNAME) Blueprint
+GenericName[]=$($project-description)
+Exec=$($LCPNAME)-blueprint %U
+Icon=$($desktop-id)_blueprint
+StartupWMClass=$($PNAME)

@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/">
+        <file>assets/base-app-icon.svg</file>
+        <file>assets/baseicon.svg</file>
+        <file>assets/base-app-icon-blueprint-mac.svg</file>
+        <file>assets/base-app-icon-blueprint.svg</file>
+        <file>assets/base-app-icon-mac.svg</file>
+        <file>assets/baseicon-mac.svg</file>
+    </qresource>
+</RCC>

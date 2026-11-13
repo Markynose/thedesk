@@ -1,0 +1,24 @@
+set(libContemporary_VERSION 6.0.1)
+
+@PACKAGE_INIT@
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+include("${CMAKE_CURRENT_LIST_DIR}/libcontemporaryTargets.cmake")
+
+file(GLOB EXTRA_FUNCTIONS "${CMAKE_CURRENT_LIST_DIR}/cmake-scripts/*.cmake")
+foreach(f ${EXTRA_FUNCTIONS})
+    include(${f})
+endforeach()
+
+define_property(TARGET PROPERTY CNTP_DATA_SUBDIR
+    BRIEF_DOCS "Path within data directory to place standard data (usually the application name)"
+    FULL_DOCS "Path within data directory to place standard data (usually the application name)")
+
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Svg Network Multimedia Concurrent PrintSupport OPTIONAL_COMPONENTS DBus)
+find_package(QCoro${QT_VERSION_MAJOR} COMPONENTS Core Network OPTIONAL_COMPONENTS DBus)
+cntp_find_pkgconfig(Unwind libunwind)
+cntp_find_pkgconfig(X11 x11)
+cntp_find_pkgconfig(GsettingsQt gsettings-qt)
+
+check_required_components(libContemporary)

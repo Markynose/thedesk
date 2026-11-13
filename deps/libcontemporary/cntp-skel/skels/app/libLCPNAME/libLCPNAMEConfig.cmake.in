@@ -1,0 +1,7 @@
+set(lib$($LCPNAME)_VERSION 1.0.0)
+
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/lib$($LCPNAME)Targets.cmake")
+
+check_required_components(lib$($LCPNAME))

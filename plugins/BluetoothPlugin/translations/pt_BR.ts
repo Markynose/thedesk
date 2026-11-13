@@ -1,0 +1,560 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
+<TS version="2.1" language="pt_BR" sourcelanguage="en_US">
+<context>
+    <name>AncsClient</name>
+    <message>
+        <location filename="../iphone/iphonelink.cpp" line="327"/>
+        <source>Unknown caller</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/iphonelink.cpp" line="349"/>
+        <source>iPhone</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/iphonelink.cpp" line="351"/>
+        <source>%1 · %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>BluetoothChunk</name>
+    <message>
+        <location filename="../chunk/bluetoothchunk.cpp" line="116"/>
+        <source>Connected · %1% battery</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../chunk/bluetoothchunk.cpp" line="116"/>
+        <source>Connected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../chunk/bluetoothchunk.cpp" line="116"/>
+        <source>Paired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../chunk/bluetoothchunk.cpp" line="144"/>
+        <source>%n devices connected</source>
+        <translation>
+            <numerusform>%n dispositivo conectado</numerusform>
+            <numerusform>%n dispositivos conectados</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>BluetoothPluginCommon</name>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="29"/>
+        <source>Phone</source>
+        <translation type="unfinished">Telefone</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="31"/>
+        <source>Modem</source>
+        <translation type="unfinished">Modem</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="33"/>
+        <source>Computer</source>
+        <translation type="unfinished">Computador</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="35"/>
+        <source>Networking</source>
+        <translation type="unfinished">Rede</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="37"/>
+        <source>Headset</source>
+        <translation type="unfinished">Headset</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="39"/>
+        <source>Headphones</source>
+        <translation type="unfinished">Fones de ouvido</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="41"/>
+        <source>Audio/Video</source>
+        <translation type="unfinished">Áudio/Vídeo</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="43"/>
+        <source>Keyboard</source>
+        <translation type="unfinished">Teclado</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="45"/>
+        <source>Mouse</source>
+        <translation type="unfinished">Mouse</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="47"/>
+        <source>Gamepad</source>
+        <translation type="unfinished">Gamepad</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="49"/>
+        <source>Drawing Tablet</source>
+        <translation type="unfinished">Mesa digitalizadora</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="51"/>
+        <source>Peripheral</source>
+        <translation type="unfinished">Periférico</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="53"/>
+        <source>Camera</source>
+        <translation type="unfinished">Câmera</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="55"/>
+        <source>Printer</source>
+        <translation type="unfinished">Impressora</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="57"/>
+        <source>Imaging</source>
+        <translation type="unfinished">Dispositivo de imagem</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="59"/>
+        <source>Wearable</source>
+        <translation type="unfinished">Acessório wearable</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="61"/>
+        <source>Toy</source>
+        <translation type="unfinished">Brinquedo</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="63"/>
+        <source>Health</source>
+        <translation type="unfinished">Saúde</translation>
+    </message>
+    <message>
+        <location filename="../bluetoothplugincommon.cpp" line="65"/>
+        <source>Unknown</source>
+        <translation type="unfinished">Desconhecido</translation>
+    </message>
+</context>
+<context>
+    <name>BluetoothSettingsPane</name>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="35"/>
+        <location filename="../settings/bluetoothsettingspane.cpp" line="87"/>
+        <location filename="../settings/bluetoothsettingspane.cpp" line="192"/>
+        <source>Bluetooth</source>
+        <translation>Bluetooth</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="106"/>
+        <source>ACTIONS</source>
+        <translation>AÇÕES</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="113"/>
+        <source>Pair New Device</source>
+        <translation>Emparelhar um novo dispositivo</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="139"/>
+        <source>Visible to other devices</source>
+        <translation>Visível a outros dispositivos</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="166"/>
+        <source>DISCOVERABILITY</source>
+        <translation>VISIBILIDADE</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="213"/>
+        <source>DEVICES</source>
+        <translation>DISPOSITIVOS</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="272"/>
+        <source>Bluetooth is unavailable</source>
+        <translation>Bluetooth está indisponível</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="295"/>
+        <source>Install a Bluetooth card to use Bluetooth</source>
+        <translation>Instale um adaptador Bluetooth para usar o Bluetooth</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="340"/>
+        <source>Bluetooth is disabled</source>
+        <translation>Bluetooth está desabilitado</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="363"/>
+        <source>Switch Bluetooth on to connect to Bluetooth devices</source>
+        <translation>Ligue o Bluetooth para conectar dispositivos Bluetooth</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.ui" line="373"/>
+        <source>Enable Bluetooth</source>
+        <translation>Ativar o Bluetooth</translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.cpp" line="70"/>
+        <source>Link an iPhone</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/bluetoothsettingspane.cpp" line="130"/>
+        <source>To pair with this device, look for %1 on the other device.</source>
+        <translation>Para emparelhar com este dispositivo, procure por %1 no outro dispositivo.</translation>
+    </message>
+</context>
+<context>
+    <name>BtAgent</name>
+    <message>
+        <location filename="../btagent.cpp" line="95"/>
+        <location filename="../btagent.cpp" line="123"/>
+        <location filename="../btagent.cpp" line="155"/>
+        <source>Bluetooth</source>
+        <translation>Bluetooth</translation>
+    </message>
+    <message>
+        <location filename="../btagent.cpp" line="96"/>
+        <source>Pair with %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../btagent.cpp" line="97"/>
+        <source>Type this code on %1:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../btagent.cpp" line="98"/>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../btagent.cpp" line="124"/>
+        <location filename="../btagent.cpp" line="156"/>
+        <source>Pair with %1?</source>
+        <translation>Emparelhar com %1?</translation>
+    </message>
+    <message>
+        <location filename="../btagent.cpp" line="125"/>
+        <source>In order to complete pairing, confirm that the following pairing code is shown on %1.</source>
+        <translation>Para completar o emparelhamento, confirme que o seguinte código está sendo exibido em %1.</translation>
+    </message>
+    <message>
+        <location filename="../btagent.cpp" line="126"/>
+        <source>If it is, you can accept the pairing request.</source>
+        <translation>Se for, você pode aceitar o pedido de emparelhamento.</translation>
+    </message>
+    <message>
+        <location filename="../btagent.cpp" line="127"/>
+        <location filename="../btagent.cpp" line="158"/>
+        <source>Decline</source>
+        <translation>Recusar</translation>
+    </message>
+    <message>
+        <location filename="../btagent.cpp" line="128"/>
+        <source>Accept and Pair</source>
+        <translation>Aceitar e emparelhar</translation>
+    </message>
+    <message>
+        <location filename="../btagent.cpp" line="157"/>
+        <source>Accept the pairing request from %1?</source>
+        <translation>Aceitar o pedido de emparelhamento de %1?</translation>
+    </message>
+    <message>
+        <location filename="../btagent.cpp" line="159"/>
+        <source>Pair</source>
+        <translation>Emparelhar</translation>
+    </message>
+</context>
+<context>
+    <name>BtObex</name>
+    <message>
+        <location filename="../btobex.cpp" line="71"/>
+        <location filename="../btobex.cpp" line="111"/>
+        <location filename="../btobex.cpp" line="118"/>
+        <source>Bluetooth</source>
+        <translation>Bluetooth</translation>
+    </message>
+    <message>
+        <location filename="../btobex.cpp" line="72"/>
+        <source>Incoming file</source>
+        <translation>Arquivo a ser recebido</translation>
+    </message>
+    <message>
+        <location filename="../btobex.cpp" line="73"/>
+        <source>%1 is sending you the file %2.</source>
+        <translation>%1 está mandando o arquivo %2.</translation>
+    </message>
+    <message>
+        <location filename="../btobex.cpp" line="74"/>
+        <source>Decline</source>
+        <translation>Recusar</translation>
+    </message>
+    <message>
+        <location filename="../btobex.cpp" line="75"/>
+        <source>Accept</source>
+        <translation>Aceitar</translation>
+    </message>
+    <message>
+        <location filename="../btobex.cpp" line="112"/>
+        <source>File received</source>
+        <translation>Arquivo recebido</translation>
+    </message>
+    <message>
+        <location filename="../btobex.cpp" line="113"/>
+        <source>The file %1 has been received and can be found in your Downloads folder.</source>
+        <translation>O arquivo %1 foi recebido e pode ser encontrado na pasta Downloads.</translation>
+    </message>
+    <message>
+        <location filename="../btobex.cpp" line="119"/>
+        <source>File transfer failed</source>
+        <translation>Falha na transferência</translation>
+    </message>
+    <message>
+        <location filename="../btobex.cpp" line="120"/>
+        <source>The file %1 was unable to be received.</source>
+        <translation>Não foi possível receber o arquivo %1.</translation>
+    </message>
+</context>
+<context>
+    <name>CallCard</name>
+    <message>
+        <location filename="../iphone/callcard.cpp" line="125"/>
+        <location filename="../iphone/callcard.cpp" line="293"/>
+        <source>Incoming call</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/callcard.cpp" line="126"/>
+        <source>Incoming call from %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/callcard.cpp" line="293"/>
+        <source>%1 · Incoming call</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/callcard.cpp" line="294"/>
+        <source>Answered</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/callcard.cpp" line="294"/>
+        <source>Answered on %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/callcard.cpp" line="295"/>
+        <source>Declined</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/callcard.cpp" line="320"/>
+        <source>Decline</source>
+        <translation type="unfinished">Recusar</translation>
+    </message>
+    <message>
+        <location filename="../iphone/callcard.cpp" line="321"/>
+        <source>Answer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/callcard.cpp" line="329"/>
+        <source>Talk on your iPhone</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/callcard.cpp" line="329"/>
+        <source>Talk on %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>Common</name>
+    <message>
+        <source>Phone</source>
+        <translation type="vanished">Telefone</translation>
+    </message>
+    <message>
+        <source>Modem</source>
+        <translation type="vanished">Modem</translation>
+    </message>
+    <message>
+        <source>Computer</source>
+        <translation type="vanished">Computador</translation>
+    </message>
+    <message>
+        <source>Networking</source>
+        <translation type="vanished">Rede</translation>
+    </message>
+    <message>
+        <source>Headset</source>
+        <translation type="vanished">Headset</translation>
+    </message>
+    <message>
+        <source>Headphones</source>
+        <translation type="vanished">Fones de ouvido</translation>
+    </message>
+    <message>
+        <source>Audio/Video</source>
+        <translation type="vanished">Áudio/Vídeo</translation>
+    </message>
+    <message>
+        <source>Keyboard</source>
+        <translation type="vanished">Teclado</translation>
+    </message>
+    <message>
+        <source>Mouse</source>
+        <translation type="vanished">Mouse</translation>
+    </message>
+    <message>
+        <source>Gamepad</source>
+        <translation type="vanished">Gamepad</translation>
+    </message>
+    <message>
+        <source>Drawing Tablet</source>
+        <translation type="vanished">Mesa digitalizadora</translation>
+    </message>
+    <message>
+        <source>Peripheral</source>
+        <translation type="vanished">Periférico</translation>
+    </message>
+    <message>
+        <source>Camera</source>
+        <translation type="vanished">Câmera</translation>
+    </message>
+    <message>
+        <source>Printer</source>
+        <translation type="vanished">Impressora</translation>
+    </message>
+    <message>
+        <source>Imaging</source>
+        <translation type="vanished">Dispositivo de imagem</translation>
+    </message>
+    <message>
+        <source>Wearable</source>
+        <translation type="vanished">Acessório wearable</translation>
+    </message>
+    <message>
+        <source>Toy</source>
+        <translation type="vanished">Brinquedo</translation>
+    </message>
+    <message>
+        <source>Health</source>
+        <translation type="vanished">Saúde</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation type="vanished">Desconhecido</translation>
+    </message>
+</context>
+<context>
+    <name>DevicePopover</name>
+    <message>
+        <location filename="../settings/devicepopover.ui" line="124"/>
+        <source>ACTIONS</source>
+        <translation>AÇÕES</translation>
+    </message>
+    <message>
+        <location filename="../settings/devicepopover.ui" line="133"/>
+        <source>Connect</source>
+        <translation>Conectar</translation>
+    </message>
+    <message>
+        <location filename="../settings/devicepopover.ui" line="140"/>
+        <source>Disconnect</source>
+        <translation>Desconectar</translation>
+    </message>
+    <message>
+        <location filename="../settings/devicepopover.ui" line="147"/>
+        <source>Remove</source>
+        <translation>Remover</translation>
+    </message>
+    <message>
+        <location filename="../settings/devicepopover.cpp" line="72"/>
+        <source>Failed to connect</source>
+        <translation>Falha ao conectar</translation>
+    </message>
+    <message>
+        <location filename="../settings/devicepopover.cpp" line="75"/>
+        <source>Connecting to %1 failed.</source>
+        <translation>Falha ao conectar-se com %1.</translation>
+    </message>
+</context>
+<context>
+    <name>IPhoneLink</name>
+    <message>
+        <location filename="../iphone/iphonelink.cpp" line="471"/>
+        <source>Bluetooth</source>
+        <translation type="unfinished">Bluetooth</translation>
+    </message>
+    <message>
+        <location filename="../iphone/iphonelink.cpp" line="473"/>
+        <source>Link your iPhone</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../iphone/iphonelink.cpp" line="474"/>
+        <source>On your iPhone, open Settings, then Bluetooth, and tap %1. Confirm the code on both.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PairPopover</name>
+    <message>
+        <location filename="../settings/pairpopover.ui" line="57"/>
+        <source>Pair Device</source>
+        <translation>Emparelhar dispositivo</translation>
+    </message>
+    <message>
+        <location filename="../settings/pairpopover.ui" line="64"/>
+        <source>To get started, ensure the device you want to pair is visible. This may be achieved by opening the Bluetooth settings or pressing a button on the other device.</source>
+        <translation>Certifique-se que o dispositivo que você quer emparelhar está visível. Pode ser necessário abrir as configurações Bluetooth ou apertar um botão no outro dispositivo.</translation>
+    </message>
+    <message>
+        <location filename="../settings/pairpopover.ui" line="383"/>
+        <source>Confirm Pairing Code</source>
+        <translation>Confirme o código de emparelhamento</translation>
+    </message>
+    <message>
+        <location filename="../settings/pairpopover.cpp" line="92"/>
+        <source>Then press ENTER or RETURN.</source>
+        <translation>Então aperte ENTER.</translation>
+    </message>
+    <message>
+        <location filename="../settings/pairpopover.cpp" line="130"/>
+        <source>Failed to pair</source>
+        <translation>Falha ao emparelhar</translation>
+    </message>
+    <message>
+        <location filename="../settings/pairpopover.cpp" line="133"/>
+        <source>Pairing with %1 failed because the pairing code was incorrect.</source>
+        <translation>O emparelhamento com %1 falhou porque o código de emparelhamento estava incorreto.</translation>
+    </message>
+    <message>
+        <location filename="../settings/pairpopover.cpp" line="136"/>
+        <source>Pairing with %1 failed because the device rejected the pairing request.</source>
+        <translation>O emparelhamento com %1 falhou porque o dispositivo rejeitou a solicitação de emparelhamento.</translation>
+    </message>
+    <message>
+        <location filename="../settings/pairpopover.cpp" line="139"/>
+        <source>Pairing with %1 failed because the pairing code was not confirmed in time.</source>
+        <translation>O emparelhamento com %1 falhou porque o código de emparelhamento não foi confirmado a tempo.</translation>
+    </message>
+    <message>
+        <location filename="../settings/pairpopover.cpp" line="142"/>
+        <source>Pairing with %1 failed.</source>
+        <translation>O emparelhamento com %1 falhou.</translation>
+    </message>
+</context>
+</TS>

@@ -1,0 +1,12 @@
+# Keep Limine's EFI executable on the ESP up to date (installed by
+# scripts/install-limine.sh to /etc/pacman.d/hooks/)
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = limine
+
+[Action]
+Description = Updating Limine on the EFI system partition...
+When = PostTransaction
+Exec = /bin/sh -c '[ -f @ESP@/EFI/limine/limine.conf ] && install -m644 /usr/share/limine/BOOTX64.EFI @ESP@/EFI/limine/BOOTX64.EFI || true'

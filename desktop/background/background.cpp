@@ -1,0 +1,502 @@
+/****************************************
+ *
+ *   theShell - Desktop Environment
+ *   Copyright (C) 2019 Victor Tran
+ *
+ *   This program is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * *************************************/
+
+#include "background.h"
+
+#include <m3motion.h>
+#include "ui_background.h"
+
+#include <QPainter>
+#include <horizon/horizonscene.h>
+#include <horizon/focustide.h>
+#include <horizon/horizonview.h>
+
+#include <Background/backgroundcontroller.h>
+#include <Background/backgroundselectionmodel.h>
+#include <QFileDialog>
+#include <QKeyEvent>
+#include <QMenu>
+#include <Screens/screendaemon.h>
+#include <Screens/systemscreen.h>
+#include <Wm/desktopwm.h>
+#include <X11/Xlib.h>
+
+struct BackgroundPrivate {
+        static BackgroundController* bg;
+        static QList<Background*> backgrounds;
+
+        SystemScreen* oldScreen = nullptr;
+        QMetaObject::Connection screenGeometryChangedConnection;
+        QSettings settings;
+
+        bool retrieving = false;
+        bool retrieveAgain = false;
+        BackgroundController::BackgroundData background;
+
+        // Live "planet horizon" wallpaper (horizon:living / horizon:<scene>)
+        HorizonView* horizon = nullptr;
+        bool horizonIntroPlayed = false;
+
+        bool isChangeBackgroundVisible = false;
+        bool communityBackgroundSettingsShown = true;
+};
+
+BackgroundController* BackgroundPrivate::bg = nullptr;
+QList<Background*> BackgroundPrivate::backgrounds = QList<Background*>();
+
+Background::Background() :
+    QDialog(nullptr),
+    ui(new Ui::Background) {
+    ui->setupUi(this);
+    d = new BackgroundPrivate();
+
+    // Created first: changeBackground() can run during construction
+    d->horizon = new HorizonView(ui->backgroundPage);
+    d->horizon->setGeometry(ui->backgroundPage->rect());
+    d->horizon->hide();
+    connect(FocusTide::instance(), &FocusTide::progressChanged, d->horizon, &HorizonView::setTide);
+
+    if (!d->bg) {
+        d->bg = new BackgroundController(BackgroundController::Desktop);
+
+        connect(qApp, &QApplication::screenAdded, &Background::reconfigureBackgrounds);
+        connect(qApp, &QApplication::screenRemoved, &Background::reconfigureBackgrounds);
+        connect(ScreenDaemon::instance(), &ScreenDaemon::screensUpdated, &Background::reconfigureBackgrounds);
+    }
+
+    connect(d->bg, &BackgroundController::currentBackgroundChanged, this, [this](BackgroundController::BackgroundType type) {
+        if (type == BackgroundController::Desktop) this->changeBackground();
+        this->showCommunityBackgroundSettings(d->bg->currentBackgroundName(BackgroundController::Desktop) == "community" || d->bg->currentBackgroundName(BackgroundController::LockScreen) == "community");
+    });
+    connect(d->bg, &BackgroundController::shouldShowCommunityLabelsChanged, this, [this] {
+        if (d->bg->currentBackgroundName(BackgroundController::Desktop) == "community") this->changeBackground();
+    });
+    connect(d->bg, &BackgroundController::stretchTypeChanged, this, [this](BackgroundController::StretchType stretchType) {
+        switch (stretchType) {
+            case BackgroundController::StretchFit:
+                ui->stretchFitButton->setChecked(true);
+                break;
+            case BackgroundController::ZoomCrop:
+                ui->zoomCropButton->setChecked(true);
+                break;
+            case BackgroundController::Center:
+                ui->centerButton->setChecked(true);
+                break;
+            case BackgroundController::Tile:
+                ui->tileButton->setChecked(true);
+                break;
+            case BackgroundController::ZoomFit:
+                ui->zoomFitButton->setChecked(true);
+                break;
+        }
+
+        this->changeBackground();
+    });
+
+    this->showCommunityBackgroundSettings(d->bg->currentBackgroundName(BackgroundController::Desktop) == "community" || d->bg->currentBackgroundName(BackgroundController::LockScreen) == "community");
+    switch (d->bg->stretchType()) {
+        case BackgroundController::StretchFit:
+            ui->stretchFitButton->setChecked(true);
+            break;
+        case BackgroundController::ZoomCrop:
+            ui->zoomCropButton->setChecked(true);
+            break;
+        case BackgroundController::Center:
+            ui->centerButton->setChecked(true);
+            break;
+        case BackgroundController::Tile:
+            ui->tileButton->setChecked(true);
+            break;
+        case BackgroundController::ZoomFit:
+            ui->zoomFitButton->setChecked(true);
+            break;
+    }
+
+    ui->showImageInformationBox->setChecked(d->bg->shouldShowCommunityLabels());
+
+    ui->stackedWidget->setCurrentWidget(ui->backgroundPage);
+    ui->stackedWidget->setCurrentAnimation(tStackedWidget::Fade);
+    ui->backgroundPage->installEventFilter(this);
+
+    auto updateHorizonDesktop = [this](bool animate) {
+        d->horizon->setDesktop(int(DesktopWm::currentDesktop()), int(DesktopWm::desktops().count()), animate);
+    };
+    updateHorizonDesktop(false);
+    connect(DesktopWm::instance(), &DesktopWm::currentDesktopChanged, this, [updateHorizonDesktop] {
+        updateHorizonDesktop(true);
+    });
+    connect(DesktopWm::instance(), &DesktopWm::desktopCountChanged, this, [updateHorizonDesktop] {
+        updateHorizonDesktop(false);
+    });
+
+    ui->backgroundSelectionWidget->setFixedHeight(0);
+    ui->backgroundList->setModel(new BackgroundSelectionModel());
+    ui->backgroundList->setItemDelegate(new BackgroundSelectionDelegate());
+    ui->backgroundList->setIconSize(QSize(213, 120));
+    ui->backgroundList->setFixedHeight(120);
+
+    // While the wallpaper decodes, show a plain frame in the theme's window
+    // colour (no spinner, no black flash); it fades into the wallpaper.
+    ui->loadingBackgroundPage->setAutoFillBackground(true);
+    QPalette loadingPalette = ui->loadingBackgroundPage->palette();
+    loadingPalette.setColor(QPalette::Window, this->palette().color(QPalette::Window));
+    ui->loadingBackgroundPage->setPalette(loadingPalette);
+
+    this->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnBottomHint);
+    this->setAttribute(Qt::WA_ShowWithoutActivating, true);
+
+    changeBackground();
+}
+
+Background::~Background() {
+    delete d;
+    delete ui;
+}
+
+QCoro::Task<> Background::changeBackground() {
+    if (d->retrieving) {
+        d->retrieveAgain = true;
+        co_return;
+    }
+
+    // Live horizon wallpapers are drawn by HorizonView, not loaded
+    QString backgroundName = d->bg->currentBackgroundName(BackgroundController::Desktop);
+    if (backgroundName.startsWith(QStringLiteral("horizon:"))) {
+        QString sceneName = backgroundName.mid(8);
+        int scene = -1; // "living": follow the time of day
+        for (int i = 0; i < HorizonScene::SceneCount; i++) {
+            if (HorizonScene::sceneName(i) == sceneName) scene = i;
+        }
+        d->horizon->setFixedScene(scene);
+        d->horizon->setGeometry(ui->backgroundPage->rect());
+        d->horizon->show();
+        ui->stackedWidget->setCurrentWidget(ui->backgroundPage);
+        if (!d->horizonIntroPlayed) {
+            d->horizonIntroPlayed = true;
+            d->horizon->playIntro();
+        }
+        co_return;
+    }
+    d->horizon->hide();
+
+    d->retrieving = true;
+    ui->stackedWidget->setCurrentWidget(ui->loadingBackgroundPage);
+
+    try {
+        auto data = co_await d->bg->getCurrentBackground(this->size());
+        // TODO: what if the backgrounds change?
+        d->background = data;
+
+        if (d->background.extendedInfoAvailable) {
+            QPainter painter(&data.px);
+
+            if (d->settings.value("desktop/showLabels", true).toBool()) {
+                QLinearGradient darkener;
+                darkener.setColorAt(0, QColor::fromRgb(0, 0, 0, 0));
+                darkener.setColorAt(1, QColor::fromRgb(0, 0, 0, 200));
+
+                if (d->settings.value("bar/onTop", true).toBool()) {
+                    darkener.setStart(0, 0);
+                    darkener.setFinalStop(0, data.px.height());
+                } else {
+                    darkener.setStart(0, data.px.height());
+                    darkener.setFinalStop(0, 0);
+                }
+                painter.setBrush(darkener);
+                painter.drawRect(0, 0, data.px.width(), data.px.height());
+
+                painter.setPen(Qt::white);
+                int currentX = 30;
+                int baselineY;
+
+                if (d->settings.value("bar/onTop", true).toBool()) {
+                    baselineY = data.px.height() - 30;
+                } else {
+                    baselineY = 30 + QFontMetrics(QFont(this->font().family(), 20)).ascent();
+                }
+
+                if (!data.name.isEmpty()) {
+                    painter.setFont(QFont(this->font().family(), 20));
+                    int width = painter.fontMetrics().horizontalAdvance(data.name);
+                    painter.drawText(currentX, baselineY, data.name);
+
+                    currentX += width + 9;
+                }
+
+                if (!data.location.isEmpty()) {
+                    painter.setFont(QFont(this->font().family(), 10));
+                    QIcon locationIcon = QIcon::fromTheme("gps");
+                    int height = painter.fontMetrics().height();
+                    int width = painter.fontMetrics().horizontalAdvance(data.location) + height;
+
+                    painter.drawPixmap(currentX, baselineY - height, locationIcon.pixmap(QSize(16, 16)));
+                    painter.drawText(currentX + height + 6, baselineY - painter.fontMetrics().descent(), data.location);
+
+                    currentX += width + 20;
+                }
+
+                if (!data.author.isEmpty()) {
+                    painter.setFont(QFont(this->font().family(), 10));
+                    QString author = tr("by %1").arg(data.author);
+                    int width = painter.fontMetrics().horizontalAdvance(author);
+                    painter.drawText(data.px.width() - width - 30, baselineY, author);
+                }
+            }
+        }
+
+        QTimer::singleShot(1000, this, [this, data] {
+            d->background = data;
+            this->update();
+
+            d->retrieving = false;
+            if (d->retrieveAgain) {
+                d->retrieveAgain = false;
+                this->changeBackground();
+            } else {
+                ui->stackedWidget->setCurrentWidget(ui->backgroundPage);
+            }
+        });
+    } catch (BackgroundException ex) {
+        d->retrieving = false;
+        if (d->retrieveAgain) {
+            d->retrieveAgain = false;
+            this->changeBackground();
+        } else {
+            ui->stackedWidget->setCurrentWidget(ui->backgroundErrorPage);
+        }
+    }
+}
+
+void Background::toggleChangeBackground() {
+    d->isChangeBackgroundVisible = !d->isChangeBackgroundVisible;
+    tVariantAnimation* anim = new tVariantAnimation();
+    anim->setStartValue(ui->backgroundSelectionWidget->height());
+    if (d->isChangeBackgroundVisible) {
+        anim->setEndValue(ui->backgroundSelectionWidget->sizeHint().height());
+        // TODO: Hide the bar
+        //        MainWindow::instance()->forceHide();
+    } else {
+        // TODO: Show the bar
+        anim->setEndValue(0);
+        //        MainWindow::instance()->unforceHide();
+    }
+    anim->setDuration(M3Motion::duration(M3Motion::SpatialDefault));
+    anim->setEasingCurve(M3Motion::easing(M3Motion::SpatialDefault));
+    connect(anim, &tVariantAnimation::valueChanged, this, [this](QVariant value) {
+        ui->backgroundSelectionWidget->setFixedHeight(value.toInt());
+    });
+    connect(anim, &tVariantAnimation::finished, this, [this] {
+        if (d->isChangeBackgroundVisible) {
+            ui->backgroundSelectionWidget->setFixedHeight(QWIDGETSIZE_MAX);
+        }
+    });
+    anim->start();
+
+    DesktopWm::setShowDesktop(d->isChangeBackgroundVisible);
+}
+
+void Background::showCommunityBackgroundSettings(bool shown) {
+    if (shown == d->communityBackgroundSettingsShown) return;
+    d->communityBackgroundSettingsShown = shown;
+    ui->communityBackgroundSettings->setVisible(shown);
+}
+
+void Background::show() {
+    DesktopWm::setSystemWindow(this, DesktopWm::SystemWindowTypeDesktop);
+    QDialog::show();
+}
+
+void Background::on_actionChange_Background_triggered() {
+    this->toggleChangeBackground();
+}
+
+void Background::reject() {
+}
+
+bool Background::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == ui->backgroundPage) {
+        if (event->type() == QEvent::Resize) {
+            if (d->horizon) d->horizon->setGeometry(ui->backgroundPage->rect());
+        } else if (event->type() == QEvent::Paint) {
+            QPainter p(ui->backgroundPage);
+            if (d->retrieving) {
+                p.setPen(Qt::transparent);
+                p.setBrush(Qt::black);
+                p.drawRect(0, 0, this->width(), this->height());
+            } else {
+                p.drawPixmap(0, -ui->backgroundSelectionWidget->height(), d->background.px);
+            }
+        } else if (event->type() == QEvent::MouseButtonPress) {
+            if (d->isChangeBackgroundVisible) toggleChangeBackground();
+        }
+    }
+    return false;
+}
+
+void Background::on_Background_customContextMenuRequested(const QPoint& pos) {
+    if (d->isChangeBackgroundVisible) return;
+
+    QMenu* menu = new QMenu(this);
+    menu->addSection(tr("For desktop"));
+    menu->addAction(ui->actionChange_Background);
+
+    connect(menu, &QMenu::aboutToHide, menu, &QMenu::deleteLater);
+    menu->popup(this->mapToGlobal(pos));
+}
+
+void Background::paintEvent(QPaintEvent* event) {
+}
+
+void Background::resizeEvent(QResizeEvent* event) {
+    this->changeBackground();
+}
+
+void Background::resizeToScreen(int screen) {
+    auto s = ScreenDaemon::instance()->screens().at(screen);
+    if (s != d->oldScreen) {
+        disconnect(d->screenGeometryChangedConnection);
+
+        d->screenGeometryChangedConnection = connect(s, &SystemScreen::geometryChanged, this, [this, s] {
+            this->setGeometry(s->geometry());
+        });
+        this->setGeometry(s->geometry());
+        this->show();
+
+        d->oldScreen = s;
+    }
+}
+
+void Background::changeBackground(QString background, QList<BackgroundController::BackgroundType> types) {
+    if (background == "custom") {
+        // Ask the user to select a background
+        background = QFileDialog::getOpenFileName(this, tr("Select Background"), "", "Images (*.png *.jpg *.jpeg *.bmp *.gif)");
+        if (background.isEmpty()) return;
+    }
+    for (auto type : types) {
+        d->bg->setBackground(background, type);
+    }
+}
+
+void Background::reconfigureBackgrounds() {
+    if (BackgroundPrivate::backgrounds.count() > ScreenDaemon::instance()->screens().count()) {
+        // Remove backgrounds until the correct number of backgrounds have been created
+        int difference = BackgroundPrivate::backgrounds.count() - ScreenDaemon::instance()->screens().count();
+        for (int i = 0; i < difference; i++) {
+            BackgroundPrivate::backgrounds.takeLast()->deleteLater();
+        }
+    }
+
+    if (BackgroundPrivate::backgrounds.count() < ScreenDaemon::instance()->screens().count()) {
+        // Add new backgrounds until the correct number of backgrounds have been created
+        int difference = ScreenDaemon::instance()->screens().count() - BackgroundPrivate::backgrounds.count();
+        for (int i = 0; i < difference; i++) {
+            Background* w = new Background();
+            BackgroundPrivate::backgrounds.append(w);
+        }
+    }
+
+    for (int i = 0; i < ScreenDaemon::instance()->screens().count(); i++) {
+        BackgroundPrivate::backgrounds.at(i)->resizeToScreen(i);
+    }
+}
+
+void Background::on_tryReloadBackgroundButton_clicked() {
+    this->changeBackground();
+}
+
+void Background::on_backgroundList_clicked(const QModelIndex& index) {
+    QString background = index.data(Qt::UserRole).toString();
+
+    QMenu* menu = new QMenu(this);
+    menu->addSection(tr("Set Background"));
+    menu->addAction(tr("Set as Desktop Background"), this, [this, background] {
+        changeBackground(background, {BackgroundController::Desktop});
+    });
+    menu->addAction(tr("Set as Lock Screen Background"), this, [this, background] {
+        changeBackground(background, {BackgroundController::LockScreen});
+    });
+    menu->addSeparator();
+    menu->addAction(tr("Set for both"), this, [this, background] {
+        changeBackground(background, {BackgroundController::Desktop, BackgroundController::LockScreen});
+    });
+
+    connect(menu, &QMenu::aboutToHide, menu, &QMenu::deleteLater);
+    menu->popup(QCursor::pos());
+}
+
+void Background::keyPressEvent(QKeyEvent* event) {
+    // The desktop is a QDialog, which would take Return as "press the default
+    // button" (the chooser's back button, so the chooser popped open, e.g.
+    // with Super+Return while the desktop had the keyboard) and Escape as
+    // "close". Escape only closes the chooser; Return and Enter do nothing.
+    switch (event->key()) {
+        case Qt::Key_Escape:
+            if (d->isChangeBackgroundVisible) toggleChangeBackground();
+            event->accept();
+            return;
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+            event->accept();
+            return;
+        default:
+            QDialog::keyPressEvent(event);
+    }
+}
+
+void Background::on_backButton_clicked() {
+    this->toggleChangeBackground();
+}
+
+void Background::on_showImageInformationBox_toggled(bool checked) {
+    d->bg->setShouldShowCommunityLabels(checked);
+}
+
+void Background::on_stretchFitButton_toggled(bool checked) {
+    if (checked) {
+        d->bg->setStretchType(BackgroundController::StretchFit);
+    }
+}
+
+void Background::on_zoomCropButton_toggled(bool checked) {
+    if (checked) {
+        d->bg->setStretchType(BackgroundController::ZoomCrop);
+    }
+}
+
+void Background::on_centerButton_toggled(bool checked) {
+    if (checked) {
+        d->bg->setStretchType(BackgroundController::Center);
+    }
+}
+
+void Background::on_tileButton_toggled(bool checked) {
+    if (checked) {
+        d->bg->setStretchType(BackgroundController::Tile);
+    }
+}
+
+void Background::on_zoomFitButton_toggled(bool checked) {
+    if (checked) {
+        d->bg->setStretchType(BackgroundController::ZoomFit);
+    }
+}
+
+void Background::on_actionEndSession_triggered() {
+}
