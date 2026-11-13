@@ -90,7 +90,7 @@ ClaudeChunk::ClaudeChunk() :
 
     // The beat ends where the logo is whole, so work that stops mid-beat
     // lets it finish first
-    d->beat.setInterval(33);
+    d->beat.setInterval(50); // 20 fps: the logo is 18 px
     connect(&d->beat, &QTimer::timeout, this, [this] {
         const double phase = (d->clock.elapsed() % BeatMs) / double(BeatMs);
         if (phase < d->phase && d->activity != ClaudeUsage::Working) {
@@ -99,7 +99,8 @@ ClaudeChunk::ClaudeChunk() :
         } else {
             d->phase = phase;
         }
-        this->update();
+        // only the logo moves (a full repaint redraws the bar or the lock's wallpaper behind it)
+        if (this->isVisible()) this->update(QRect(6 - 2, this->height() / 2 - 11, 22, 22));
     });
 }
 

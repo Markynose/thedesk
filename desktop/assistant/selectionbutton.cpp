@@ -62,6 +62,8 @@ PebbleSelectionButton::PebbleSelectionButton() :
 
 void PebbleSelectionButton::selectionChanged() {
     this->hide();
+    d->hovered = false; // hidden under the pointer: no leave event comes
+    d->frame.stop();
     d->settle.start();
 }
 
@@ -76,7 +78,6 @@ void PebbleSelectionButton::appear() {
     d->pop->animateTo(1.0);
     this->show();
     this->raise();
-    d->frame.start();
     d->linger.start();
 }
 
@@ -92,7 +93,6 @@ void PebbleSelectionButton::paintEvent(QPaintEvent* event) {
     const QRectF face(-Size / 2.0, -Size / 2.0, Size, Size);
     if (d->hovered) M3LoadingIndicator::paint(&p, face, d->clock.elapsed(), ink, fill);
     else M3LoadingIndicator::paintDeterminate(&p, face, 0.0f, ink, fill);
-    if (!this->isVisible()) d->frame.stop();
 }
 
 void PebbleSelectionButton::mousePressEvent(QMouseEvent* event) {
@@ -104,12 +104,14 @@ void PebbleSelectionButton::mousePressEvent(QMouseEvent* event) {
 
 void PebbleSelectionButton::enterEvent(QEnterEvent* event) {
     Q_UNUSED(event)
-    d->hovered = true; // it thinks while you point at it
-    this->update();
+    d->hovered = true; // it thinks while you point at it (frames only then: the pop has its own spring)
+    d->frame.start();
 }
 
 void PebbleSelectionButton::leaveEvent(QEvent* event) {
     Q_UNUSED(event)
     d->hovered = false;
+    d->frame.stop();
+    this->update();
     d->linger.start(1500);
 }

@@ -10,6 +10,8 @@
  * *************************************/
 #include "gatewaylogo.h"
 
+#include <QHash>
+
 #include <QAbstractButton>
 #include <QEvent>
 #include <QPainter>
@@ -166,14 +168,24 @@ void GatewayLogo::paintEvent(QPaintEvent* event) {
     // squeezes it narrow and tall as the shape rounds off
     const double round = qBound(0.0, d->round->currentValue().toDouble(), 1.0);
     const double weight = d->weight->currentValue().toDouble();
-    QFont font(QStringLiteral("Roboto Flex"));
-    font.setPixelSize(qRound(r.height() * (0.62 + 0.1 * round)));
-    font.setVariableAxis(QFont::Tag("opsz"), float(font.pixelSize()));
-    font.setVariableAxis(QFont::Tag("wght"), float(qBound(100.0, 250 + 750 * weight, 1000.0)));
-    font.setVariableAxis(QFont::Tag("wdth"), float(151 - 126 * round));
-    QPainterPath glyph;
-    glyph.setFillRule(Qt::WindingFill);
-    glyph.addText(0, 0, font, QStringLiteral("d"));
+    // in steps, each glyph made once: every new axis value is a new font instance, and the springs move each frame
+    const int px = qRound(r.height() * (0.62 + 0.1 * round));
+    const int wght = qBound(100, qRound((250 + 750 * weight) / 20) * 20, 1000);
+    const int wdth = qRound((151 - 126 * round) / 4) * 4;
+    static QHash<quint64, QPainterPath> glyphs;
+    const quint64 key = (quint64(px) << 32) | (quint64(wght) << 16) | quint64(wdth);
+    if (!glyphs.contains(key)) {
+        QFont font(QStringLiteral("Roboto Flex"));
+        font.setPixelSize(px);
+        font.setVariableAxis(QFont::Tag("opsz"), float(px));
+        font.setVariableAxis(QFont::Tag("wght"), float(wght));
+        font.setVariableAxis(QFont::Tag("wdth"), float(wdth));
+        QPainterPath path;
+        path.setFillRule(Qt::WindingFill);
+        path.addText(0, 0, font, QStringLiteral("d"));
+        glyphs.insert(key, path);
+    }
+    const QPainterPath glyph = glyphs.value(key);
     painter.translate(r.center());
     painter.rotate(d->flip->currentValue().toDouble() * 180); // d, turned half way round, is a p
     painter.fillPath(glyph.translated(-glyph.boundingRect().center()), scheme.onTertiaryContainer);

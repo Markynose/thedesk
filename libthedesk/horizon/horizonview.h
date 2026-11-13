@@ -82,6 +82,7 @@ class LIBTHEDESK_EXPORT HorizonView : public QWidget {
         HorizonViewPrivate* d;
 
         void ensureRendered();
+        void paintScene(QPaintDevice* device);
         bool paintMoons(QPainter& painter, const HorizonScene::Geometry& geometry, qint64 now, bool labels);
         void startAnimating();
 };

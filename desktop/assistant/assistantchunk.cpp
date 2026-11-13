@@ -33,7 +33,10 @@ AssistantChunk::AssistantChunk() :
     this->setCursor(Qt::PointingHandCursor);
     d->clock.start();
     d->frame.setInterval(16);
-    connect(&d->frame, &QTimer::timeout, this, qOverload<>(&QWidget::update));
+    connect(&d->frame, &QTimer::timeout, this, [this] {
+        if (this->isVisible()) this->update();
+        else d->frame.stop(); // taken out of the bar (the panel opened again): setState starts it next time
+    });
     d->pop = new M3SpringAnimation(this);
     d->pop->setToken(M3Motion::SpatialFast);
     d->pop->snapTo(1.0);

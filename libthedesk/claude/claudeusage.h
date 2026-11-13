@@ -75,6 +75,7 @@ class LIBTHEDESK_EXPORT ClaudeUsage : public QObject {
         // grow from the middle and draw back in: phase runs 0-1 through one
         // beat; below 0 the logo rests, whole
         static void paintLogo(QPainter* painter, const QRectF& rect, double phase = -1);
+        static void paintBeat(QPainter* painter, const QRectF& rect, double phase);
 
     signals:
         void changed();

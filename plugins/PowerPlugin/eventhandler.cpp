@@ -52,6 +52,7 @@
 
 struct EventHandlerPrivate {
         QPointer<QWidget> batteryChunk;
+        QTimer* idleTimer;
         KeyGrab* powerKey;
         KeyGrab* ctrlAltDelKey;
         QDBusUnixFileDescriptor buttonInhibitor;
@@ -143,10 +144,10 @@ EventHandler::EventHandler(QObject* parent) :
     });
     d->caffeinateChunk->setQuickWidget(caffeinateChunkQuickWidget);
 
-    QTimer* timer = new QTimer(this);
-    timer->setInterval(1000);
-    connect(timer, &QTimer::timeout, this, &EventHandler::checkIdleTimer);
-    timer->start();
+    d->idleTimer = new QTimer(this);
+    d->idleTimer->setInterval(1000);
+    connect(d->idleTimer, &QTimer::timeout, this, &EventHandler::checkIdleTimer);
+    d->idleTimer->start();
 
     d->suspendNotificationAnimation = new tVariantAnimation(this);
     d->suspendNotificationAnimation->setStartValue(1.0);
@@ -194,6 +195,14 @@ EventHandler::~EventHandler() {
 
 void EventHandler::checkIdleTimer() {
     quint64 idleTimer = DesktopWm::msecsIdle();
+    // Look again when the nearest timeout could be due (at most every 30 s), every 2 s once one has
+    // fired (so coming back resets it soon); each look is an X round trip
+    auto due = [this, idleTimer](const char* key, bool performed) -> qint64 {
+        const quint64 timeout = d->settings.value(QStringLiteral("Power/timeouts.%1.value").arg(key)).toInt() * d->timeoutFactors.value(d->settings.value(QStringLiteral("Power/timeouts.%1.unit").arg(key)).toString(), 0);
+        if (timeout == 0) return 30000;
+        if (performed) return 2000;
+        return qint64(timeout) - qint64(idleTimer) + 200;
+    };
     if (idleTimer < d->oldIdleTimer) {
         if (d->suspendNotificationAnimation->state() == tVariantAnimation::Running) {
             d->suspendNotificationAnimation->stop();
@@ -204,6 +213,7 @@ void EventHandler::checkIdleTimer() {
         d->suspendActionPerformed = false;
     }
     d->oldIdleTimer = idleTimer;
+    d->idleTimer->setInterval(int(qBound(qint64(1000), qMin(due("screenoff", d->screenOffActionPerformed), due("suspend", d->suspendActionPerformed)), qint64(30000))));
 
     // Ensure that there are no full screen windows so we don't switch off the screen if someone is watching a video for instance
     for (DesktopWmWindowPtr window : DesktopWm::openWindows()) {

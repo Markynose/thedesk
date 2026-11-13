@@ -35,6 +35,7 @@ struct ClaudeUsagePrivate {
         ClaudeUsage::Limit session, week;
         QDateTime updated;
         bool firstRead = true;
+        QByteArray lastRead; // a session's heartbeat touches the folder: unchanged usage isn't news
 
         // The open sessions, as the mod last wrote them
         struct Session {
@@ -139,14 +140,18 @@ ClaudeUsage::ClaudeUsage() :
 void ClaudeUsage::read() {
     QFile file(d->path);
     if (!file.open(QFile::ReadOnly)) {
+        d->lastRead.clear(); // when it's back, it's news again
         if (d->available) {
             d->available = false;
             emit changed();
         }
         return;
     }
-    const QJsonObject object = QJsonDocument::fromJson(file.readAll()).object();
+    const QByteArray raw = file.readAll();
+    if (!d->firstRead && raw == d->lastRead) return;
+    const QJsonObject object = QJsonDocument::fromJson(raw).object();
     if (object.isEmpty()) return; // half-written: the next change has it
+    d->lastRead = raw;
     const Limit oldSession = d->session, oldWeek = d->week;
     d->session = limitFrom(object.value(QStringLiteral("fiveHour")));
     d->week = limitFrom(object.value(QStringLiteral("sevenDay")));
@@ -304,6 +309,27 @@ void ClaudeUsage::paintLogo(QPainter* painter, const QRectF& rect, double phase)
         logo.render(painter, rect);
         return;
     }
+    // The beat runs for hours while Claude works: each of its 48 frames is drawn once per size, then reused
+    static QHash<quint64, QPixmap> frames;
+    const double dpr = painter->device() ? painter->device()->devicePixelRatioF() : 1;
+    const QSize pixels = (rect.size() * dpr).toSize();
+    const int step = int(phase * 48) % 48;
+    const quint64 key = (quint64(pixels.width()) << 32) | (quint64(pixels.height()) << 8) | quint64(step);
+    if (!frames.contains(key)) {
+        if (frames.size() > 400) frames.clear();
+        QPixmap frame(pixels);
+        frame.setDevicePixelRatio(dpr);
+        frame.fill(Qt::transparent);
+        QPainter framePainter(&frame);
+        framePainter.setRenderHint(QPainter::Antialiasing);
+        paintBeat(&framePainter, QRectF(QPointF(0, 0), rect.size()), step / 48.0);
+        frames.insert(key, frame);
+    }
+    painter->drawPixmap(rect.topLeft(), frames.value(key));
+}
+
+void ClaudeUsage::paintBeat(QPainter* painter, const QRectF& rect, double phase) {
+    static QSvgRenderer logo(QStringLiteral(":/libthedesk/claude.svg"));
     // One beat: the rays grow out of the middle, some ahead of others (the
     // lead turns around the logo), reach their whole length and draw back in.
     // The logo is one path, so its rays are shown through a shape that does it

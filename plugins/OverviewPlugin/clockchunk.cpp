@@ -18,6 +18,8 @@
  *
  * *************************************/
 #include "clockchunk.h"
+
+#include <cmath>
 #include "ui_clockchunk.h"
 
 #include <statemanager.h>
@@ -50,10 +52,11 @@ ClockChunk::ClockChunk() :
     connect(StateManager::barManager(), &BarManager::barHeightTransitioning, this, [ = ](qreal percentage) {
         qreal pointSize = (15 - this->font().pointSizeF()) * percentage + this->font().pointSizeF();
         QFont font = this->font();
-        font.setPointSizeF(pointSize);
+        font.setPointSizeF(std::round(pointSize * 2) / 2);
         // Expressive: the clock swells in weight and width as the bar opens
-        font.setVariableAxis(QFont::Tag("wght"), float(650 + 350 * percentage));
-        font.setVariableAxis(QFont::Tag("wdth"), float(100 + 25 * percentage));
+        // (in steps: every new axis value is a new font instance, and this runs each frame of the bar opening)
+        font.setVariableAxis(QFont::Tag("wght"), float(std::round((650 + 350 * percentage) / 25) * 25));
+        font.setVariableAxis(QFont::Tag("wdth"), float(std::round((100 + 25 * percentage) / 5) * 5));
 
         steadyDigits(ui->time, font);
         ui->ampmLabel->setFont(font);

@@ -535,7 +535,7 @@ AssistantPanel::AssistantPanel() :
                 d->lastNumbers.insert(m.captured(2), m.captured(1).toDouble());
             }
         }
-        if (d->inBar) {
+        if (d->inBar || d->toBarAt >= 0) { // or still on its way there
             d->chunk->setState(true, d->lastDone.isEmpty() ? tr("Answer ready") : tr("Done · %1").arg(d->lastDone));
             // a nudge: it finished while they were elsewhere
             if (tSettings().value(QStringLiteral("Assistant/nudges")).toBool()) {

@@ -45,8 +45,10 @@ ScreenBrightnessChunk::ScreenBrightnessChunk() :
             });
         }
         // The kernel's backlight has no change signal: catch up when the bar opens
-        connect(StateManager::barManager(), &BarManager::barHeightTransitioning, this, [this] {
-            if (!ui->brightnessSlider->isSliderDown()) ui->brightnessSlider->setValue(static_cast<int>(Backlight::value() * 100));
+        connect(StateManager::barManager(), &BarManager::barHeightTransitioning, this, [this, last = 0.0](qreal percentage) mutable {
+            // once as it starts to open (this fires every frame, and reading the backlight is a round trip)
+            if (last == 0 && percentage > 0 && !ui->brightnessSlider->isSliderDown()) ui->brightnessSlider->setValue(static_cast<int>(Backlight::value() * 100));
+            last = percentage;
         });
         ui->brightnessSlider->setValue(static_cast<int>(Backlight::value() * 100));
     }

@@ -159,7 +159,10 @@ NotificationsDrawerWidget::NotificationsDrawerWidget(NotificationPtr notificatio
         ui->bodyLabel->setFont(body);
         recolour(ui->bodyLabel, s.onSurfaceVariant);
     }
-    connect(d->timeout, &tVariantAnimation::valueChanged, ui->mainFrame, qOverload<>(&QWidget::update));
+    connect(d->timeout, &tVariantAnimation::valueChanged, ui->mainFrame, [this] {
+        // only the countdown line moves: repaint its strip, not the card and its labels
+        ui->mainFrame->update(QRect(14, ui->mainFrame->height() - 8, ui->mainFrame->width() - 28, 7));
+    });
     ui->actionsLayout->setContentsMargins(12, 0, 12, 14);
     ui->actionsLayout->setSpacing(8);
 

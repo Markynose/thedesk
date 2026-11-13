@@ -22,6 +22,7 @@
 #include <QElapsedTimer>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPaintEvent>
 #include <QTimer>
 #include <QtMath>
 #include "horizonshapes.h"
@@ -68,6 +69,10 @@ namespace {
 
 struct HorizonViewPrivate {
         int fixedScene = -1;
+
+        // The last still frame: a small repaint over a still horizon (a clock, a chip) copies from it
+        QPixmap still;
+        bool stillDirty = true;
 
         // Cached layers at the current size
         QSize renderedSize;
@@ -146,11 +151,13 @@ HorizonView::HorizonView(QWidget* parent) :
 
     d->frameTimer.setInterval(frameMs);
     connect(&d->frameTimer, &QTimer::timeout, this, [this] {
+        d->stillDirty = true;
         this->update();
     });
 
     d->idleTimer.setInterval(idleMs);
     connect(&d->idleTimer, &QTimer::timeout, this, [this] {
+        d->stillDirty = true;
         this->update(); // time of day moved on
     });
     d->idleTimer.start();
@@ -165,6 +172,7 @@ HorizonView::~HorizonView() {
 
 void HorizonView::setFixedScene(int scene) {
     d->fixedScene = scene;
+    d->stillDirty = true;
     this->update();
 }
 
@@ -178,6 +186,7 @@ void HorizonView::setDesktop(int index, int count, bool animate) {
     if (!animate || !this->isVisible() || qFuzzyCompare(target + 1, d->currentShift(now) + 1)) {
         d->shiftFrom = d->shiftTo = target;
         d->shiftStart = -1;
+        d->stillDirty = true;
         this->update();
         return;
     }
@@ -199,6 +208,7 @@ void HorizonView::setBattery(double level, bool charging) {
     }
     d->battery = level;
     d->charging = charging;
+    d->stillDirty = true;
     this->update();
 }
 
@@ -246,11 +256,13 @@ void HorizonView::setCaption(QString title, QString subtitle) {
 
 void HorizonView::setQuietRect(QRectF rect) {
     d->quiet = rect;
+    d->stillDirty = true;
     this->update();
 }
 
 void HorizonView::setTopShade(bool shade) {
     d->topShade = shade;
+    d->stillDirty = true;
     this->update();
 }
 
@@ -276,6 +288,7 @@ void HorizonView::pollBattery() {
 
 void HorizonView::startAnimating() {
     if (!d->frameTimer.isActive()) d->frameTimer.start();
+    d->stillDirty = true;
     this->update();
 }
 
@@ -298,9 +311,27 @@ void HorizonView::ensureRendered() {
 }
 
 void HorizonView::paintEvent(QPaintEvent* event) {
-    Q_UNUSED(event)
     ensureRendered();
     if (this->size().isEmpty()) return;
+    if (d->frameTimer.isActive()) {
+        // moving: straight to the screen; the still frame is old now
+        d->stillDirty = true;
+        paintScene(this);
+        return;
+    }
+    const qreal dpr = this->devicePixelRatioF();
+    if (d->stillDirty || d->still.size() != this->size() * dpr) {
+        d->still = QPixmap(this->size() * dpr);
+        d->still.setDevicePixelRatio(dpr);
+        paintScene(&d->still);
+        d->stillDirty = d->frameTimer.isActive(); // it started moving: don't trust it next time
+    }
+    const QRect r = event->rect();
+    QPainter p(this);
+    p.drawPixmap(r, d->still, QRectF(QPointF(r.topLeft()) * dpr, QSizeF(r.size()) * dpr));
+}
+
+void HorizonView::paintScene(QPaintDevice* device) {
 
     const qint64 now = d->clock.elapsed();
     const double w = this->width(), h = this->height();
@@ -358,7 +389,7 @@ void HorizonView::paintEvent(QPaintEvent* event) {
     }
     rise += night * h * 0.05; // the planet sinks a little at night
 
-    QPainter p(this);
+    QPainter p(device);
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::SmoothPixmapTransform, push != 1);
     p.fillRect(this->rect(), Qt::black);
@@ -680,5 +711,6 @@ bool HorizonView::paintMoons(QPainter& p, const HorizonScene::Geometry& g, qint6
 
 void HorizonView::setTide(double progress) {
     d->tide = progress < 0 ? -1 : qBound(0.0, progress, 1.0);
+    d->stillDirty = true;
     this->update();
 }
