@@ -38,6 +38,16 @@ namespace {
         return pixmap;
     }
 
+    // How far an ancestor (the Status Center's side pane) has folded into a
+    // navigation rail: 0 a list, 1 icons only (property m3Rail)
+    double railOf(const QWidget* widget) {
+        for (const QWidget* w = widget; w; w = w->parentWidget()) {
+            const QVariant rail = w->property("m3Rail");
+            if (rail.isValid()) return qBound(0.0, rail.toDouble(), 1.0);
+        }
+        return 0;
+    }
+
     QRectF pillRect(const QRect& row) {
         return QRectF(row).adjusted(8, 2, -8, -2);
     }
@@ -146,7 +156,9 @@ M3NavigationDelegate::M3NavigationDelegate(QObject* parent) :
 
 QSize M3NavigationDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const {
     QSize size = QStyledItemDelegate::sizeHint(option, index);
-    return QSize(size.width() + circle, rowHeight);
+    // folding into a rail, a row asks for no more than its circle (else the list scrolls sideways)
+    const double rail = railOf(option.widget);
+    return QSize(qRound((size.width() + circle) * (1 - rail) + (circle + 32) * rail), rowHeight);
 }
 
 void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const {
@@ -179,7 +191,10 @@ void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& 
     // (the selected row's circle turns Primary so it stands out from the pill)
     const QColor circleColour = selected ? s.primary : role == 0 ? s.primaryContainer : role == 1 ? s.tertiaryContainer : s.secondaryContainer;
     const QColor symbolColour = selected ? s.onPrimary : role == 0 ? s.onPrimaryContainer : role == 1 ? s.onTertiaryContainer : s.onSecondaryContainer;
-    QRectF dot(rtl ? pill.right() - 8 - circle : pill.left() + 8, pill.center().y() - circle / 2.0, circle, circle);
+    // folding into a rail: the circle slides to the middle, the words fade
+    const double rail = railOf(option.widget);
+    const double dotX = rtl ? pill.right() - 8 - circle : pill.left() + 8;
+    QRectF dot(dotX + (pill.center().x() - circle / 2.0 - dotX) * rail, pill.center().y() - circle / 2.0, circle, circle);
     QPainterPath circlePath;
     circlePath.addEllipse(dot);
     painter->fillPath(circlePath, circleColour);
@@ -205,6 +220,12 @@ void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& 
     }
 
     // Label and chevron
+    if (rail >= 0.99) {
+        painter->restore();
+        return;
+    }
+    painter->setOpacity(1 - qMin(1.0, rail * 2));
+    painter->setClipRect(pill);
     const bool hasChildren = index.data(Qt::UserRole).toBool();
     QRectF text = pill.adjusted(8 + circle + 12, 0, -(hasChildren ? 36 : 12), 0);
     if (rtl) text = pill.adjusted(hasChildren ? 36 : 12, 0, -(8 + circle + 12), 0);
