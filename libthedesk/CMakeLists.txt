@@ -18,6 +18,7 @@ set(SOURCES
     actionquickwidget.cpp
     barmanager.cpp
     chunk.cpp
+    richtip.cpp
     common.cpp
     gatewaymanager.cpp
     gatewaysearchprovider.cpp
@@ -90,6 +91,7 @@ set(HEADERS
     actionquickwidget.h
     barmanager.h
     chunk.h
+    richtip.h
     common.h
     gatewaymanager.h
     gatewaysearchprovider.h

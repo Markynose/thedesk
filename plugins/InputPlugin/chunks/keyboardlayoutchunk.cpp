@@ -19,6 +19,10 @@
  * *************************************/
 #include "keyboardlayoutchunk.h"
 
+#include <richtip.h>
+#include <statemanager.h>
+#include <statuscentermanager.h>
+
 #include <QEvent>
 #include <QMenu>
 #include <QPainter>
@@ -77,6 +81,11 @@ KeyboardLayoutChunk::KeyboardLayoutChunk() :
     this->setCursor(Qt::PointingHandCursor);
     this->setAttribute(Qt::WA_Hover);
     this->installEventFilter(this);
+    RichTip::attach(this, [] {
+        return RichTip::Content{DesktopWm::keyboardLayoutDescription(DesktopWm::currentKeyboardLayout()), tr("Caps Lock switches to the next layout. Shift + Caps Lock types in capitals."), tr("Layouts"), [] {
+            StateManager::statusCenterManager()->showWithPane(QStringLiteral("InputSettings"));
+        }};
+    });
 
     d->roll = spring(this, M3Motion::SpatialDefault, 1.0);
     d->width = spring(this, M3Motion::SpatialFast, 0.0);
@@ -148,7 +157,6 @@ void KeyboardLayoutChunk::updateLayouts() {
 void KeyboardLayoutChunk::updateCurrentLayout() {
     const QString layout = DesktopWm::currentKeyboardLayout();
     const QString next = code(layout);
-    this->setToolTip(DesktopWm::keyboardLayoutDescription(layout));
     const QFontMetrics metrics(label(this->font()));
     if (d->shown.isEmpty()) {
         d->shown = next;

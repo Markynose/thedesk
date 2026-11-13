@@ -654,12 +654,12 @@ void M3Style::polish(QWidget* widget) {
         view->viewport()->setAttribute(Qt::WA_Hover);
     }
     if (auto* progress = qobject_cast<QProgressBar*>(widget)) {
-        // Indeterminate bars animate; the animator only repaints visible ones
-        if (progress->minimum() == progress->maximum()) animator->watchBusy(progress);
+        // Indeterminate bars and raised waves move; the animator only repaints visible ones
+        if (M3Animator::progressMoves(progress)) animator->watchBusy(progress);
         if (!progress->property("m3BusyHooked").toBool()) {
             progress->setProperty("m3BusyHooked", true);
             connect(progress, &QProgressBar::valueChanged, this, [this, progress] {
-                if (progress->minimum() == progress->maximum()) animator->watchBusy(progress);
+                if (M3Animator::progressMoves(progress)) animator->watchBusy(progress);
             });
         }
     }
@@ -1837,6 +1837,32 @@ void M3Style::drawProgress(const QStyleOption* option, QPainter* painter, const 
     QColor activeColour = active ? s.primary : alpha(s.onSurface, Opacity::DisabledContent);
     QColor trackColour = active ? s.secondaryContainer : alpha(s.onSurface, Opacity::DisabledContainer);
 
+    // M3E wavy progress (WavyProgressIndicator): the active line is a sine,
+    // amplitude 3, travelling one wavelength a second; the track stays flat.
+    // Horizontal bars only, and only when enabled
+    const bool expressive = M3Motion::expressive();
+    const double phase = expressive ? M3Animator::now() / 1000.0 : 0;
+    auto wave = [&](double from, double to, double amplitude, double wavelength) {
+        from = qBound(0.0, from, length);
+        to = qBound(0.0, to, length);
+        if (!horizontal || !active || amplitude < 0.05) {
+            fill(painter, segment(from, to), activeColour);
+            return;
+        }
+        if (to - from < 0.5) return;
+        // the stroke's round caps reach thickness/2 past each end
+        const double a = from + thickness / 2, b = qMax(a, to - thickness / 2);
+        QPainterPath path;
+        for (double x = a;; x = qMin(b, x + 2)) {
+            const double along = reversed ? length - x : x;
+            const QPointF point(r.left() + along, r.center().y() + 3 * amplitude * std::sin(2 * M_PI * (x / wavelength - phase)));
+            if (x == a) path.moveTo(point);
+            else path.lineTo(point);
+            if (x >= b) break;
+        }
+        painter->strokePath(path, QPen(activeColour, thickness, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    };
+
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing);
     if (bar->minimum == bar->maximum) {
@@ -1849,14 +1875,16 @@ void M3Style::drawProgress(const QStyleOption* option, QPainter* painter, const 
         for (auto line : {lines[1], lines[0]}) {
             if (line.second - line.first < 0.5) continue;
             fill(painter, segment(cursor, line.first - gap), trackColour);
-            fill(painter, segment(line.first, line.second), activeColour);
+            wave(line.first, line.second, 1, 20); // IndeterminateActiveWaveWavelength
             cursor = qMax(cursor, line.second + gap);
         }
         fill(painter, segment(cursor, length), trackColour);
     } else {
         double fraction = double(bar->progress - bar->minimum) / (bar->maximum - bar->minimum);
         double end = fraction * length;
-        fill(painter, segment(0, end), activeColour);
+        // the wave rises after 10% and settles flat by 95% (Compose's indicatorAmplitude, eased over 5%)
+        const double amplitude = qBound(0.0, (fraction - 0.1) / 0.05, 1.0) * qBound(0.0, (0.95 - fraction) / 0.05, 1.0);
+        wave(0, end, amplitude, 40); // ActiveWaveWavelength
         fill(painter, segment(end > 0 ? end + gap : 0, length), trackColour);
         // Stop indicator: a 4 dp dot at the end of the track
         if (end + gap < length - thickness) fill(painter, segment(length - thickness, length), activeColour);

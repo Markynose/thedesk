@@ -41,6 +41,7 @@ class M3Animator : public QObject {
         void watch(QWidget* widget);
         void unwatch(QWidget* widget);
         void watchBusy(QWidget* widget); // repaint every frame while visible
+        static bool progressMoves(const class QProgressBar* progress);
 
         // 0..1 animated values; widgets that aren't watched report `fallback`
         double hover(const QWidget* widget, bool fallback) const;

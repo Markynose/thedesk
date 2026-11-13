@@ -10,6 +10,8 @@
  * *************************************/
 #include "claudechunk.h"
 
+#include <richtip.h>
+
 #include <QElapsedTimer>
 #include <QPainter>
 #include <QTimer>
@@ -73,6 +75,21 @@ ClaudeChunk::ClaudeChunk() :
         StateManager::statusCenterManager()->showWithPane(QStringLiteral("OverviewPane"));
     });
     connect(ClaudeUsage::instance(), &ClaudeUsage::changed, this, &ClaudeChunk::follow);
+    RichTip::attach(this, [] {
+        ClaudeUsage* usage = ClaudeUsage::instance();
+        const ClaudeUsage::Activity activity = usage->activity();
+        QStringList lines;
+        if (activity == ClaudeUsage::Waiting) lines.append(usage->waitingText());
+        auto line = [](const QString& what, const ClaudeUsage::Limit& limit) {
+            const QString reset = ClaudeUsage::resetText(limit);
+            return reset.isEmpty() ? tr("%1: %2").arg(what, figure(limit)) : tr("%1: %2 · %3").arg(what, figure(limit), reset);
+        };
+        lines.append(line(tr("This session"), usage->session()));
+        lines.append(line(tr("This week"), usage->week()));
+        lines.append(usage->updatedText());
+        return RichTip::Content{activity == ClaudeUsage::Working ? tr("Claude is working") : activity == ClaudeUsage::Waiting ? tr("Claude needs you") : tr("Claude"),
+            lines.join('\n'), tr("Details"), [] { StateManager::statusCenterManager()->showWithPane(QStringLiteral("OverviewPane")); }};
+    });
 
     d->fill = new M3SpringAnimation(this);
     d->fill->setToken(M3Motion::EffectsDefault);
@@ -146,14 +163,6 @@ void ClaudeChunk::follow() {
         }
     }
 
-    const QString limits = tr("%1 of this session, %2 of this week · %3").arg(figure(usage->session()), figure(usage->week()), usage->updatedText().toLower());
-    if (activity == ClaudeUsage::Waiting) {
-        this->setToolTip(tr("Claude needs you: %1").arg(usage->waitingText()) + QStringLiteral("\n") + limits);
-    } else if (activity == ClaudeUsage::Working) {
-        this->setToolTip(tr("Claude is working · %1").arg(limits));
-    } else {
-        this->setToolTip(tr("Claude: %1").arg(limits));
-    }
     this->updateGeometry();
     this->update();
 }

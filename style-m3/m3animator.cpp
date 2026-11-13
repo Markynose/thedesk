@@ -13,6 +13,8 @@
  * *************************************/
 #include "m3animator.h"
 
+#include <QProgressBar>
+
 #include <QAbstractButton>
 #include <QAbstractSlider>
 #include <QEasingCurve>
@@ -187,8 +189,19 @@ void M3Animator::unwatch(QWidget* widget) {
 }
 
 void M3Animator::watchBusy(QWidget* widget) {
-    if (!busy.contains(QPointer<QWidget>(widget))) busy.append(QPointer<QWidget>(widget));
+    if (!busy.contains(QPointer<QWidget>(widget))) {
+        busy.append(QPointer<QWidget>(widget));
+        widget->installEventFilter(this); // its Show starts the frames again
+    }
     if (!frameTimer.isActive()) frameTimer.start();
+}
+
+bool M3Animator::progressMoves(const QProgressBar* progress) {
+    // indeterminate bars always; determinate ones while their wave is up (10-95%, Compose) and motion is expressive
+    if (progress->minimum() == progress->maximum()) return true;
+    if (!M3Motion::expressive()) return false;
+    const double p = double(progress->value() - progress->minimum()) / (progress->maximum() - progress->minimum());
+    return p > 0.1 && p < 0.95;
 }
 
 M3SpringAnimation* M3Animator::spring(QWidget* widget, M3SpringAnimation*& slot, int token, double initial) {
@@ -324,7 +337,9 @@ void M3Animator::tick() {
         if (!it->ripples.isEmpty()) active = true;
     }
     for (auto it = busy.begin(); it != busy.end();) {
-        if (it->isNull()) {
+        auto* progress = qobject_cast<QProgressBar*>(it->data());
+        if (it->isNull() || (progress && !progressMoves(progress))) {
+            if (progress) progress->update(); // one last frame, flat
             it = busy.erase(it);
             continue;
         }
@@ -334,12 +349,14 @@ void M3Animator::tick() {
         }
         it++;
     }
-    if (!active && busy.isEmpty()) frameTimer.stop();
+    // nothing visible moves: no frames (a busy widget being shown starts them again)
+    if (!active) frameTimer.stop();
 }
 
 bool M3Animator::eventFilter(QObject* watched, QEvent* event) {
     auto* widget = qobject_cast<QWidget*>(watched);
     if (!widget) return false;
+    if (event->type() == QEvent::Show && busy.contains(QPointer<QWidget>(widget)) && !frameTimer.isActive()) frameTimer.start();
     auto it = states.find(widget);
     if (it == states.end()) return false;
 

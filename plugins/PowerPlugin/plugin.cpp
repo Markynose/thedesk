@@ -21,6 +21,8 @@
 #include <desksound.h>
 #include "plugin.h"
 
+#include <richtip.h>
+
 #include "chargingripple.h"
 #include <QTimer>
 
@@ -97,6 +99,11 @@ void Plugin::activate() {
     });
     d->logind = new EventHandler();
     d->logind->setBatteryChunk(d->powerChunk);
+    RichTip::attach(d->powerChunk, [this] {
+        return RichTip::Content{tr("Battery"), d->upower->overallStateDescription(), tr("Power settings"), [] {
+            StateManager::statusCenterManager()->showWithPane(QStringLiteral("PowerSettings"));
+        }};
+    });
     // Testing: the charging ripple a few seconds after starting
     if (qEnvironmentVariableIsSet("TD_CHARGING_RIPPLE_TEST")) {
         QTimer::singleShot(qEnvironmentVariableIntValue("TD_CHARGING_RIPPLE_TEST") * 1000, this, [this] {
