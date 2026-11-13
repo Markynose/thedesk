@@ -29,6 +29,7 @@ struct M3TimeDial::Private {
         bool minutes = false;
         bool twelve = false;
         bool dragging = false;
+        bool keyboard = false; // the focus ring shows for keys, not clicks
         M3SpringAnimation* angle;
         M3SpringAnimation* radius;
 
@@ -229,7 +230,7 @@ void M3TimeDial::paintEvent(QPaintEvent* event) {
         p.drawEllipse(handle, 2, 2);
     }
 
-    if (this->hasFocus()) {
+    if (this->hasFocus() && d->keyboard) {
         // where the keys go: a focus ring round the box being set
         p.setPen(QPen(s.secondary, 3));
         p.setBrush(Qt::NoBrush);
@@ -238,6 +239,7 @@ void M3TimeDial::paintEvent(QPaintEvent* event) {
 }
 
 void M3TimeDial::mousePressEvent(QMouseEvent* event) {
+    d->keyboard = false;
     const QPointF at = event->position();
     if (d->hourBox.contains(at)) return setMinutesMode(false);
     if (d->minuteBox.contains(at)) return setMinutesMode(true);
@@ -263,6 +265,8 @@ void M3TimeDial::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void M3TimeDial::keyPressEvent(QKeyEvent* event) {
+    d->keyboard = true;
+    this->update();
     // arrows step the box being set (minutes don't carry into the hour); Space swaps boxes
     const int step = event->key() == Qt::Key_Up || event->key() == Qt::Key_Right ? 1 : event->key() == Qt::Key_Down || event->key() == Qt::Key_Left ? -1 : 0;
     if (step != 0) {
