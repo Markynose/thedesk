@@ -3,8 +3,9 @@
 
 #include <QWidget>
 
-// Pebble's face, for a moment, next to text the user just selected: a click
-// opens Pebble with the selection and a few things to do with it
+// Pebble's face, for a moment, next to text the user just selected. Pointed
+// at, it opens into a pill of four things to do with it (M3E); the face
+// itself opens Pebble with the selection
 class PebbleSelectionButton : public QWidget {
         Q_OBJECT
     public:
@@ -13,6 +14,7 @@ class PebbleSelectionButton : public QWidget {
     protected:
         void paintEvent(QPaintEvent* event) override;
         void mousePressEvent(QMouseEvent* event) override;
+        void mouseMoveEvent(QMouseEvent* event) override;
         void enterEvent(QEnterEvent* event) override;
         void leaveEvent(QEvent* event) override;
 
@@ -22,6 +24,8 @@ class PebbleSelectionButton : public QWidget {
         Private* d;
         void selectionChanged();
         void appear();
+        void fit();
+        QRectF actionRect(int i) const;
 };
 
 #endif // SELECTIONBUTTON_H

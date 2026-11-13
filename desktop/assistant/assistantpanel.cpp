@@ -673,6 +673,11 @@ void AssistantPanel::openWithScreenshot(const QImage& image) {
     this->update();
 }
 
+void AssistantPanel::openAndAsk(const QString& text) {
+    open();
+    sendText(text);
+}
+
 void AssistantPanel::openWithSelection() {
     // from the face next to selected text: open, with a few things to do with it
     open();

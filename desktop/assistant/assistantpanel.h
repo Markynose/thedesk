@@ -18,6 +18,7 @@ class AssistantPanel : public QDialog {
         void open();
         void close();
         void openWithSelection();
+        void openAndAsk(const QString& text); // opens and sends it, as if typed
         void openWithScreenshot(const QImage& image);
 
     private slots:
