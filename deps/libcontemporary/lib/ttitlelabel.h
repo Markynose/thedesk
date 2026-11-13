@@ -54,6 +54,8 @@ class LIBCONTEMPORARY_EXPORT tTitleLabel : public QLabel {
 
         void updateFont();
         void updateDirection();
+        void followScroll();
+        void updateCollapse();
 
         void paintEvent(QPaintEvent* event);
         void resizeEvent(QResizeEvent* event);

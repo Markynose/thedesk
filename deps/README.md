@@ -95,4 +95,7 @@ When the app runs theDesk's Material3 style (`libContemporaryCommon::isMaterial3
 `tTitleLabel` is a small top app bar (22 px TitleLarge, round 40 dp back
 button, no bottom rule); `tSubtitleLabel` is TitleSmall in Primary, sentence
 case; `lineColor()` is the text colour at 16% (OutlineVariant-like) instead of
-full strength. Other styles are unchanged.
+full strength. Other styles are unchanged. A `tTitleLabel` placed right above
+a scroll area in its layout becomes a medium flexible top app bar: 112 px with
+a 28 px headline at the top of the page, collapsing to 64 px and 22 px as the
+page scrolls (pages that can't scroll keep the big title).
