@@ -151,13 +151,13 @@
 <context>
     <name>Plugin</name>
     <message>
-        <location filename="../plugin.cpp" line="102"/>
-        <location filename="../plugin.cpp" line="114"/>
+        <location filename="../plugin.cpp" line="112"/>
+        <location filename="../plugin.cpp" line="124"/>
         <source>Power Stretch</source>
         <translation>Tiết kiệm pin</translation>
     </message>
     <message>
-        <location filename="../plugin.cpp" line="118"/>
+        <location filename="../plugin.cpp" line="128"/>
         <source>Disable Power Stretch</source>
         <translation>Tắt chế độ tiết kiệm pin</translation>
     </message>

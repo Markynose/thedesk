@@ -66,6 +66,19 @@
     </message>
 </context>
 <context>
+    <name>Plugin</name>
+    <message>
+        <location filename="../plugin.cpp" line="85"/>
+        <source>Volume</source>
+        <translation type="unfinished">Lautstärke</translation>
+    </message>
+    <message>
+        <location filename="../plugin.cpp" line="113"/>
+        <source>Mute</source>
+        <translation type="unfinished">Stumm</translation>
+    </message>
+</context>
+<context>
     <name>QuickWidgetSink</name>
     <message>
         <source>Make Default</source>

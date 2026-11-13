@@ -270,6 +270,401 @@
     </message>
 </context>
 <context>
+    <name>AssistantPanel</name>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="228"/>
+        <source>Back already, %1?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="228"/>
+        <source>Hey again, %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="228"/>
+        <source>Yo %1, what else</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="229"/>
+        <source>Still up, %1?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="229"/>
+        <source>Late one, %1. What&apos;s up</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="229"/>
+        <source>Hey %1. Can&apos;t sleep?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="230"/>
+        <source>Morning, %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="230"/>
+        <source>Morning %1. What are we doing today</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="230"/>
+        <source>Hey %1, early start?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="231"/>
+        <source>Hey %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="231"/>
+        <source>Afternoon, %1. What&apos;s up</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="231"/>
+        <source>Yo %1, what do you need</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="232"/>
+        <source>Evening, %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="232"/>
+        <source>Hey %1. What&apos;s the plan tonight</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="232"/>
+        <source>Evening %1, still at it?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="361"/>
+        <location filename="../assistant/assistantpanel.cpp" line="519"/>
+        <source>Ask %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="486"/>
+        <source>Answer ready</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="486"/>
+        <source>Done · %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="492"/>
+        <source>Pebble&apos;s done</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="493"/>
+        <source>Your answer is ready</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="494"/>
+        <source>Show</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="525"/>
+        <location filename="../assistant/assistantpanel.cpp" line="1762"/>
+        <source>Screen</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="542"/>
+        <source>Copied image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="543"/>
+        <location filename="../assistant/assistantpanel.cpp" line="1762"/>
+        <source>Copied text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="545"/>
+        <source>Selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="595"/>
+        <source>Battery&apos;s at %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="596"/>
+        <source>Pebble can dim the screen to stretch it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="597"/>
+        <source>Dim it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="607"/>
+        <source>Explain this</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="607"/>
+        <source>Summarise it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="607"/>
+        <source>Rewrite it nicer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="607"/>
+        <source>Translate to English</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="666"/>
+        <source>{done} All set%1. I&apos;m here whenever you press Super+Space. Just ask, like you&apos;d text a friend.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="694"/>
+        <source>Working</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="716"/>
+        <source>Ask %1 more</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="858"/>
+        <source>Think harder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="874"/>
+        <location filename="../assistant/assistantpanel.cpp" line="1761"/>
+        <source>Sees</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="915"/>
+        <source>Ask me to change a setting, explain what you copied, or find a file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1080"/>
+        <source>1 step</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1080"/>
+        <source>%1 steps</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1124"/>
+        <source>Allowed · %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1124"/>
+        <source>Not allowed · %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1145"/>
+        <location filename="../assistant/assistantpanel.cpp" line="1815"/>
+        <source>Don&apos;t</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1149"/>
+        <location filename="../assistant/assistantpanel.cpp" line="1818"/>
+        <source>Allow</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1315"/>
+        <source>code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1318"/>
+        <source>Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1327"/>
+        <source>Open in Zed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1361"/>
+        <source>Open</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1364"/>
+        <source>Show in folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1641"/>
+        <source>Hello</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1641"/>
+        <source>What I see</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1641"/>
+        <source>Asking first</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1641"/>
+        <source>My colour</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1641"/>
+        <source>Try it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1709"/>
+        <source>Next</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1713"/>
+        <location filename="../assistant/assistantpanel.cpp" line="1887"/>
+        <source>Back</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1740"/>
+        <source>Hey. I&apos;m your desk&apos;s own assistant.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1741"/>
+        <source>I change settings, look at things with you and get stuff done. Super+Space, any time.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1749"/>
+        <source>Get started</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1755"/>
+        <source>I only see what you let me</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1756"/>
+        <source>Each time you open me, these show what I can see. Tap the x to hide one.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1762"/>
+        <source>kitty · ~/site</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1791"/>
+        <source>I ask before anything risky</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1792"/>
+        <source>Running commands, changing files and closing windows wait for your yes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1804"/>
+        <source>Allowed · Run this</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1804"/>
+        <source>Not allowed · Run this</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1804"/>
+        <source>Run this?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1833"/>
+        <source>Pick my colour</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1834"/>
+        <source>It&apos;s me, thinking. Tap one.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1836"/>
+        <source>Primary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1836"/>
+        <source>Calm</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1836"/>
+        <source>Bright</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1836"/>
+        <source>Ink</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1867"/>
+        <source>Now you try</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1868"/>
+        <source>Press Super and Space.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1870"/>
+        <source>Super</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/assistantpanel.cpp" line="1870"/>
+        <source>Space</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Background</name>
     <message>
         <location filename="../background/background.ui" line="176"/>
@@ -425,6 +820,321 @@
     <message>
         <location filename="../bar/chunkcontainer.ui" line="41"/>
         <source>Open Status Center</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ClaudeBrain</name>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="157"/>
+        <source>I can&apos;t find Claude Code on this computer, so I can&apos;t think yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="205"/>
+        <source>Lost my train of thought. Try again?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="208"/>
+        <source>I couldn&apos;t start my brain (Claude Code). Is it installed and logged in?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="234"/>
+        <source>Thinking harder…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="234"/>
+        <source>Taking a closer look…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="234"/>
+        <source>Digging in…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="374"/>
+        <location filename="../assistant/claudebrain.cpp" line="392"/>
+        <source>Read %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="374"/>
+        <location filename="../assistant/claudebrain.cpp" line="392"/>
+        <source>Reading %1…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="377"/>
+        <source>Looked for %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="377"/>
+        <source>Looking for %1…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="384"/>
+        <source>Edited %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="384"/>
+        <source>Editing %1…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="385"/>
+        <source>Wrote %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="385"/>
+        <source>Writing %1…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="388"/>
+        <source>Searched %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="388"/>
+        <source>Searching %1…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="397"/>
+        <source>Setting brightness</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="397"/>
+        <source>Brightness</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="398"/>
+        <source>Setting the volume</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="398"/>
+        <source>Volume</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="399"/>
+        <source>Muting</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="399"/>
+        <source>Sound</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="400"/>
+        <source>Setting do not disturb</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="400"/>
+        <source>Do not disturb</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="401"/>
+        <source>Switching layout</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="401"/>
+        <source>Switched layout</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="402"/>
+        <source>Opening %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="402"/>
+        <source>Opened %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="403"/>
+        <source>Finding %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="403"/>
+        <source>Found %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="404"/>
+        <source>Closing %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="404"/>
+        <source>Closed %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="405"/>
+        <source>Getting the picture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="405"/>
+        <source>Picture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="406"/>
+        <source>Running a command</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="406"/>
+        <source>Ran a command</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="407"/>
+        <source>Looking at your screen</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="407"/>
+        <source>Looked at your screen</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="408"/>
+        <source>Remembering</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="408"/>
+        <source>Remembered</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="409"/>
+        <source>Forgetting</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="409"/>
+        <source>Forgot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="410"/>
+        <source>Undoing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="410"/>
+        <source>Undone</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="411"/>
+        <source>Checking the desk</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="411"/>
+        <source>Checked the desk</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="412"/>
+        <source>Checking the battery</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="412"/>
+        <source>Checked the battery</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="413"/>
+        <source>Checking notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="413"/>
+        <source>Checked notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="422"/>
+        <source>Done</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="422"/>
+        <source>Working…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="469"/>
+        <source>%1 · written just now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="476"/>
+        <source>Skipped: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="480"/>
+        <source>Something went wrong on my side. Try again?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="529"/>
+        <source>Run this?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="533"/>
+        <source>Close %1?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="534"/>
+        <source>Unsaved work in it may be lost</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="536"/>
+        <source>Change %1?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="541"/>
+        <source>Replace %1?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="541"/>
+        <source>Create %1?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/claudebrain.cpp" line="545"/>
+        <source>Use %1?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -587,6 +1297,133 @@
     <message>
         <location filename="../bar/currentappwidgetmenu.cpp" line="64"/>
         <source>%1 will be forced to exit and won&apos;t have a chance to save any unsaved data.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>DemoBrain</name>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="29"/>
+        <source>Setting brightness…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="31"/>
+        <source>Brightness 30%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="32"/>
+        <source>Turning on do not disturb…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="34"/>
+        <source>Do not disturb till 18:00</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="35"/>
+        <source>Done. Screen&apos;s at 30% and do not disturb is on till 6.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="37"/>
+        <source>Brightness</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="38"/>
+        <location filename="../assistant/demobrain.cpp" line="72"/>
+        <location filename="../assistant/demobrain.cpp" line="75"/>
+        <source>Do not disturb</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="38"/>
+        <location filename="../assistant/demobrain.cpp" line="75"/>
+        <source>Until 18:00 · calls still ring</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="41"/>
+        <location filename="../assistant/demobrain.cpp" line="61"/>
+        <location filename="../assistant/demobrain.cpp" line="73"/>
+        <location filename="../assistant/demobrain.cpp" line="76"/>
+        <source>Undo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="41"/>
+        <location filename="../assistant/demobrain.cpp" line="76"/>
+        <source>Till 7 instead</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="41"/>
+        <location filename="../assistant/demobrain.cpp" line="73"/>
+        <location filename="../assistant/demobrain.cpp" line="76"/>
+        <source>Night light too</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="45"/>
+        <source>Reading index.html…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="47"/>
+        <source>Read index.html</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="48"/>
+        <source>Reading style.css…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="51"/>
+        <source>Read style.css</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="52"/>
+        <source>Editing style.css…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="54"/>
+        <source>Edited style.css</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="55"/>
+        <source>Tidied style.css: the cards use flexbox now and 3 unused rules are gone.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="58"/>
+        <source>~/site · edited just now · 3 rules removed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="61"/>
+        <source>Show the whole change</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="65"/>
+        <source>I&apos;m a stand-in for now, so I can only do the screen and dnd one, or the css one. The real me comes next.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="72"/>
+        <source>Until 19:00 · calls still ring</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/demobrain.cpp" line="73"/>
+        <source>Till 6 again</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1123,6 +1960,98 @@
     </message>
 </context>
 <context>
+    <name>PebbleSelectionButton</name>
+    <message>
+        <location filename="../assistant/selectionbutton.cpp" line="43"/>
+        <source>Ask Pebble about this</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PebbleSettings</name>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="69"/>
+        <location filename="../assistant/pebblesettings.cpp" line="190"/>
+        <source>Pebble</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="93"/>
+        <source>Pebble&apos;s colour</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="95"/>
+        <source>Replay the tour</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="103"/>
+        <source>Little things</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="112"/>
+        <source>Nudges</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="112"/>
+        <source>A snackbar when an answer is ready while Pebble&apos;s in the bar, and a tip when the battery runs low.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="113"/>
+        <source>Button on selected text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="113"/>
+        <source>Select some text and Pebble&apos;s face shows next to it. Click it to ask about the text.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="116"/>
+        <source>What Pebble remembers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="117"/>
+        <source>Nothing yet. Tell Pebble to remember something and it shows here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="126"/>
+        <source>Forget this</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="127"/>
+        <source>Forget everything</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="147"/>
+        <source>How Pebble behaves</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="148"/>
+        <source>Pebble&apos;s instructions live in a file you can change. New chats use what&apos;s there.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="152"/>
+        <source>Edit the instructions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../assistant/pebblesettings.cpp" line="153"/>
+        <source>Back to the default</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>PluginManagement</name>
     <message>
         <location filename="../systemsettings/pluginmanagement/pluginmanagement.ui" line="35"/>
@@ -1370,12 +2299,12 @@ Save your documents and close all apps before starting the reset. This won&apos;
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="80"/>
+        <location filename="../main.cpp" line="82"/>
         <source>Safe Mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="80"/>
+        <location filename="../main.cpp" line="82"/>
         <source>You&apos;re holding the CTRL key. Start theDesk in Safe Mode?</source>
         <translation type="unfinished"></translation>
     </message>

@@ -30,7 +30,7 @@
 <context>
     <name>KeyboardDaemon</name>
     <message>
-        <location filename="../daemons/keyboarddaemon.cpp" line="83"/>
+        <location filename="../daemons/keyboarddaemon.cpp" line="93"/>
         <source>Keyboard Layout</source>
         <translation type="unfinished"></translation>
     </message>
