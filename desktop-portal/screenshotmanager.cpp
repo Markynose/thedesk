@@ -7,6 +7,7 @@ struct ScreenshotManagerPrivate {
         QPixmap finalResult;
         QColor clickedColor;
         bool accepted = false;
+        QRect recordRegion;
         QList<ScreenshotWindow*> screenshotWindows;
         ScreenshotWindow::Type type = ScreenshotWindow::Type::ApplicationScreenshot;
 };
@@ -20,6 +21,15 @@ ScreenshotManager::ScreenshotManager(QObject* parent) :
         connect(w, &ScreenshotWindow::screenshotAvailable, this, &ScreenshotManager::acceptPixmap);
         connect(w, &ScreenshotWindow::colourClicked, this, &ScreenshotManager::acceptColor);
         connect(w, &ScreenshotWindow::cancelled, this, &ScreenshotManager::reject);
+        connect(w, &ScreenshotWindow::recordRequested, this, [this](QRect region) {
+            // The windows step aside as they do for a discard, and the
+            // recording starts once they're gone
+            d->recordRegion = region;
+            d->accepted = false;
+            auto first = d->screenshotWindows.constFirst();
+            connect(first, &ScreenshotWindow::animationComplete, this, &ScreenshotManager::finished);
+            for (auto window : d->screenshotWindows) window->animateDiscard();
+        });
         d->screenshotWindows.append(w);
     }
 }
@@ -56,6 +66,10 @@ QPixmap ScreenshotManager::finalPixmap() {
 
 QColor ScreenshotManager::clickedColor() {
     return d->clickedColor;
+}
+
+QRect ScreenshotManager::recordRegion() {
+    return d->recordRegion;
 }
 
 bool ScreenshotManager::accepted() {

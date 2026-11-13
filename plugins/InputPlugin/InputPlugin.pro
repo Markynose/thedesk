@@ -81,7 +81,6 @@ unix {
 include(../plugins.pri)
 
 FORMS += \
-    chunks/keyboardlayoutchunk.ui \
     settings/inputsettingsleftpane.ui \
     settings/inputsettingspane.ui \
     settings/keyboardsettings.ui \

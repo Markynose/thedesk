@@ -150,3 +150,7 @@ void DesktopUPower::powerStretchChanged(bool isOn) {
     d->powerStretch = isOn;
     emit overallStateChanged();
 }
+
+DesktopUPowerDevice* DesktopUPower::displayDevice() {
+    return d->displayDevice;
+}

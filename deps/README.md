@@ -38,6 +38,12 @@ Every change made here on top of upstream is listed below.
 - `libtdesktopenvironment/plugins/x11/Screens/x11screen{,backend}.cpp`:
   `XRRGetScreenResourcesCurrent` instead of `XRRGetScreenResources`, which
   re-probed every output (~0.7 s each) on every call.
+- `libtdesktopenvironment/plugins/x11/Wm/x11keyboardtables.h`: period, comma,
+  minus and slash map to the main keyboard's keys before the keypad's, so
+  Super+. grabs the full stop, not the keypad's decimal point.
+- `libtdesktopenvironment/lib/UPower/desktopupower.{h,cpp}`: `displayDevice()`,
+  UPower's combined battery, so laptops with two batteries warn once at the
+  figure the bar shows.
 - `libtdesktopenvironment/lib/Screens/screendaemon.{h,cpp}`:
   `isKnownArrangement()`, whether an arrangement was saved for the screens
   connected now (theDesk asks how to use a display in a new combination).

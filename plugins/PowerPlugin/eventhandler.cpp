@@ -180,6 +180,9 @@ EventHandler::EventHandler(QObject* parent) :
     for (DesktopUPowerDevice* device : d->upower->devices()) {
         trackDevice(device);
     }
+    // Laptop batteries warn as one (the bar's figure): a T460's two batteries
+    // each warned at their own level
+    trackDevice(d->upower->displayDevice());
 }
 
 EventHandler::~EventHandler() {
@@ -236,6 +239,7 @@ void EventHandler::setBatteryChunk(QWidget* chunk) {
 }
 
 void EventHandler::trackDevice(DesktopUPowerDevice* device) {
+    if (device->type() == DesktopUPowerDevice::Battery && device != d->upower->displayDevice()) return;
     connect(device, &DesktopUPowerDevice::lowBatteryNotification, this, [=](QString description) {
         DeskSound::play(QStringLiteral("battery-caution"));
         StateManager::instance()->hudManager()->showHud({
@@ -261,7 +265,6 @@ void EventHandler::trackDevice(DesktopUPowerDevice* device) {
         });
     });
     connect(device, &DesktopUPowerDevice::fullNotification, this, [=] {
-        DeskSound::play(QStringLiteral("battery-full"));
         StateManager::instance()->hudManager()->showHud({
             {"icon",    device->iconName()          },
             {"title",   tr("Battery")               },
@@ -272,7 +275,6 @@ void EventHandler::trackDevice(DesktopUPowerDevice* device) {
         });
     });
     connect(device, &DesktopUPowerDevice::dischargingNotification, this, [=] {
-        DeskSound::play(QStringLiteral("power-unplug"));
         StateManager::instance()->hudManager()->showHud({
             {"icon",    device->iconName()          },
             {"title",   tr("Battery")               },

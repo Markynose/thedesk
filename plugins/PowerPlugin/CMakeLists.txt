@@ -7,6 +7,7 @@ set(SOURCES
     chargingripple.cpp
     eventhandler.cpp
     plugin.cpp
+    settings/batteryhealth.cpp
     settings/powersettings.cpp
     sleepmonitor.cpp
 
@@ -17,6 +18,7 @@ set(HEADERS
     chargingripple.h
     eventhandler.h
     plugin.h
+    settings/batteryhealth.h
     settings/powersettings.h
     sleepmonitor.h
 )

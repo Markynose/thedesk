@@ -63,6 +63,7 @@ class ScreenshotWindow : public QWidget {
 
     signals:
         void screenshotAvailable(QPixmap result);
+        void recordRequested(QRect region); // global; theDesk records it
         void colourClicked(QColor color);
         void cancelled();
         void animationComplete();

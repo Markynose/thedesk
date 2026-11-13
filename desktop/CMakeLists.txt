@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.24.0)
 
-project(thedesk VERSION 1.0.0 LANGUAGES CXX)
+project(thedesk VERSION 3.0.0 LANGUAGES CXX)
 
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network DBus Multimedia QuickWidgets)
 find_package(libcontemporary REQUIRED)
 find_package(libtdesktopenvironment REQUIRED)
 cntp_find_pkgconfig(XCB xcb)
+cntp_find_pkgconfig(XTST xtst)
 
 set(SOURCES
     background/background.cpp
@@ -20,6 +21,11 @@ set(SOURCES
     bar/taskbarwidget.cpp
     cli/commandline.cpp
     crash/crashhandling.cpp
+    clipboard/clipboardhistory.cpp
+    clipboard/clipboardpanel.cpp
+    clipboard/pasteback.cpp
+    emoji/emojipanel.cpp
+    colourpicker/colourpicker.cpp
     gateway/gateway.cpp
     gateway/launcher.cpp
     gateway/launcherdata.cpp
@@ -82,6 +88,11 @@ set(HEADERS
     bar/taskbarwidget.h
     cli/commandline.h
     crash/crashhandling.h
+    clipboard/clipboardhistory.h
+    clipboard/clipboardpanel.h
+    clipboard/pasteback.h
+    emoji/emojipanel.h
+    colourpicker/colourpicker.h
     gateway/gateway.h
     gateway/launcher.h
     gateway/launcherdata.h
@@ -121,7 +132,7 @@ cntp_target_name(thedesk "thedesk")
 cntp_defaults_file(thedesk
     DEFAULTS_FILE thedesk.conf)
 
-target_link_libraries(thedesk Qt::Widgets Qt::Network Qt::DBus Qt::Multimedia Qt::QuickWidgets libcontemporary libtdesktopenvironment libthedesk PkgConfig::XCB)
+target_link_libraries(thedesk Qt::Widgets Qt::Network Qt::DBus Qt::Multimedia Qt::QuickWidgets libcontemporary libtdesktopenvironment libthedesk PkgConfig::XCB PkgConfig::XTST)
 target_include_directories(thedesk PUBLIC ../libthedesk/)
 
 install(TARGETS thedesk

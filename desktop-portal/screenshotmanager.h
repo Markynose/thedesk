@@ -18,6 +18,7 @@ class ScreenshotManager : public QObject {
         QPixmap finalPixmap();
         QColor clickedColor();
         bool accepted();
+        QRect recordRegion(); // set when Record was chosen
 
     signals:
         void finished();

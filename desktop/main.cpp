@@ -19,6 +19,9 @@
  * *************************************/
 
 #include "aroundyou/aroundyousheet.h"
+#include "clipboard/clipboardpanel.h"
+#include "emoji/emojipanel.h"
+#include "colourpicker/colourpicker.h"
 #include <QDir>
 #include <QTimer>
 
@@ -53,7 +56,7 @@ int main(int argc, char* argv[]) {
     a.setOrganizationName("theSuite");
     a.setOrganizationDomain("vicr123.com");
     a.setApplicationName("theDesk");
-    a.setApplicationVersion("2.0");
+    a.setApplicationVersion("3.0");
     a.setCopyrightYear("2024");
     a.setApplicationShareDir("thedesk");
 
@@ -106,6 +109,15 @@ int main(int argc, char* argv[]) {
     // Around you: the devices' shapes in the bar, the sheet, Super+A
     AroundYouSheet::setUp();
 
+    // Clipboard history, Super+V
+    ClipboardPanel::setUp();
+
+    // Emoji and symbols, Super+.
+    EmojiPanel::setUp();
+
+    // The colour picker, Super+Shift+P
+    ColourPicker::setUp();
+
 
     BarWindow w;
     w.show();
@@ -118,9 +130,9 @@ int main(int argc, char* argv[]) {
     // The desktop's sounds, decoded once the desktop is up so each one
     // starts with the motion it goes with
     QTimer::singleShot(4000, [] {
-        DeskSound::preload({QStringLiteral("message-new-instant"), QStringLiteral("power-plug"), QStringLiteral("power-unplug"),
+        DeskSound::preload({QStringLiteral("message-new-instant"), QStringLiteral("power-plug"),
             QStringLiteral("device-added"), QStringLiteral("device-removed"), QStringLiteral("audio-volume-change"),
-            QStringLiteral("screen-capture"), QStringLiteral("screen-lock"), QStringLiteral("screen-unlock"),
+            QStringLiteral("screen-capture"),
             QStringLiteral("phone-incoming-call"), QStringLiteral("battery-caution")});
     });
 

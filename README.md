@@ -94,7 +94,22 @@ your theme before you pick it. Tips can be tried right there.
 - **Snackbars and sliders.** Snackbars take the place of pop-ups, and an M3E level
   slider shows volume and brightness at the edge of the screen.
 - **Focus tide.** Press **Super+Z** and light crosses the bar while notifications wait.
-- **Screenshots** go to the clipboard and `~/Pictures/Screenshots`.
+- **Screenshots** go to the clipboard and `~/Pictures/Screenshots`. **Record** in the
+  same window records the area instead: a 3-2-1, then a red pill in the bar counts
+  until you stop it, and the video lands in `~/Videos/Recordings`.
+- **Clipboard history.** **Super+V** drops your recent copies, text and images, from the
+  bar; Enter pastes into the window you were in. It stays in memory (pins are kept),
+  password managers' copies are skipped, and anything that looks like a password shows
+  as dots.
+- **Colour picker.** **Super+Shift+P** turns the pointer into a drop of magnified
+  pixels; a click lets it fall into a swatch, copies the hex and fans out the colour's
+  tones.
+- **Emoji and symbols.** **Super+.** opens a searchable grid that types into the
+  window you were in.
+- **Battery health.** Power settings shows each battery's charge, which one is
+  draining, and how much of its design capacity it still holds.
+- **Sounds** for notifications, calls, charging, devices, volume and screenshots, from
+  a freedesktop sound theme (`[Sounds]` in `theDesk.conf`).
 
 ---
 
@@ -110,7 +125,7 @@ Widgets that Android doesn't have get designs that are consistent with Material.
 | **Motion** | Spring physics with Compose's tokens (`m3/m3motion.*`): spatial springs may overshoot, effects springs never do. `Platform/motion=standard` (in `theDesk.platform.conf`) swaps the expressive scheme for the calmer standard one. |
 | **Type** | Roboto Flex everywhere, with its variable axes (weight, width, optical size) springing for emphasis. Google Sans Code in the terminal. |
 | **Icons** | Material Symbols Rounded, drawn by a Qt platform icon engine from freedesktop icon names. |
-| **Widgets** | A Qt style plugin, `Material3` (`style-m3/`): state layers, ripples, connected button groups, switches, sliders, wavy progress, M3 dialogs and bottom sheets. |
+| **Widgets** | A Qt style plugin, `Material3` (`style-m3/`): state layers, ripples, connected button groups, switches, sliders, M3 dialogs and bottom sheets. |
 | **Pointer** | The theDesk-M3 cursor theme, generated in the current colours. |
 
 ---
@@ -154,7 +169,11 @@ theDesk LightDM greeter), `scripts/install-plymouth.sh` (the boot splash) and
 | Super+Z | Focus tide |
 | Super+Escape | Lock |
 | Super+Space | Next keyboard layout |
-| Print Screen, Super+Alt+P | Screenshot |
+| Print Screen, Super+Alt+P | Screenshot (and Record) |
+| Super+Shift+R | Stop recording |
+| Super+V | Clipboard history |
+| Super+. | Emoji and symbols |
+| Super+Shift+P | Colour picker |
 | Alt+F2 | Run a command |
 | Ctrl+Alt+Esc | Make a stuck app quit |
 | Super+Return / Super+W / Super+E | kitty / Firefox / Zed |

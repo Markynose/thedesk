@@ -6,11 +6,13 @@ find_package(libcontemporary)
 set(SOURCES
     eventhandler.cpp
     plugin.cpp
+    recorder.cpp
 )
 
 set(HEADERS
     eventhandler.h
     plugin.h
+    recorder.h
 )
 
 set(PLUGIN_NAME screenshot)

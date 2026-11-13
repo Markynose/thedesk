@@ -17,7 +17,6 @@ set(SOURCES
     settings/keyboardsettings.cpp
     settings/mousesettings.cpp
 
-    chunks/keyboardlayoutchunk.ui
     settings/inputsettingsleftpane.ui
     settings/inputsettingspane.ui
     settings/keyboardsettings.ui

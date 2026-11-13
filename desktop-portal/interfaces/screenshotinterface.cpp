@@ -51,6 +51,12 @@ uint ScreenshotInterface::Screenshot(QDBusObjectPath handle, QString app_id, QSt
             mgr.showScreenshotWindows();
 
             co_await qCoro(&mgr, &ScreenshotManager::finished);
+            if (const QRect region = mgr.recordRegion(); region.isValid()) {
+                // Record instead: theDesk takes it from here
+                reply.setArguments({uint(0), QVariantMap{{QStringLiteral("x-thedesk-record"), QStringLiteral("%1,%2,%3,%4").arg(region.x()).arg(region.y()).arg(region.width()).arg(region.height())}}});
+                QDBusConnection::sessionBus().send(reply);
+                co_return;
+            }
             if (!mgr.accepted()) {
                 reply.setArguments({uint(1), QVariantMap()});
                 QDBusConnection::sessionBus().send(reply);

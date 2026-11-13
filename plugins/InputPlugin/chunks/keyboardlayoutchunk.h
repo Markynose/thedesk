@@ -20,14 +20,10 @@
 #ifndef KEYBOARDLAYOUTCHUNK_H
 #define KEYBOARDLAYOUTCHUNK_H
 
-#include <QWidget>
 #include <chunk.h>
 
-namespace Ui {
-    class KeyboardLayoutChunk;
-}
-
-struct KeyboardLayoutChunkPrivate;
+// A tonal pill: the keyboard symbol and the layout's code, which rolls over
+// to the new one when the layout changes; a click opens the layout menu
 class KeyboardLayoutChunk : public Chunk {
         Q_OBJECT
 
@@ -35,9 +31,15 @@ class KeyboardLayoutChunk : public Chunk {
         explicit KeyboardLayoutChunk();
         ~KeyboardLayoutChunk();
 
+        QSize sizeHint() const override;
+
+    protected:
+        void paintEvent(QPaintEvent* event) override;
+        bool eventFilter(QObject* watched, QEvent* event) override;
+
     private:
-        Ui::KeyboardLayoutChunk* ui;
-        KeyboardLayoutChunkPrivate* d;
+        struct Private;
+        Private* d;
 
         void updateLayouts();
         void updateCurrentLayout();

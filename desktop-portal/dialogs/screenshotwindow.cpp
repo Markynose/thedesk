@@ -29,6 +29,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPicture>
+#include <QPushButton>
 #include <QScreen>
 #include <QShortcut>
 #include <tvariantanimation.h>
@@ -45,6 +46,7 @@ struct ScreenshotWindowPrivate {
         qreal penWidth;
 
         QScreen* screen;
+        QPushButton* recordButton;
         QPixmap originalShot;
 
         tVariantAnimation* darkenAnim;
@@ -70,6 +72,17 @@ ScreenshotWindow::ScreenshotWindow(QScreen* screen, QWidget* parent) :
 
     d = new ScreenshotWindowPrivate();
     d->screen = screen;
+
+    // theDesk records the cropped area (or the whole screen) instead
+    d->recordButton = new QPushButton(QIcon::fromTheme(QStringLiteral("media-record")), tr("Record"), this);
+    d->recordButton->setVisible(false);
+    if (auto* row = qobject_cast<QBoxLayout*>(ui->copyButton->parentWidget()->layout())) {
+        row->insertWidget(row->indexOf(ui->copyButton), d->recordButton);
+    }
+    connect(d->recordButton, &QPushButton::clicked, this, [this] {
+        const QRect area = d->cropRect.isValid() ? d->cropRect : QRect(QPoint(0, 0), d->screen->geometry().size());
+        emit recordRequested(area.translated(d->screen->geometry().topLeft()));
+    });
 
     d->darkenAnim = new tVariantAnimation(this);
     d->darkenAnim->setStartValue(0.0);
@@ -256,6 +269,7 @@ void ScreenshotWindow::setType(Type type) {
                 ui->discardButton->setText(tr("Discard"));
                 ui->copyButton->setText(tr("Copy"));
                 ui->copyButton->setIcon(QIcon::fromTheme("edit-copy"));
+                d->recordButton->setVisible(true);
                 ui->topPane->setVisible(false);
                 ui->bottomPane->setVisible(true);
                 this->setMouseTracking(false);

@@ -33,6 +33,7 @@ class DesktopUPower : public QObject
         ~DesktopUPower();
 
         QList<DesktopUPowerDevice*> devices();
+        DesktopUPowerDevice* displayDevice(); // all batteries combined
 
         bool shouldShowOverallState();
         QString overallStateDescription();

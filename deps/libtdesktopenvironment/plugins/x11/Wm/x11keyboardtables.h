@@ -264,6 +264,12 @@
 namespace TX11 {
     // keyboard mapping table
     static const unsigned int KeyTbl[] = {
+        // The main keyboard's punctuation first: the keypad entries below map
+        // the same Qt keys, and the first match wins
+        XK_period, Qt::Key_Period,
+        XK_comma, Qt::Key_Comma,
+        XK_minus, Qt::Key_Minus,
+        XK_slash, Qt::Key_Slash,
 
         // misc keys
 

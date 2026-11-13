@@ -1,6 +1,8 @@
 #include "powersettings.h"
 #include "ui_powersettings.h"
 
+#include "batteryhealth.h"
+
 #include <DesktopPowerProfiles/desktoppowerprofiles.h>
 #include <QIcon>
 #include <statemanager.h>
@@ -45,6 +47,10 @@ PowerSettings::PowerSettings(DesktopPowerProfiles* powerProfiles) :
     ui->powerProfileWidget->setFixedWidth(contentWidth);
     ui->timeoutsWidget->setFixedWidth(contentWidth);
     ui->buttonsWidget->setFixedWidth(contentWidth);
+
+    auto* health = new BatteryHealth(this);
+    health->setFixedWidth(contentWidth);
+    ui->verticalLayout_2->insertWidget(0, health, 0, Qt::AlignHCenter);
 
     connect(&d->settings, &tSettings::settingChanged, this, &PowerSettings::settingChanged);
     for (QString setting : {

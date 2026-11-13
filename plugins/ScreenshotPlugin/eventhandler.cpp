@@ -30,6 +30,7 @@
 #include <hudmanager.h>
 #include <statemanager.h>
 #include "eventhandler.h"
+#include "recorder.h"
 
 #include <QApplication>
 #include <QCoroDBusPendingCall>
@@ -46,6 +47,7 @@
 struct EventHandlerPrivate {
         KeyGrab* prtScr;
         KeyGrab* screenshotAlt;
+        Recorder* recorder;
 };
 
 EventHandler::EventHandler(QObject* parent) :
@@ -54,6 +56,7 @@ EventHandler::EventHandler(QObject* parent) :
     d->prtScr = new KeyGrab(QKeySequence(Qt::Key_Print), "screenshot");
     d->screenshotAlt = new KeyGrab(QKeySequence(Qt::MetaModifier | Qt::AltModifier | Qt::Key_P), "screenshotAlt");
 
+    d->recorder = new Recorder(this);
     connect(d->prtScr, &KeyGrab::activated, this, &EventHandler::takeScreenshot);
     connect(d->screenshotAlt, &KeyGrab::activated, this, &EventHandler::takeScreenshot);
 }
@@ -77,6 +80,11 @@ QCoro::Task<> EventHandler::takeScreenshot() {
         // portal goes away after a while (taking the picture with it, so
         // nothing could be pasted). Also keep it in ~/Pictures/Screenshots
         const QVariantMap results = qdbus_cast<QVariantMap>(reply.arguments().at(1));
+        // Record was chosen: "x,y,w,h" of the area
+        if (const QStringList area = results.value(QStringLiteral("x-thedesk-record")).toString().split(','); area.size() == 4) {
+            d->recorder->start(QRect(area.at(0).toInt(), area.at(1).toInt(), area.at(2).toInt(), area.at(3).toInt()));
+            co_return;
+        }
         const QString path = QUrl(results.value(QStringLiteral("uri")).toString()).toLocalFile();
         QImage image(path);
         if (!image.isNull()) {
