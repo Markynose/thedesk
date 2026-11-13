@@ -32,6 +32,8 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QShortcut>
+#include <QToolTip>
+#include <QHBoxLayout>
 #include <tvariantanimation.h>
 
 struct ScreenshotWindowPrivate {
@@ -60,6 +62,25 @@ struct ScreenshotWindowPrivate {
         QPixmap overlay;
         ScreenshotWindow::Type type = ScreenshotWindow::Type::ApplicationScreenshot;
 };
+
+namespace {
+    // M3E floating toolbar (FloatingToolbarTokens): a 64 dp pill in
+    // SurfaceContainer, floating above the bottom edge
+    class ToolbarPill : public QWidget {
+        public:
+            using QWidget::QWidget;
+
+        protected:
+            void paintEvent(QPaintEvent* event) override {
+                Q_UNUSED(event)
+                QPainter p(this);
+                p.setRenderHint(QPainter::Antialiasing);
+                p.setPen(Qt::NoPen);
+                p.setBrush(this->palette().color(QPalette::AlternateBase)); // SurfaceContainer in the M3 palette
+                p.drawRoundedRect(QRectF(this->rect()), this->height() / 2.0, this->height() / 2.0);
+            }
+    };
+} // namespace
 
 ScreenshotWindow::ScreenshotWindow(QScreen* screen, QWidget* parent) :
     QWidget(parent),
@@ -155,6 +176,41 @@ ScreenshotWindow::ScreenshotWindow(QScreen* screen, QWidget* parent) :
 
     this->setType(Type::ApplicationScreenshot);
     ui->discardButton->setProperty("type", "destructive");
+
+    // The tools as one floating toolbar, icons only (their names as tooltips),
+    // with the main action as an extended FAB beside it
+    auto* pill = new ToolbarPill(ui->bottomPane);
+    pill->setFixedHeight(64);
+    auto* tools = new QHBoxLayout(pill);
+    tools->setContentsMargins(12, 8, 12, 8);
+    tools->setSpacing(4);
+    auto iconOnly = [](QPushButton* button) {
+        button->setToolTip(button->text().remove('&'));
+        button->setText(QString());
+        button->setProperty("m3ButtonStyle", QStringLiteral("text"));
+        button->setFixedSize(48, 48);
+    };
+    for (QPushButton* button : {ui->cropButton, ui->redactButton}) {
+        iconOnly(button);
+        tools->addWidget(button);
+    }
+    for (PenButton* pen : this->findChildren<PenButton*>()) tools->addWidget(pen, 0, Qt::AlignVCenter);
+    for (QPushButton* button : {ui->resetButton, ui->discardButton, d->recordButton}) {
+        iconOnly(button);
+        tools->addWidget(button);
+    }
+    ui->copyButton->setProperty("m3ButtonSize", QStringLiteral("m"));
+    ui->copyButton->setProperty("m3ButtonShape", QStringLiteral("square"));
+    ui->copyButton->setProperty("m3ButtonStyle", QStringLiteral("filled"));
+    delete ui->bottomPane->layout(); // the old full-width strip (its widgets stay)
+    ui->widget->hide();
+    auto* row = new QHBoxLayout(ui->bottomPane);
+    row->setContentsMargins(0, 8, 0, 24);
+    row->setSpacing(12);
+    row->addStretch();
+    row->addWidget(pill, 0, Qt::AlignVCenter);
+    row->addWidget(ui->copyButton, 0, Qt::AlignVCenter);
+    row->addStretch();
 }
 
 void ScreenshotWindow::paintEvent(QPaintEvent* event) {
@@ -255,7 +311,7 @@ void ScreenshotWindow::setType(Type type) {
     switch (type) {
         case Type::ApplicationScreenshot:
             {
-                ui->discardButton->setText(tr("Cancel"));
+                ui->discardButton->setToolTip(tr("Cancel"));
                 ui->copyButton->setText(tr("Share Screenshot"));
                 ui->copyButton->setIcon(QIcon::fromTheme("dialog-ok"));
                 ui->topPane->setVisible(false);
@@ -266,7 +322,7 @@ void ScreenshotWindow::setType(Type type) {
             }
         case Type::TheDeskScreenshot:
             {
-                ui->discardButton->setText(tr("Discard"));
+                ui->discardButton->setToolTip(tr("Discard"));
                 ui->copyButton->setText(tr("Copy"));
                 ui->copyButton->setIcon(QIcon::fromTheme("edit-copy"));
                 d->recordButton->setVisible(true);

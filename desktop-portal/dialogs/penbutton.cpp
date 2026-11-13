@@ -19,6 +19,8 @@
  * *************************************/
 #include "penbutton.h"
 
+#include <QIcon>
+
 #include <QPainter>
 #include <QSvgRenderer>
 #include <QFile>
@@ -39,14 +41,14 @@ PenButton::PenButton(PenType penType, QColor color, QWidget* parent) : QPushButt
 
     QString data;
     if (penType == Pen) {
-        this->setFixedSize(SC_DPI_T(QSize(40, 60), QSize));
+        this->setFixedSize(40, 48);
 
         QFile penFile(":/screenshot/icons/pen.svg");
         penFile.open(QFile::ReadOnly);
         data = penFile.readAll();
         data = data.arg(color.name(QColor::HexRgb));
     } else {
-        this->setFixedSize(SC_DPI_T(QSize(60, 60), QSize));
+        this->setFixedSize(40, 48);
 
         QFile penFile(":/screenshot/icons/eraser.svg");
         penFile.open(QFile::ReadOnly);
@@ -70,6 +72,8 @@ PenButton::PenButton(PenType penType, QColor color, QWidget* parent) : QPushButt
 
     this->setCheckable(true);
     this->setAutoExclusive(true);
+    this->setAttribute(Qt::WA_Hover);
+    this->setToolTip(penType == Pen ? tr("Pen") : tr("Eraser"));
 }
 
 PenButton::~PenButton() {
@@ -82,18 +86,36 @@ QColor PenButton::color() const {
 }
 
 void PenButton::paintEvent(QPaintEvent* event) {
+    Q_UNUSED(event)
+    // theDesk M3E: a colour swatch in the floating toolbar (the chosen one
+    // ringed, as Android's colour pickers do); the eraser is its symbol
     QPainter painter(this);
-    d->renderer->render(&painter, QRectF(0, 0, this->width(), SC_DPI(100)));
+    painter.setRenderHint(QPainter::Antialiasing);
+    const QPointF centre = QRectF(this->rect()).center();
+    const QColor ink = this->palette().color(QPalette::WindowText);
+    if (this->underMouse()) {
+        QColor layer = ink;
+        layer.setAlphaF(0.08);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(layer);
+        painter.drawEllipse(centre, 20, 20);
+    }
+    if (this->isChecked()) {
+        painter.setPen(QPen(ink, 2));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawEllipse(centre, 17, 17);
+    }
+    if (d->penType == Pen) {
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(d->color);
+        painter.drawEllipse(centre, 12, 12);
+    } else {
+        QIcon::fromTheme(QStringLiteral("draw-eraser")).paint(&painter, QRect((centre - QPointF(10, 10)).toPoint(), QSize(20, 20)));
+    }
 }
 
 void PenButton::updateChecked() {
-    d->heightAnim->setStartValue(this->height());
-    if (this->isChecked()) {
-        d->heightAnim->setEndValue(SC_DPI(100));
-    } else {
-        d->heightAnim->setEndValue(SC_DPI(60));
-    }
-    d->heightAnim->start();
+    this->update();
 }
 
 
