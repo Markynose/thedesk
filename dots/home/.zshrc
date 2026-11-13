@@ -36,6 +36,11 @@ alias ...='cd ../..'
 alias g='git'
 alias rc='rc-service'                       # OpenRC: rc <service> <start|stop|status>
 
+# theDesk: Pebble's tour plays again the next time it opens (missing key = default, not introduced)
+pebble-reset() {
+    sed -i '/^\[Assistant\]/,/^\[/ s/^introduced=.*/introduced=false/' "${XDG_CONFIG_HOME:-$HOME/.config}/theSuite/theDesk.conf"
+}
+
 # theDesk: show first-time setup again at the next login
 onboarding-reset() {
     local conf=${XDG_CONFIG_HOME:-$HOME/.config}/theSuite/theDesk.conf

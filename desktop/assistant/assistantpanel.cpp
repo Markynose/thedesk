@@ -91,8 +91,9 @@ namespace {
     QFont flex(double px, double wght, double wdth = 100) {
         QFont font(QStringLiteral("Roboto Flex"));
         font.setPixelSize(qMax(1, qRound(px)));
-        font.setVariableAxis(QFont::Tag("wght"), float(qBound(100.0, wght, 1000.0)));
-        font.setVariableAxis(QFont::Tag("wdth"), float(qBound(25.0, wdth, 151.0)));
+        // in steps: every new axis value is a new font instance, and springs make a fresh one each frame
+        font.setVariableAxis(QFont::Tag("wght"), float(qBound(100.0, std::round(wght / 20) * 20, 1000.0)));
+        font.setVariableAxis(QFont::Tag("wdth"), float(qBound(25.0, std::round(wdth / 5) * 5, 151.0)));
         return font;
     }
     QFont mono(double px, double wght = 450) {
@@ -123,11 +124,47 @@ namespace {
             int kind = 0; // 0 word, 1 key word, 2 file chip, 3 app chip, 4 line break, 5 link chip
             QString target;
             bool glued = false; // no space before it ("**391**." keeps its full stop)
+            int style = -1;     // a <t …> span it's in, and its place in it
+            int inStyle = 0;
+    };
+    // <t wght=900 wdth=150 slnt=-10 size=1.6 color=tertiary fx=wave>words</t>:
+    // Pebble styling its own words. wght, wdth and size take a ramp across the
+    // words ("200-900"); fx plays once after the words land
+    struct WordStyle {
+            double wght[2] = {-1, -1}, wdth[2] = {-1, -1}, size[2] = {1, 1}, slnt = 0;
+            QString colour, fx;
+            int words = 0;
     };
     struct ParsedAnswer {
             int tone = 0; // 0 plain, 1 done, 2 unsure, 3 oops
             QList<AnswerToken> tokens;
+            QList<WordStyle> styles;
     };
+    WordStyle parseStyle(const QString& attributes) {
+        WordStyle style;
+        static const QRegularExpression pair(QStringLiteral("(\\w+)\\s*=\\s*[\"']?([^\"'\\s>]+)"));
+        auto range = [](const QString& value, double* out, double lo, double hi) {
+            // "700" or a ramp "200-900" (a leading minus is a negative number, not a ramp)
+            const int dash = int(value.indexOf('-', 1));
+            bool ok1 = false, ok2 = true;
+            out[0] = qBound(lo, (dash < 0 ? value : value.left(dash)).toDouble(&ok1), hi);
+            out[1] = dash < 0 ? out[0] : qBound(lo, value.mid(dash + 1).toDouble(&ok2), hi);
+            if (!ok1 || !ok2) out[0] = out[1] = -1;
+        };
+        for (auto it = pair.globalMatch(attributes); it.hasNext();) {
+            const QRegularExpressionMatch m = it.next();
+            const QString key = m.captured(1).toLower(), value = m.captured(2);
+            if (key == "wght" || key == "weight") range(value, style.wght, 100, 1000);
+            else if (key == "wdth" || key == "width") range(value, style.wdth, 25, 151);
+            else if (key == "size") {
+                range(value, style.size, 0.6, 2.2);
+                if (style.size[0] < 0) style.size[0] = style.size[1] = 1;
+            } else if (key == "slnt" || key == "slant") style.slnt = qBound(-10.0, value.toDouble(), 0.0);
+            else if (key == "color" || key == "colour") style.colour = value.toLower();
+            else if (key == "fx") style.fx = value.toLower();
+        }
+        return style;
+    }
     ParsedAnswer parseAnswer(const QString& raw) {
         ParsedAnswer out;
         QString s = raw;
@@ -141,16 +178,32 @@ namespace {
         }
         bool key = false, glued = false;
         int closedAt = -2; // where the last ** or ]] ended: a word right after it has no space before it
+        int style = -1;
         QString word;
         auto flush = [&] {
             if (word.isEmpty()) return;
             const bool lineStart = out.tokens.isEmpty() || out.tokens.last().kind == 4;
             if (lineStart && (word == "-" || word == "*")) word = QStringLiteral("•");
-            out.tokens.append({word, key ? 1 : 0, {}, glued});
+            out.tokens.append({word, key ? 1 : 0, {}, glued, style, style >= 0 ? out.styles[style].words++ : 0});
             word.clear();
         };
         for (int k = 0; k < s.size(); k++) {
             const QChar c = s.at(k);
+            if (s.mid(k, 3) == QStringLiteral("<t ") || s.mid(k, 3) == QStringLiteral("<t>") || s.mid(k, 4) == QStringLiteral("</t>")) {
+                flush();
+                const int close = int(s.indexOf('>', k));
+                if (close < 0) break; // the tag is still arriving
+                if (s.at(k + 1) == '/') {
+                    style = -1;
+                    closedAt = close;
+                } else {
+                    out.styles.append(parseStyle(s.mid(k + 2, close - k - 2)));
+                    style = int(out.styles.size()) - 1;
+                    if (k > 0 && !s.at(k - 1).isSpace()) closedAt = close; // "<t>" glued to the word before
+                }
+                k = close;
+                continue;
+            }
             if (s.mid(k, 2) == QStringLiteral("**")) {
                 flush();
                 if (!key && s.indexOf(QStringLiteral("**"), k + 2) < 0) break; // the rest is still arriving
@@ -738,7 +791,14 @@ void AssistantPanel::sendText(QString text) {
 void AssistantPanel::animateFor(int ms) {
     d->animateUntil = qMax(d->animateUntil, d->now() + ms);
     if (!d->frame.isActive()) d->frame.start();
-    this->update();
+    redraw();
+}
+
+void AssistantPanel::redraw() {
+    // the whole screen only while the scrim or the sheet's place moves; else just the sheet (picom recomposites what changes)
+    auto recent = [this](qint64 at) { return at >= 0 && d->since(at) < 0.9; };
+    if (d->introStep >= 0 || d->toBarAt >= 0 || recent(d->openedAt) || recent(d->fromBarAt) || recent(d->introToPanelAt)) this->update();
+    else this->update(sheetRect().toAlignedRect().adjusted(-16, -16, 16, 16));
 }
 
 void AssistantPanel::scrollToEnd() {
@@ -756,7 +816,7 @@ void AssistantPanel::tick() {
     d->scrollVelocity = state.velocity;
     const bool settled = std::abs(d->scroll - d->scrollTarget) < 0.5 && std::abs(d->scrollVelocity) < 1;
     if (settled) d->scroll = d->scrollTarget;
-    this->update();
+    redraw();
     if ((d->now() > d->animateUntil && !d->busy && settled) || this->isHidden()) d->frame.stop();
 }
 
@@ -1421,7 +1481,7 @@ double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<
     // Living type: words arrive thin and narrow and spring to their weight.
     // Key words land heavy, wide and in primary (and stay); a key number
     // counts up; files, apps and links turn into chips; the tone shapes the
-    // whole answer
+    // whole answer; <t …> spans are Pebble's own styling
     const M3::Scheme s = M3::currentScheme();
     const ParsedAnswer parsed = parseAnswer(raw);
     const QFontMetricsF metrics(flex(px, 480));
@@ -1429,100 +1489,159 @@ double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<
     const double space = metrics.horizontalAdvance(' '), lineHeight = metrics.height() * 1.3;
     const double toneAt = wordBorn.isEmpty() ? -1 : (wordBorn.last() + 350);
     static const QRegularExpression number(QStringLiteral("^(\\d+)(%?)([.,!?:;]?)$"));
-    double x = 0, line = 0;
+
+    // What a word looks like once it has landed (a style's ramp runs across its words)
+    struct Look {
+            double wght = 480, wdth = 100, slnt = 0, size = 1;
+            const WordStyle* style = nullptr;
+    };
+    auto lookOf = [&](const AnswerToken& token) {
+        Look look;
+        if (token.kind == 1) look.wght = 700, look.wdth = 110;
+        if (token.style < 0 || token.kind > 1) return look;
+        const WordStyle& style = parsed.styles.at(token.style);
+        const double f = style.words > 1 ? double(token.inStyle) / (style.words - 1) : 0;
+        if (style.wght[0] >= 0) look.wght = lerp(style.wght[0], style.wght[1], f);
+        if (style.wdth[0] >= 0) look.wdth = lerp(style.wdth[0], style.wdth[1], f);
+        look.size = lerp(style.size[0], style.size[1], f);
+        look.slnt = style.slnt;
+        look.style = &style;
+        return look;
+    };
+
+    // First the layout: where each word goes, and how tall each line is
+    struct Place {
+            double x = 0, ww = 0;
+            int line = 0;
+    };
+    QList<Place> places(parsed.tokens.size());
+    QList<double> lineSize{1};
+    double x = 0;
     for (int t = 0; t < parsed.tokens.size(); t++) {
         const AnswerToken& token = parsed.tokens.at(t);
         if (token.kind == 4) {
             x = 0;
-            line += 1;
+            lineSize.append(1);
             continue;
         }
         const double born = t < wordBorn.size() ? d->since(wordBorn.at(t)) : -1;
         const double chipK = token.kind >= 2 ? c01(springAt(M3Motion::SpatialDefault, born - 0.55)) : 0;
-        double ww = (token.kind == 1 ? keyMetrics : metrics).horizontalAdvance(token.text) + 34 * chipK;
+        const Look look = lookOf(token);
+        const double ww = (look.style ? QFontMetricsF(flex(px * look.size, look.wght, look.wdth)) : token.kind == 1 ? keyMetrics : metrics).horizontalAdvance(token.text) + 34 * chipK;
         if (token.glued && x > 0) x -= space;
         if (x > 0 && x + ww > W) {
             x = 0;
-            line += 1;
+            lineSize.append(1);
         }
-        const double k = born > 0 ? springAt(M3Motion::SpatialDefault, born) : 0;
-        if (k > 0) {
-            double wght = lerp(100, 480, k), wdth = lerp(25, 100, k), slnt = 0;
-            if (parsed.tone == 1 && toneAt >= 0) wght += 80 * c01(springAt(M3Motion::SpatialDefault, d->since(qint64(toneAt)) - t * 0.02));
-            if (parsed.tone == 2) {
-                wght = lerp(100, 400, k);
-                slnt = -9 * c01(k);
-            }
-            if (parsed.tone == 3 && toneAt >= 0 && d->since(qint64(toneAt)) > 0) {
-                const double u = d->since(qint64(toneAt));
-                wdth += 22 * std::sin(u * 20) * std::exp(-u * 4.5);
-            }
-            QColor ink = alpha(s.onSurface, k * 2.5);
-            double scale = 1;
-            QString shown = token.text;
-            if (token.kind == 1) {
-                wght = lerp(100, 700, k);
-                wdth = lerp(25, 110, k);
-                scale = lerp(1.35, 1.0, c01(k));
-                ink = alpha(s.primary, k * 2.5);
-                const QRegularExpressionMatch m = number.match(token.text);
-                if (m.hasMatch()) shown = QString::number(qRound(lerp(countFrom.value(m.captured(2), 0), m.captured(1).toDouble(), c01(springAt(M3Motion::SpatialSlow, born))))) + m.captured(2) + m.captured(3);
-            }
-            QFont font = flex(px, wght, wdth);
-            font.setFeature(QFont::Tag("tnum"), 1);
-            font.setVariableAxis(QFont::Tag("slnt"), float(slnt));
-            const double top = at.y() + line * lineHeight;
-            const double baseline = top + metrics.ascent() + 10 * (1 - k);
-            p.save();
-            if (token.kind >= 2) {
-                if (chipK > 0.01) {
-                    const QRectF pill(at.x() + x - 4, top + 1, ww + 8, lineHeight - 4);
-                    p.setPen(Qt::NoPen);
-                    p.setBrush(alpha(hovered(pill) ? mix(s.secondaryContainer, s.onSecondaryContainer, 0.08) : s.secondaryContainer, chipK));
-                    p.drawRoundedRect(pill, 9, 9);
-                    p.save();
-                    p.translate(pill.left() + 17, pill.center().y());
-                    p.scale(chipK, chipK);
-                    const QString suffix = QFileInfo(token.target).suffix().toLower();
-                    const QString ic = token.kind == 5 ? QStringLiteral("link") : token.kind == 3 ? QStringLiteral("apps") : QStringList{"png", "jpg", "jpeg", "webp", "gif", "svg"}.contains(suffix) ? QStringLiteral("image") : QStringList{"css", "html", "js", "ts", "py", "cpp", "h", "rs", "sh", "json"}.contains(suffix) ? QStringLiteral("code") : QFileInfo(token.target).suffix().isEmpty() ? QStringLiteral("folder") : QStringLiteral("description");
-                    icon(p, QRectF(-10, -10, 20, 20), ic, s.onSecondaryContainer, 17);
-                    p.restore();
-                    ink = mix(ink, s.onSecondaryContainer, chipK);
-                    if (token.kind == 3) {
-                        const QString app = token.target;
-                        hit(pill, [app](QPointF) {
-                            if (AssistantTools::instance()->has(QStringLiteral("open_app"))) AssistantTools::instance()->tool(QStringLiteral("open_app")).run(QJsonObject{{"name", app}});
-                        });
-                    }
-                    if (token.kind == 5) {
-                        const QUrl url(token.target);
-                        hit(pill, [url](QPointF) {
-                            QDesktopServices::openUrl(url);
-                        });
-                    }
-                    if (token.kind == 2) {
-                        const QString path = QString(token.target).replace(QRegularExpression(QStringLiteral("^~")), QDir::homePath());
-                        hit(pill, [path](QPointF) {
-                            QDesktopServices::openUrl(QUrl::fromLocalFile(path));
-                        });
-                    }
-                }
-                p.setFont(font);
-                p.setPen(ink);
-                p.drawText(QPointF(at.x() + x + 30 * chipK, baseline), shown);
-            } else {
-                const double cx = at.x() + x + ww / 2;
-                p.setFont(font);
-                p.setPen(ink);
-                p.translate(cx, baseline - metrics.ascent() / 2.6);
-                p.scale(scale, scale);
-                p.drawText(QPointF(-QFontMetricsF(font).horizontalAdvance(shown) / 2, metrics.ascent() / 2.6), shown);
-            }
-            p.restore();
-        }
+        places[t] = {x, ww, int(lineSize.size()) - 1};
+        lineSize.last() = qMax(lineSize.last(), look.size);
         x += ww + space;
     }
-    return (line + 1) * lineHeight;
+    QList<double> lineTop{at.y()};
+    for (double size : std::as_const(lineSize)) lineTop.append(lineTop.last() + lineHeight * qMax(1.0, size));
+
+    for (int t = 0; t < parsed.tokens.size(); t++) {
+        const AnswerToken& token = parsed.tokens.at(t);
+        if (token.kind == 4) continue;
+        const Place& place = places.at(t);
+        const double born = t < wordBorn.size() ? d->since(wordBorn.at(t)) : -1;
+        const double chipK = token.kind >= 2 ? c01(springAt(M3Motion::SpatialDefault, born - 0.55)) : 0;
+        const double k = born > 0 ? springAt(M3Motion::SpatialDefault, born) : 0;
+        if (k <= 0) continue;
+        const Look look = lookOf(token);
+        double wght = lerp(100, look.wght, k), wdth = lerp(25, look.wdth, k), slnt = look.slnt * c01(k);
+        if (parsed.tone == 1 && toneAt >= 0 && !look.style) wght += 80 * c01(springAt(M3Motion::SpatialDefault, d->since(qint64(toneAt)) - t * 0.02));
+        if (parsed.tone == 2 && !look.style) {
+            wght = lerp(100, 400, k);
+            slnt = -9 * c01(k);
+        }
+        if (parsed.tone == 3 && toneAt >= 0 && d->since(qint64(toneAt)) > 0) {
+            const double u = d->since(qint64(toneAt));
+            wdth += 22 * std::sin(u * 20) * std::exp(-u * 4.5);
+        }
+        QColor ink = alpha(s.onSurface, k * 2.5);
+        double scale = 1, dx = 0, dy = 0;
+        QString shown = token.text;
+        if (token.kind == 1) {
+            scale = lerp(1.35, 1.0, c01(k));
+            ink = alpha(s.primary, k * 2.5);
+            const QRegularExpressionMatch m = number.match(token.text);
+            if (m.hasMatch()) shown = QString::number(qRound(lerp(countFrom.value(m.captured(2), 0), m.captured(1).toDouble(), c01(springAt(M3Motion::SpatialSlow, born))))) + m.captured(2) + m.captured(3);
+        }
+        if (look.style) {
+            const QString& c = look.style->colour;
+            const QColor role = c == "primary" ? s.primary : c == "secondary" ? s.secondary : c == "tertiary" ? s.tertiary : c == "error" ? s.error : c == "muted" ? s.onSurfaceVariant : QColor::fromString(c);
+            if (role.isValid()) ink = alpha(role, k * 2.5);
+            // an effect plays once, from when the word lands (so the frames stop again)
+            const QString& fx = look.style->fx;
+            const double u = born - 0.35, i = token.inStyle;
+            if (!fx.isEmpty() && u > 0 && u < 2.2) {
+                d->animateUntil = qMax(d->animateUntil, d->now() + 40);
+                const double fade = std::exp(-u * 1.8);
+                if (fx == "wave") dy = -7 * look.size * std::sin(u * 9 - i * 0.8) * fade;
+                else if (fx == "shake") dx = 4 * std::sin(u * 42 + i) * std::exp(-u * 3.5);
+                else if (fx == "pulse") wght += 300 * std::sin(u * 7 - i * 0.7) * fade;
+                else if (fx == "stretch") wdth += 45 * std::sin(u * 7 - i * 0.7) * fade;
+                else if (fx == "pop") scale *= 1 + 0.35 * std::sin(M_PI * c01((u - i * 0.06) / 0.45)) * (u - i * 0.06 > 0);
+            }
+        }
+        QFont font = flex(px * look.size, wght, wdth);
+        font.setFeature(QFont::Tag("tnum"), 1);
+        font.setVariableAxis(QFont::Tag("slnt"), float(std::round(slnt)));
+        const double lineH = lineTop.at(place.line + 1) - lineTop.at(place.line);
+        const double baselineOfLine = lineTop.at(place.line) + lineH - lineHeight + metrics.ascent();
+        const double top = baselineOfLine - metrics.ascent();
+        const double baseline = baselineOfLine + 10 * (1 - k) + dy;
+        const double ww = place.ww;
+        p.save();
+        if (token.kind >= 2) {
+            if (chipK > 0.01) {
+                const QRectF pill(at.x() + place.x - 4, top + 1, ww + 8, lineHeight - 4);
+                p.setPen(Qt::NoPen);
+                p.setBrush(alpha(hovered(pill) ? mix(s.secondaryContainer, s.onSecondaryContainer, 0.08) : s.secondaryContainer, chipK));
+                p.drawRoundedRect(pill, 9, 9);
+                p.save();
+                p.translate(pill.left() + 17, pill.center().y());
+                p.scale(chipK, chipK);
+                const QString suffix = QFileInfo(token.target).suffix().toLower();
+                const QString ic = token.kind == 5 ? QStringLiteral("link") : token.kind == 3 ? QStringLiteral("apps") : QStringList{"png", "jpg", "jpeg", "webp", "gif", "svg"}.contains(suffix) ? QStringLiteral("image") : QStringList{"css", "html", "js", "ts", "py", "cpp", "h", "rs", "sh", "json"}.contains(suffix) ? QStringLiteral("code") : QFileInfo(token.target).suffix().isEmpty() ? QStringLiteral("folder") : QStringLiteral("description");
+                icon(p, QRectF(-10, -10, 20, 20), ic, s.onSecondaryContainer, 17);
+                p.restore();
+                ink = mix(ink, s.onSecondaryContainer, chipK);
+                if (token.kind == 3) {
+                    const QString app = token.target;
+                    hit(pill, [app](QPointF) {
+                        if (AssistantTools::instance()->has(QStringLiteral("open_app"))) AssistantTools::instance()->tool(QStringLiteral("open_app")).run(QJsonObject{{"name", app}});
+                    });
+                }
+                if (token.kind == 5) {
+                    const QUrl url(token.target);
+                    hit(pill, [url](QPointF) {
+                        QDesktopServices::openUrl(url);
+                    });
+                }
+                if (token.kind == 2) {
+                    const QString path = QString(token.target).replace(QRegularExpression(QStringLiteral("^~")), QDir::homePath());
+                    hit(pill, [path](QPointF) {
+                        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+                    });
+                }
+            }
+            p.setFont(font);
+            p.setPen(ink);
+            p.drawText(QPointF(at.x() + place.x + 30 * chipK, baseline), shown);
+        } else {
+            const QFontMetricsF own(font);
+            const double cx = at.x() + place.x + ww / 2 + dx;
+            p.setFont(font);
+            p.setPen(ink);
+            p.translate(cx, baseline - own.ascent() / 2.6);
+            p.scale(scale, scale);
+            p.drawText(QPointF(-own.horizontalAdvance(shown) / 2, own.ascent() / 2.6), shown);
+        }
+        p.restore();
+    }
+    return lineTop.last() - at.y();
 }
 
 void AssistantPanel::mousePressEvent(QMouseEvent* event) {
@@ -1546,7 +1665,7 @@ void AssistantPanel::mouseMoveEvent(QMouseEvent* event) {
     bool over = false;
     for (const Private::Hit& hit : std::as_const(d->hits)) over = over || hit.rect.contains(d->mouse);
     this->setCursor(over ? Qt::PointingHandCursor : Qt::ArrowCursor);
-    this->update();
+    redraw();
 }
 
 void AssistantPanel::mouseReleaseEvent(QMouseEvent* event) {

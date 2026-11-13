@@ -54,6 +54,7 @@ class AssistantPanel : public QDialog {
         void toBar();
         void tick();
         void animateFor(int ms);
+        void redraw();
         void scrollToEnd();
         QRectF sheetRect() const;
         double paintThread(QPainter& p, const QRectF& view, double scroll);

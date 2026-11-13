@@ -61,6 +61,9 @@ void DemoBrain::send(QString text, QStringList context, bool harder) {
             emit chipsOffered({{"undo", tr("Undo"), "undo"}, {"diff", tr("Show the whole change"), {}}});
             emit turnFinished();
         });
+    } else if (t.contains("style")) {
+        say(600, QStringLiteral("{done} Words can go <t wght=100-1000>thin to heavy</t>, <t wdth=151 fx=stretch>wide</t>, <t slnt=-10 color=tertiary>leaning</t>, <t size=1.8 wght=900 fx=pop>big</t> or <t fx=wave color=primary wght=700>do a little wave</t>."));
+        later(1600, [this] { emit turnFinished(); });
     } else {
         say(900, tr("I'm a stand-in for now, so I can only do the screen and dnd one, or the css one. The real me comes next."));
         later(1500, [this] { emit turnFinished(); });

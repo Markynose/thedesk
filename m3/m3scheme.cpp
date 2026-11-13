@@ -256,7 +256,22 @@ M3::Scheme M3::schemeFor(const Config& config, QDateTime when) {
 }
 
 M3::Scheme M3::currentScheme() {
-    return schemeFor(Config::fromSettings());
+    // painters call this every frame and generating a scheme is heavy colour maths: reuse it while its inputs match
+    const Config config = Config::fromSettings();
+    const QDateTime when = QDateTime::currentDateTime();
+    const QColor seed = seedFor(config, when);
+    const bool dark = config.mode == Mode::Dark || (config.mode == Mode::Horizon && !horizonIsDay(when.time()));
+    thread_local struct {
+            QRgb seed = 0;
+            bool dark = false, valid = false;
+            Variant variant = Variant::TonalSpot;
+            double contrast = 0;
+            Scheme scheme;
+    } cache;
+    if (!cache.valid || cache.seed != seed.rgba() || cache.dark != dark || cache.variant != config.variant || cache.contrast != config.contrast) {
+        cache = {seed.rgba(), dark, true, config.variant, config.contrast, Scheme::generate(seed, dark, config.variant, config.contrast)};
+    }
+    return cache.scheme;
 }
 
 QList<QColor> M3::terminalColours(const Scheme& scheme, QColor seed, bool dark) {
