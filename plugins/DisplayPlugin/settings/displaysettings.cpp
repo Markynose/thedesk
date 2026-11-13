@@ -29,11 +29,64 @@
 #include "arrange/arrangecontroller.h"
 #include "newdisplay/newdisplaycontroller.h"
 #include <QPushButton>
+#include <QTimeEdit>
+#include <QVBoxLayout>
+#include <m3timedial.h>
+#include <tpopover.h>
+#include <ttitlelabel.h>
 #include <Screens/screendaemon.h>
 
 struct DisplaySettingsPrivate {
     tSettings settings;
 };
+
+namespace {
+    // The time edit stays (hidden) as the model; a button shows the time and
+    // opens the M3 clock dial in a popover
+    void dialFor(QTimeEdit* edit, const QString& title, std::function<void(QTime)> save) {
+        auto* button = new QPushButton(edit->parentWidget());
+        button->setProperty("m3ButtonStyle", QStringLiteral("tonal"));
+        if (auto* layout = edit->parentWidget()->layout()) layout->replaceWidget(edit, button);
+        edit->hide();
+        auto show = [edit, button] {
+            button->setText(QLocale().toString(edit->time(), QLocale::ShortFormat));
+        };
+        QObject::connect(edit, &QTimeEdit::timeChanged, button, show);
+        show();
+        QObject::connect(button, &QPushButton::clicked, button, [edit, button, title, save, show] {
+            auto* sheet = new QWidget();
+            auto* layout = new QVBoxLayout(sheet);
+            layout->setContentsMargins(0, 0, 0, 24);
+            auto* heading = new tTitleLabel(sheet);
+            heading->setText(title);
+            heading->setBackButtonShown(true);
+            layout->addWidget(heading);
+            auto* dial = new M3TimeDial(sheet);
+            dial->setTime(edit->time());
+            layout->addWidget(dial, 0, Qt::AlignHCenter);
+            auto* done = new QPushButton(QObject::tr("Done"), sheet);
+            done->setProperty("m3ButtonStyle", QStringLiteral("filled"));
+            layout->addWidget(done, 0, Qt::AlignHCenter);
+            layout->addStretch();
+
+            auto* popover = new tPopover(sheet);
+            popover->setPopoverWidth(420);
+            QObject::connect(heading, &tTitleLabel::backButtonClicked, popover, &tPopover::dismiss);
+            QObject::connect(done, &QPushButton::clicked, popover, [edit, dial, popover, save, show] {
+                {
+                    QSignalBlocker block(edit);
+                    edit->setTime(dial->time());
+                }
+                save(dial->time());
+                show();
+                popover->dismiss();
+            });
+            QObject::connect(popover, &tPopover::dismissed, popover, &tPopover::deleteLater);
+            QObject::connect(popover, &tPopover::dismissed, sheet, &QWidget::deleteLater);
+            popover->show(button->window());
+        });
+    }
+} // namespace
 
 DisplaySettings::DisplaySettings() :
     StatusCenterPane(),
@@ -78,7 +131,11 @@ DisplaySettings::DisplaySettings() :
 
     updateRedshiftSettings();
     updateDpiSettings();
+
+    dialFor(ui->redshiftStartTime, tr("Redshift starts"), [this](QTime time) { on_redshiftStartTime_userTimeChanged(time); });
+    dialFor(ui->redshiftEndTime, tr("Redshift ends"), [this](QTime time) { on_redshiftEndTime_userTimeChanged(time); });
 }
+
 
 DisplaySettings::~DisplaySettings() {
     delete d;

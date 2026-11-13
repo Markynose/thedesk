@@ -23,11 +23,12 @@
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
+#include <m3timedial.h>
 #include <tdatetimepicker.h>
 
 struct SetTimeDatePopoverPrivate {
         tDateTimePicker* datePicker;
-        tDateTimePicker* timePicker;
+        M3TimeDial* timePicker; // the M3 clock dial
 };
 
 SetTimeDatePopover::SetTimeDatePopover(QWidget* parent) :
@@ -38,19 +39,18 @@ SetTimeDatePopover::SetTimeDatePopover(QWidget* parent) :
     ui->titleLabel->setBackButtonShown(true);
 
     d->datePicker = new tDateTimePicker(this);
-    d->timePicker = new tDateTimePicker(this);
+    d->timePicker = new M3TimeDial(this);
     ui->pickerLayout->addWidget(d->datePicker);
-    ui->pickerLayout->addWidget(d->timePicker);
+    ui->pickerLayout->addSpacing(16);
+    ui->pickerLayout->addWidget(d->timePicker, 0, Qt::AlignHCenter);
 
     QFont fnt = d->datePicker->font();
     fnt.setPointSize(30);
     d->datePicker->setFont(fnt);
-    d->timePicker->setFont(fnt);
 
     d->datePicker->setDateTime(QDateTime::currentDateTime());
     d->datePicker->setPickOptions(tDateTimePicker::PickDate);
-    d->timePicker->setDateTime(QDateTime::currentDateTime());
-    d->timePicker->setPickOptions(tDateTimePicker::PickTime);
+    d->timePicker->setTime(QTime::currentTime());
 
     ui->stackedWidget->setCurrentAnimation(tStackedWidget::Fade);
     ui->spinner->setFixedSize(SC_DPI_T(QSize(32, 32), QSize));
@@ -68,7 +68,7 @@ void SetTimeDatePopover::on_titleLabel_backButtonClicked() {
 void SetTimeDatePopover::on_applyButton_clicked() {
     ui->stackedWidget->setCurrentWidget(ui->spinnerPage);
 
-    QDateTime selectedDateTime(d->datePicker->currentDateTime().date(), d->timePicker->currentDateTime().time());
+    QDateTime selectedDateTime(d->datePicker->currentDateTime().date(), d->timePicker->time());
     qint64 milliSinceEpoch = selectedDateTime.toMSecsSinceEpoch() * 1000;
 
     QDBusMessage setTimeMessage = QDBusMessage::createMethodCall("org.freedesktop.timedate1", "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "SetTime");

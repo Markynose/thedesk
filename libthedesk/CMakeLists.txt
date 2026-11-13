@@ -19,6 +19,7 @@ set(SOURCES
     barmanager.cpp
     chunk.cpp
     richtip.cpp
+    m3timedial.cpp
     common.cpp
     gatewaymanager.cpp
     gatewaysearchprovider.cpp
@@ -92,6 +93,7 @@ set(HEADERS
     barmanager.h
     chunk.h
     richtip.h
+    m3timedial.h
     common.h
     gatewaymanager.h
     gatewaysearchprovider.h
