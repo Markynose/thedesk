@@ -33,6 +33,7 @@ set(SOURCES
     assistant/desktools.cpp
     assistant/pebblesettings.cpp
     assistant/selectionbutton.cpp
+    assistant/pebblenudges.cpp
     gateway/gateway.cpp
     gateway/launcher.cpp
     gateway/launcherdata.cpp
@@ -108,6 +109,7 @@ set(HEADERS
     assistant/desktools.h
     assistant/pebblesettings.h
     assistant/selectionbutton.h
+    assistant/pebblenudges.h
     assistant/assistantface.h
     gateway/gateway.h
     gateway/launcher.h

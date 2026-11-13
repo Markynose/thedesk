@@ -14,6 +14,11 @@
 #include <quietmodemanager.h>
 #include <statemanager.h>
 #include <tsettings.h>
+#include <QClipboard>
+#include <QDBusInterface>
+#include <QGuiApplication>
+#include <quickswitch.h>
+#include <statuscentermanager.h>
 
 namespace {
     QString tr(const char* text) {
@@ -91,6 +96,105 @@ namespace {
 
 void DeskTools::setUp() {
     AssistantTools* tools = AssistantTools::instance();
+
+    tools->add({QStringLiteral("quick_switch"),
+        QStringLiteral("Turn one of the Status Center's quick switches on or off (Bluetooth, Wi-Fi, flight mode, Power Stretch, Redshift = night light, Caffeinate = keep awake, ...). Leave name empty to list them."),
+        AssistantTools::schemaOf({{"name", "string"}, {"on", "boolean"}}, {"name", "on"}), false, [](QJsonObject args) {
+            AssistantToolResult result;
+            const QString name = args.value("name").toString().trimmed();
+            QStringList all;
+            QuickSwitch* found = nullptr;
+            for (QuickSwitch* sw : StateManager::statusCenterManager()->switches()) {
+                all.append(QStringLiteral("%1 (%2)").arg(sw->title(), sw->isChecked() ? QStringLiteral("on") : QStringLiteral("off")));
+                if (!name.isEmpty() && !found && (sw->title().contains(name, Qt::CaseInsensitive) || sw->name().contains(name, Qt::CaseInsensitive))) found = sw;
+            }
+            if (!found) {
+                result.text = QStringLiteral("Quick switches: %1.").arg(all.join(QStringLiteral(", ")));
+                return result;
+            }
+            const bool before = found->isChecked();
+            const bool on = args.contains("on") ? args.value("on").toBool() : !before;
+            found->setChecked(on);
+            const QPointer<QuickSwitch> sw = found;
+            result.text = QStringLiteral("%1 is now %2.").arg(found->title(), on ? QStringLiteral("on") : QStringLiteral("off"));
+            result.card = QStringLiteral("switch");
+            result.icon = QStringLiteral("toggle_on");
+            result.title = found->title();
+            result.value = on ? 1 : 0;
+            result.setValue = [sw](double value) {
+                if (sw) sw->setChecked(value > 0.5);
+            };
+            result.undo = [sw, before] {
+                if (sw) sw->setChecked(before);
+            };
+            return result;
+        }});
+
+    tools->add({QStringLiteral("set_theme"),
+        QStringLiteral("Light or dark: mode is dark, light, or horizon (light by day, dark at night)."),
+        AssistantTools::schemaOf({{"mode", "string"}}), false, [](QJsonObject args) {
+            AssistantToolResult result;
+            tSettings settings(QStringLiteral("theSuite"), QStringLiteral("theDesk.platform"));
+            const QString before = settings.value(QStringLiteral("Palette/m3.mode")).toString();
+            QString mode = args.value("mode").toString().toLower();
+            if (!QStringList{"dark", "light", "horizon"}.contains(mode)) mode = QStringLiteral("dark");
+            settings.setValue(QStringLiteral("Palette/m3.mode"), mode);
+            result.text = QStringLiteral("Theme is now %1 (was %2).").arg(mode, before);
+            result.undo = [before] {
+                tSettings(QStringLiteral("theSuite"), QStringLiteral("theDesk.platform")).setValue(QStringLiteral("Palette/m3.mode"), before);
+            };
+            return result;
+        }});
+
+    tools->add({QStringLiteral("copy_to_clipboard"),
+        QStringLiteral("Put text on the clipboard so the user can paste it."),
+        AssistantTools::schemaOf({{"text", "string"}}), false, [](QJsonObject args) {
+            AssistantToolResult result;
+            const QString before = QGuiApplication::clipboard()->text();
+            QGuiApplication::clipboard()->setText(args.value("text").toString());
+            result.text = QStringLiteral("Copied.");
+            result.undo = [before] {
+                QGuiApplication::clipboard()->setText(before);
+            };
+            return result;
+        }});
+
+    tools->add({QStringLiteral("remind_me"),
+        QStringLiteral("A reminder as a notification later: in_minutes, or at HH:MM (24 hour, today or else tomorrow). text is what it says."),
+        AssistantTools::schemaOf({{"text", "string"}, {"in_minutes", "number"}, {"at", "string: HH:MM"}}, {"in_minutes", "at"}), false, [](QJsonObject args) {
+            AssistantToolResult result;
+            QDateTime when = QDateTime::currentDateTime().addSecs(qint64(args.value("in_minutes").toDouble() * 60));
+            const QTime at = QTime::fromString(args.value("at").toString(), QStringLiteral("HH:mm"));
+            if (at.isValid()) {
+                when = QDateTime(QDate::currentDate(), at);
+                if (when <= QDateTime::currentDateTime()) when = when.addDays(1);
+            }
+            const QString text = args.value("text").toString();
+            // shortcut: reminders live in memory; logging out loses them (store them if that bites)
+            auto* timer = new QTimer();
+            timer->setSingleShot(true);
+            QObject::connect(timer, &QTimer::timeout, [timer, text] {
+                QDBusInterface(QStringLiteral("org.freedesktop.Notifications"), QStringLiteral("/org/freedesktop/Notifications"), QStringLiteral("org.freedesktop.Notifications"))
+                    .call(QStringLiteral("Notify"), QStringLiteral("Pebble"), uint(0), QStringLiteral("alarm"), tr("Reminder"), text, QStringList(), QVariantMap{{QStringLiteral("urgency"), QVariant::fromValue(uchar(1))}}, -1);
+                timer->deleteLater();
+            });
+            timer->start(int(qBound<qint64>(1000, QDateTime::currentDateTime().msecsTo(when), qint64(24) * 3600 * 1000)));
+            const QPointer<QTimer> guard = timer;
+            result.text = QStringLiteral("Reminder set for %1.").arg(when.toString(QStringLiteral("HH:mm")));
+            result.card = QStringLiteral("switch");
+            result.icon = QStringLiteral("alarm");
+            result.title = tr("Reminder at %1").arg(QLocale().toString(when.time(), QLocale::ShortFormat));
+            result.subtitle = text;
+            result.value = 1;
+            result.setValue = [guard](double on) {
+                if (guard && on < 0.5) guard->stop();
+                else if (guard && !guard->isActive()) guard->start();
+            };
+            result.undo = [guard] {
+                if (guard) guard->deleteLater();
+            };
+            return result;
+        }});
 
     tools->add({QStringLiteral("desk_status"),
         QStringLiteral("What the desktop is doing now: time, do not disturb, keyboard layouts, the open windows."),

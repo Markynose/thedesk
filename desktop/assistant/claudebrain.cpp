@@ -1,4 +1,5 @@
 #include "claudebrain.h"
+#include "pebblerules.h"
 
 #include <QBuffer>
 #include <QDateTime>
@@ -36,10 +37,22 @@ namespace {
         return s.size() > n ? s.left(n).trimmed() : s; // step lines add their own "…"
     }
 
-    // Never read, changed or written, whatever a page or a message says
-    const QStringList PrivateFolders{".ssh", ".gnupg", ".password-store", ".local/share/keyrings", ".mozilla", ".librewolf", ".config/google-chrome",
-        ".config/chromium", ".config/BraveSoftware", ".config/vivaldi", ".claude", ".aws", ".kube", ".docker", ".netrc", ".pki",
-        ".git-credentials", ".config/gh", ".local/share/thedesk/assistant"};
+    // Where a file goes before Pebble changes it (Pebble can't read this folder)
+    QString backupOf(const QString& path) {
+        static int n = 0;
+        const QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/thedesk/assistant/backups/%1-%2").arg(QDateTime::currentMSecsSinceEpoch()).arg(n++);
+        QDir().mkpath(dir);
+        const QString copy = dir + '/' + QFileInfo(path).fileName();
+        QFile::copy(path, copy);
+        return copy;
+    }
+    void pruneBackups() {
+        // shortcut: backups go after a week by age alone, not by size; cap the size if they ever grow big
+        QDir dir(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/thedesk/assistant/backups"));
+        for (const QFileInfo& old : dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+            if (old.birthTime().isValid() ? old.birthTime().daysTo(QDateTime::currentDateTime()) > 7 : old.lastModified().daysTo(QDateTime::currentDateTime()) > 7) QDir(old.absoluteFilePath()).removeRecursively();
+        }
+    }
 
     QString memoryPath() {
         return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/thedesk/assistant-memory.md");
@@ -74,7 +87,9 @@ namespace {
             {"look_at_screen", "See what was on the user's screen when they opened you. Use it when they say \"this\", \"here\" or ask about something on screen.", AssistantTools::schemaOf({}), false},
             {"remember", "Remember one short fact about the user for later chats (they can see and delete these).", AssistantTools::schemaOf({{"fact", "string"}}), false},
             {"forget", "Forget remembered facts containing these words.", AssistantTools::schemaOf({{"words", "string"}}), false},
-            {"undo_last", "Undo the desk changes you made in your last answer (brightness, do not disturb, volume, layout).", AssistantTools::schemaOf({}), false},
+            {"undo_last", "Undo what you changed in your last answer: desk settings, file edits, files moved or put in the trash.", AssistantTools::schemaOf({}), false},
+            {"trash", "Put files or folders in the trash (never delete them for good). They can be restored with undo_last.", AssistantTools::schemaOf({{"paths", "array: full paths"}}), true},
+            {"move", "Move or rename a file or folder. Won't replace an existing one. Can be undone with undo_last.", AssistantTools::schemaOf({{"from", "string: full path"}, {"to", "string: full path"}}), true},
         };
     }
 
@@ -115,6 +130,10 @@ struct ClaudeBrain::Private {
         QHash<QString, QPair<QString, QJsonObject>> tools; // tool use id -> tool, input
         QHash<QString, QJsonObject> asks;        // permission request id -> input
         QSet<QString> asked;                     // tool use ids the user saw as an ask card
+        // Once the chat has read a web page, a download or a long paste,
+        // everything asks again: text there can carry instructions
+        bool tainted = false;
+        bool chipsThisTurn = false;
         QString deepStep;
 };
 
@@ -145,6 +164,7 @@ bool ClaudeBrain::looksHeavy(const QString& text, const QStringList& context) {
 
 void ClaudeBrain::start() {
     if (d->process && d->process->state() != QProcess::NotRunning) return;
+    pruneBackups();
     delete d->process;
     d->process = new QProcess(this);
     d->buffer.clear();
@@ -252,6 +272,13 @@ void ClaudeBrain::send(QString text, QStringList context, bool harder) {
     d->undos.clear();
     if (deeper) deepen();
 
+    d->chipsThisTurn = false;
+    // a long paste (or long copied/selected text) may come from a web page
+    if (text.size() > 1500) d->tainted = true;
+    for (const QString& line : context) {
+        if ((line.startsWith(QStringLiteral("Clipboard:")) || line.startsWith(QStringLiteral("Selected text:"))) && line.size() > 300) d->tainted = true;
+    }
+
     QString content = text;
     if (!context.isEmpty()) content = QStringLiteral("<context>\n") + context.join(QStringLiteral("\n\n")) + QStringLiteral("\n</context>\n\n") + text;
     write(QJsonObject{{"type", "user"}, {"message", QJsonObject{{"role", "user"}, {"content", content}}}});
@@ -292,6 +319,7 @@ void ClaudeBrain::forget() {
     d->setters.clear();
     d->undos.clear();
     d->lastUndos.clear();
+    d->tainted = false;
 }
 
 void ClaudeBrain::fail(const QString& why) {
@@ -346,7 +374,10 @@ void ClaudeBrain::takeText(const QString& text, bool final) {
             for (const QString& label : d->pending.mid(8, close - 8).split('|')) {
                 if (!label.trimmed().isEmpty()) offered.append({label.trimmed(), label.trimmed(), {}});
             }
-            if (!offered.isEmpty()) emit chipsOffered(offered);
+            if (!offered.isEmpty()) {
+                d->chipsThisTurn = true;
+                emit chipsOffered(offered);
+            }
             d->pending.remove(0, close + 2);
         }
     }
@@ -446,6 +477,10 @@ void ClaudeBrain::handleLine(const QByteArray& line) {
             // text before a tool ends that part of the answer
             takeText(QString(), true);
             d->tools.insert(b.value("id").toString(), {tool, b.value("input").toObject()});
+            // reading the web or a downloaded file: from here on, everything asks
+            const QString path = b.value("input").toObject().value("file_path").toString() + b.value("input").toObject().value("path").toString();
+            const bool downloaded = path.startsWith(QDir::homePath() + QStringLiteral("/Downloads")) || path.startsWith(QStringLiteral("/tmp"));
+            if (tool == "WebFetch" || tool == "WebSearch" || ((tool == "Read" || tool == "Grep") && downloaded)) d->tainted = true;
             emit stepStarted(b.value("id").toString(), stepText(tool, b.value("input").toObject(), false));
         }
     } else if (type == "user") {
@@ -477,6 +512,8 @@ void ClaudeBrain::handleLine(const QByteArray& line) {
         }
     } else if (type == "result") {
         takeText(QString(), true);
+        // it changed things on its own: one tap puts them back
+        if (!d->undos.isEmpty() && !d->chipsThisTurn) emit chipsOffered({{QStringLiteral("undo"), tr("Undo"), QStringLiteral("undo")}});
         if (message.value("is_error").toBool() && !d->sawText) emit textArrived(QStringLiteral("{oops} ") + tr("Something went wrong on my side. Try again?"));
         d->busy = false;
         d->deepStep.clear();
@@ -520,6 +557,10 @@ void ClaudeBrain::handleControl(const QJsonObject& message) {
         // A card asks the user; the answer goes back with answer()
         const QString tool = request.value("tool_name").toString();
         const QJsonObject input = request.value("input").toObject();
+        if (mayGoAhead(tool, input)) {
+            write(QJsonObject{{"type", "control_response"}, {"response", QJsonObject{{"subtype", "success"}, {"request_id", requestId}, {"response", QJsonObject{{"behavior", "allow"}, {"updatedInput", input}}}}}});
+            return;
+        }
         d->asks.insert(requestId, input);
         const QString toolUseId = request.value("tool_use_id").toString();
         if (!toolUseId.isEmpty()) d->asked.insert(toolUseId);
@@ -548,6 +589,37 @@ void ClaudeBrain::handleControl(const QJsonObject& message) {
         card.path = path;
         emit cardAdded(card);
     }
+}
+
+bool ClaudeBrain::mayGoAhead(const QString& tool, const QJsonObject& input) {
+    // Without asking: looking-only commands, and changes to files it can put
+    // back (a backup first, then undo). Never once the chat is tainted
+    if (d->tainted) return false;
+    if (tool == "mcp__desk__run_command") return lookingOnly(input.value("command").toString());
+    if (tool == "Edit" || tool == "Write") {
+        const QString path = input.value("file_path").toString();
+        if (!freePath(path)) return false;
+        if (QFileInfo::exists(path)) {
+            const QString copy = backupOf(path);
+            d->undos.append([path, copy] {
+                QFile::remove(path);
+                QFile::copy(copy, path);
+            });
+        } else {
+            d->undos.append([path] {
+                QFile::remove(path);
+            });
+        }
+        return true;
+    }
+    if (tool == "mcp__desk__trash") {
+        for (const QJsonValue& path : input.value("paths").toArray()) {
+            if (!freePath(path.toString())) return false;
+        }
+        return true;
+    }
+    if (tool == "mcp__desk__move") return freePath(input.value("from").toString()) && freePath(input.value("to").toString());
+    return false;
 }
 
 QJsonObject ClaudeBrain::handleMcp(const QJsonObject& message) {
@@ -608,6 +680,37 @@ QJsonObject ClaudeBrain::handleMcp(const QJsonObject& message) {
             if (d->undos.isEmpty()) d->lastUndos.clear();
             else d->undos.clear();
             say(undos.isEmpty() ? QStringLiteral("There was nothing to undo.") : QStringLiteral("Put %1 change(s) back.").arg(undos.size()));
+        } else if (name == "trash") {
+            // the trash, not gone: each one can come back with undo_last
+            QStringList done, failed;
+            for (const QJsonValue& value : args.value("paths").toArray()) {
+                const QString path = value.toString();
+                QString inTrash;
+                if (QFile::moveToTrash(path, &inTrash)) {
+                    done.append(path);
+                    d->undos.append([path, inTrash] {
+                        QFile::rename(inTrash, path);
+                    });
+                } else {
+                    failed.append(path);
+                }
+            }
+            say(QStringLiteral("In the trash: %1.%2").arg(done.isEmpty() ? QStringLiteral("nothing") : done.join(QStringLiteral(", ")), failed.isEmpty() ? QString() : QStringLiteral(" Couldn't: ") + failed.join(QStringLiteral(", "))));
+        } else if (name == "move") {
+            const QString from = args.value("from").toString(), to = args.value("to").toString();
+            if (QFileInfo::exists(to)) {
+                say(QStringLiteral("%1 is already there; nothing moved.").arg(to));
+            } else {
+                QDir().mkpath(QFileInfo(to).absolutePath());
+                if (QFile::rename(from, to)) {
+                    d->undos.append([from, to] {
+                        QFile::rename(to, from);
+                    });
+                    say(QStringLiteral("Moved to %1.").arg(to));
+                } else {
+                    say(QStringLiteral("Couldn't move %1.").arg(from));
+                }
+            }
         } else if (AssistantTools::instance()->has(name)) {
             const AssistantToolResult done = AssistantTools::instance()->tool(name).run(args);
             say(done.text);

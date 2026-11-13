@@ -87,6 +87,7 @@ class StatusCenterManager : public QObject {
         friend StatusCenter;
         friend class SystemSettings;
         friend class Launcher; // the Gateway finds settings by name
+        friend class DeskTools; // Pebble flips quick switches
         void setIsShowingStatusCenter(bool isShowing);
         void setIsHamburgerMenuRequired(bool isRequired);
         QList<StatusCenterPane*> panes();

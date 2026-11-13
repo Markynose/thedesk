@@ -4,6 +4,7 @@
 #include "assistantchunk.h"
 #include "assistantface.h"
 #include "selectionbutton.h"
+#include "pebblenudges.h"
 #include "claudebrain.h"
 #include "demobrain.h"
 #include "pebblesettings.h"
@@ -383,12 +384,18 @@ AssistantPanel* AssistantPanel::instance() {
 void AssistantPanel::setUp() {
     connect(StateManager::hudManager(), &HudManager::actionTriggered, instance(), [](QString id) {
         if (id == "pebble-show") instance()->open();
+        else if (id.startsWith(QStringLiteral("pebble-ask:"))) {
+            // a nudge's button: Pebble opens with the job asked
+            instance()->open();
+            instance()->sendText(id.mid(11));
+        }
         else if (id == "pebble-dim" && AssistantTools::instance()->has(QStringLiteral("set_brightness"))) AssistantTools::instance()->tool(QStringLiteral("set_brightness")).run(QJsonObject{{"percent", 40}});
     });
     // a nudge at low battery: Pebble offers to dim the screen
     QDBusConnection::systemBus().connect(QStringLiteral("org.freedesktop.UPower"), QStringLiteral("/org/freedesktop/UPower/devices/DisplayDevice"),
         QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("PropertiesChanged"), instance(), SLOT(batteryChanged()));
     PebbleSelectionButton::setUp();
+    PebbleNudges::setUp();
     StateManager::statusCenterManager()->addPane(new PebbleSettings(), StatusCenterManager::SystemSettings);
     connect(new KeyGrab(QKeySequence(Qt::MetaModifier | Qt::Key_Space), QStringLiteral("assistant")), &KeyGrab::activated, instance(), [] {
         AssistantPanel* panel = instance();

@@ -94,8 +94,16 @@ a card you can keep adjusting, and it can undo them.
 - **It shows what it can see.** A row of chips under the field lists the window you
   were in, the copied text, the selection and the screen; tap one away and it's not
   sent.
-- **It asks before anything risky.** Commands, file changes and closing windows wait
-  for Allow. Private folders (keys, passwords, browser profiles) are off limits.
+- **It acts, and it can undo.** In your home folder it edits files (keeping a backup),
+  moves them and puts them in the trash without asking; commands that only look
+  (`ls`, `du`, `git log`, ...) just run. Everything comes back with one Undo.
+- **It asks before anything else.** Other commands, closing windows, and dotfiles or
+  config wait for Allow. Once a chat has read a web page, a download or a long paste,
+  everything asks again, so a page can't steer it. Private folders (keys, passwords,
+  browser profiles) are off limits.
+- **It speaks up now and then.** An old pile in Downloads or a nearly full disk gets
+  one snackbar whose button hands Pebble the job. It also sets reminders, copies to
+  the clipboard and flips Status Center switches.
 - **Answers in living type.** Words spring to their weight as they arrive, key words
   land bold in the accent colour, files and apps become chips, code becomes a card.
 - **Quick by default, deeper when needed.** A small model answers most things; code,

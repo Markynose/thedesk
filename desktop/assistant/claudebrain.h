@@ -43,6 +43,7 @@ class ClaudeBrain : public AssistantBrain {
         void handleLine(const QByteArray& line);
         void handleControl(const QJsonObject& message);
         QJsonObject handleMcp(const QJsonObject& message);
+        bool mayGoAhead(const QString& tool, const QJsonObject& input);
         void setDepth(int depth);
         void deepen();
         void takeText(const QString& text, bool final);

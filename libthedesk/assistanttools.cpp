@@ -40,10 +40,11 @@ QJsonObject AssistantTools::schemaOf(const QJsonObject& properties, const QStrin
     QJsonObject props;
     QJsonArray required;
     for (auto it = properties.begin(); it != properties.end(); ++it) {
-        // "number", "string", "boolean", or "string: what it is"
+        // "number", "string", "boolean", "array" (of strings), or "string: what it is"
         const QString spec = it.value().toString();
         const QString type = spec.section(':', 0, 0).trimmed();
         QJsonObject prop{{"type", type}};
+        if (type == "array") prop.insert("items", QJsonObject{{"type", "string"}});
         if (spec.contains(':')) prop.insert("description", spec.section(':', 1).trimmed());
         props.insert(it.key(), prop);
         if (!optional.contains(it.key())) required.append(it.key());
