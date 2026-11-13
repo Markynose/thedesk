@@ -20,6 +20,7 @@ set(SOURCES
     chunk.cpp
     richtip.cpp
     m3timedial.cpp
+    m3fabmenu.cpp
     common.cpp
     gatewaymanager.cpp
     gatewaysearchprovider.cpp
@@ -94,6 +95,7 @@ set(HEADERS
     chunk.h
     richtip.h
     m3timedial.h
+    m3fabmenu.h
     common.h
     gatewaymanager.h
     gatewaysearchprovider.h

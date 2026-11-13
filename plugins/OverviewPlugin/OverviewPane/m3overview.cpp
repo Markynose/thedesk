@@ -36,6 +36,10 @@
 #include <m3scheme.h>
 #include <claude/claudeusage.h>
 #include <m3usercard.h>
+#include <m3fabmenu.h>
+#include <keygrab.h>
+#include <statemanager.h>
+#include <statuscentermanager.h>
 #include <mpris/mprisengine.h>
 #include <mpris/mprisplayer.h>
 #include <shapes/materialshapes.h>
@@ -875,6 +879,21 @@ M3OverviewPage::M3OverviewPage(QWidget* parent) :
     for (int c = 0; c < 4; c++) grid->setColumnStretch(c, 1);
 
     d->cards = {d->today, d->session, d->battery, d->storage, d->memory, d->day, d->media, d->system, d->claude};
+
+    // theDesk's tools, a FAB menu away (they only had shortcuts): the Status
+    // Center steps aside, then the tool starts as if its keys were pressed
+    auto* tools = new M3FabMenu(this, QStringLiteral("construction"), tr("Tools"));
+    auto tool = [](const QString& shortcut) {
+        return [shortcut] {
+            StateManager::statusCenterManager()->hide();
+            QTimer::singleShot(350, [shortcut] { KeyGrab::trigger(shortcut); });
+        };
+    };
+    tools->addItem(QStringLiteral("screenshot_region"), tr("Screenshot or record"), tool(QStringLiteral("screenshot")));
+    tools->addItem(QStringLiteral("colorize"), tr("Pick a colour"), tool(QStringLiteral("colourPicker")));
+    tools->addItem(QStringLiteral("mood"), tr("Emoji"), tool(QStringLiteral("emoji")));
+    tools->addItem(QStringLiteral("content_paste"), tr("Clipboard"), tool(QStringLiteral("clipboard")));
+    tools->addItem(QStringLiteral("chat"), tr("Ask Pebble"), tool(QStringLiteral("assistant")));
 
     d->refresh.setInterval(1000);
     connect(&d->refresh, &QTimer::timeout, this, &M3OverviewPage::refresh);
