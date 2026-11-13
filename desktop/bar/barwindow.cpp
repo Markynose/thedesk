@@ -213,7 +213,7 @@ struct BarWindowPrivate {
 
         QList<DesktopWmWindowPtr> maximisedWindows;
 
-        bool barExpanding = true;
+        bool barExpanding = false; // starts collapsed; the pointer or a pull opens it
         bool statusCenterShown = false;
         bool barPendingShow = false;
         bool covered = false; // a fullscreen window is in front
