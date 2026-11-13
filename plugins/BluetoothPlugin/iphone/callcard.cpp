@@ -15,10 +15,12 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPointer>
 #include <QScreen>
 #include <QTimer>
 #include <QtMath>
 #include <compositor.h>
+#include <desksound.h>
 #include <m3motion.h>
 #include <m3scheme.h>
 #include <shapes/materialshapes.h>
@@ -100,6 +102,7 @@ struct CallCardPrivate {
 
         Spring drop, beat, morph, weight, press, answered, leave;
         int hovered = 0; // 1 decline, 2 answer
+        QPointer<DeskSound> ringtone;
         int pressed = 0;
         std::unique_ptr<m3shapes::Morph> picture, tick;
 };
@@ -146,9 +149,12 @@ CallCard::CallCard(QString caller, QString phone, std::function<void(bool)> answ
     d->clock.start();
     d->ticker->start();
     this->show();
+
+    d->ringtone = DeskSound::play(QStringLiteral("phone-incoming-call"), DeskSound::Ringtone);
 }
 
 CallCard::~CallCard() {
+    if (d->ringtone) d->ringtone->stop();
     delete d;
 }
 
@@ -157,12 +163,14 @@ void CallCard::end() {
     if (d->state != CallCardPrivate::Ringing) return;
     d->state = CallCardPrivate::Ended;
     d->leaveAt = d->time;
+    if (d->ringtone) d->ringtone->stop();
 }
 
 void CallCard::choose(bool answer) {
     if (d->state != CallCardPrivate::Ringing) return;
     d->state = answer ? CallCardPrivate::Answered : CallCardPrivate::Declined;
     d->answered.target = 1;
+    if (d->ringtone) d->ringtone->stop();
     d->leaveAt = d->time + (answer ? 1.8 : 0.9);
     if (d->answer) d->answer(answer);
 }

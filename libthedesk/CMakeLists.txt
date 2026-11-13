@@ -12,6 +12,7 @@ find_package(libtdesktopenvironment REQUIRED)
 
 set(SOURCES
     aroundyou.cpp
+    desksound.cpp
     claude/claudeusage.cpp
     actionquickwidget.cpp
     barmanager.cpp
@@ -81,6 +82,7 @@ set(SOURCES
 
 set(HEADERS
     aroundyou.h
+    desksound.h
     claude/claudeusage.h
     actionquickwidget.h
     barmanager.h

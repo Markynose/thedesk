@@ -17,6 +17,7 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * *************************************/
+#include <desksound.h>
 #include "plugin.h"
 
 #include "chargingripple.h"
@@ -89,6 +90,7 @@ void Plugin::activate() {
     // Testing: the charging ripple a few seconds after starting
     if (qEnvironmentVariableIsSet("TD_CHARGING_RIPPLE_TEST")) {
         QTimer::singleShot(qEnvironmentVariableIntValue("TD_CHARGING_RIPPLE_TEST") * 1000, this, [this] {
+            DeskSound::play(QStringLiteral("power-plug"));
             ChargingRipple::play(79, 4200, d->powerChunk);
         });
     }

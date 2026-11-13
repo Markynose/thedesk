@@ -1,0 +1,13 @@
+// Live Server: serves the project on http://localhost:5500 and reloads the
+// browser when a file is saved (Alt+L Alt+O, as in VS Code, or "task: spawn")
+[
+  {
+    "label": "Live Server",
+    "command": "npx",
+    "args": ["--yes", "live-server", "--port=5500"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "no_focus"
+  }
+]

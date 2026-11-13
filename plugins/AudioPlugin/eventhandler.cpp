@@ -17,6 +17,8 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * *************************************/
+#include <QPointer>
+#include <desksound.h>
 #include "eventhandler.h"
 
 #include <algorithm>
@@ -108,6 +110,12 @@ void EventHandler::adjustVolume(int percentageChange) {
 
     sink->setVolume(newVolume);
     showHud(sink, newVolume);
+
+    // A tick at the new level; a held key restarts it rather than piling
+    // ticks on top of each other
+    static QPointer<DeskSound> tick;
+    if (tick) tick->stop();
+    tick = DeskSound::play(QStringLiteral("audio-volume-change"));
 }
 
 void EventHandler::defaultSinkChanged(PulseAudioQt::Sink* defaultSink) {

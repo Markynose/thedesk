@@ -41,6 +41,7 @@ InputSettingsPane::InputSettingsPane() :
 }
 
 InputSettingsPane::~InputSettingsPane() {
+    d->leftPane->disconnect(this); // no page switching while we're torn down
     d->leftPane->deleteLater();
     delete d;
     delete ui;

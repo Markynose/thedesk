@@ -17,6 +17,7 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * *************************************/
+#include "desksound.h"
 #include "powermanager.h"
 #include "farewell.h"
 
@@ -166,9 +167,10 @@ void PowerManager::performPowerOperation(PowerManager::PowerOperation operation,
             if (StateManager::onboardingManager()->isOnboardingRunning()) return; // Onboarding is currently running
 
             d->lockScreenProcess = new QProcess();
-            connect(d->lockScreenProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, [this] {
+            connect(d->lockScreenProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, [this](int code, QProcess::ExitStatus status) {
                 // Tell logind that we're not locked
                 d->logindInterface->asyncCall("SetLockedHint", false);
+                if (status == QProcess::NormalExit && code == 0) DeskSound::play(QStringLiteral("screen-unlock"));
 
                 d->lockScreenProcess->deleteLater();
             });
@@ -192,6 +194,7 @@ void PowerManager::performPowerOperation(PowerManager::PowerOperation operation,
 
             // Tell logind that we're locked
             d->logindInterface->asyncCall("SetLockedHint", true);
+            if (!flags.contains(QStringLiteral("sleep"))) DeskSound::play(QStringLiteral("screen-lock"));
             break;
         case PowerManager::SwitchUsers:
             {

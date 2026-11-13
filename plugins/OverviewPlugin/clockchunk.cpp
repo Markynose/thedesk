@@ -25,10 +25,23 @@
 #include <statuscentermanager.h>
 #include <TimeDate/desktoptimedate.h>
 
+namespace {
+    // The seconds tick every second: with proportional digits the clock
+    // changed width each time and nudged the chunks beside it. Tabular
+    // digits are all one width, and the label keeps the width of the
+    // widest time so nothing beside it moves
+    void steadyDigits(QLabel* label, QFont font) {
+        font.setFeature(QFont::Tag("tnum"), 1);
+        label->setFont(font);
+        label->setMinimumWidth(QFontMetrics(font).horizontalAdvance(QStringLiteral("00:00:00")));
+    }
+} // namespace
+
 ClockChunk::ClockChunk() :
     Chunk(),
     ui(new Ui::ClockChunk) {
     ui->setupUi(this);
+    steadyDigits(ui->time, ui->time->font());
 
     DesktopTimeDate::makeTimeLabel(ui->time, DesktopTimeDate::Time);
     DesktopTimeDate::makeTimeLabel(ui->ampmLabel, DesktopTimeDate::AmPm);
@@ -42,7 +55,7 @@ ClockChunk::ClockChunk() :
         font.setVariableAxis(QFont::Tag("wght"), float(650 + 350 * percentage));
         font.setVariableAxis(QFont::Tag("wdth"), float(100 + 25 * percentage));
 
-        ui->time->setFont(font);
+        steadyDigits(ui->time, font);
         ui->ampmLabel->setFont(font);
 
         int padding = 3 + 6 * percentage;

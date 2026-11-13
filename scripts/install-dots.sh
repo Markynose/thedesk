@@ -4,6 +4,8 @@
 #   dots/home/    symlinked into $HOME (existing files are backed up first)
 #   dots/merge/   INI keys merged into files the apps rewrite themselves
 #                 (theDesk's QSettings files can't be symlinks)
+#   dots/seed/    copied into $HOME only where the file doesn't exist yet
+#                 (settings an app keeps rewriting, such as Zed's)
 #   dots/system/  copied into / with sudo (only with --system)
 #
 # Usage:
@@ -60,6 +62,17 @@ while IFS= read -r -d '' file; do
     run ln -s "$file" "$target"
     echo "    linked $rel"
 done < <(find "$DOTS/home" \( -type f -o -type l \) -print0 | sort -z)
+
+# --- seed: starting points, never overwritten ------------------------------------
+log "Seeding dots/seed into $HOME"
+while IFS= read -r -d '' file; do
+    rel=${file#"$DOTS/seed/"}
+    target=$HOME/$rel
+    [[ -e $target || -L $target ]] && continue # the app's own copy stays
+    run mkdir -p "$(dirname "$target")"
+    run cp "$file" "$target"
+    echo "    seeded $rel"
+done < <(find "$DOTS/seed" -type f -print0 | sort -z)
 
 # --- merge: INI keys -------------------------------------------------------------
 log "Merging dots/merge settings"

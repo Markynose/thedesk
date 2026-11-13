@@ -29,6 +29,10 @@ struct NotificationPrivate {
     QString body;
     Notification::Urgency urgency = Notification::Normal;
 
+    QString soundName;
+    QString soundFile;
+    bool suppressSound = false;
+
     QList<Notification::Action> actions;
 
     ApplicationPointer application;
@@ -101,6 +105,24 @@ void Notification::setUrgency(Notification::Urgency urgency) {
 
 Notification::Urgency Notification::urgency() {
     return d->urgency;
+}
+
+void Notification::setSound(QString name, QString file, bool suppress) {
+    d->soundName = name;
+    d->soundFile = file;
+    d->suppressSound = suppress;
+}
+
+QString Notification::soundName() {
+    return d->soundName;
+}
+
+QString Notification::soundFile() {
+    return d->soundFile;
+}
+
+bool Notification::soundSuppressed() {
+    return d->suppressSound;
 }
 
 void Notification::dismiss(Notification::NotificationCloseReason reason) {

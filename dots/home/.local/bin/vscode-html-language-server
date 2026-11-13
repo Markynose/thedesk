@@ -1,0 +1,482 @@
+#!/usr/bin/env node
+// HTML CSS Support for Zed (and any editor that runs
+// vscode-html-language-server): Zed's HTML extension uses the first
+// vscode-html-language-server on PATH, so this stands in front of the real
+// one and adds what VS Code's "HTML CSS Support" does:
+//
+//   - class="" and id="" complete from the CSS the page can see: its <style>
+//     blocks, its linked stylesheets (local files, and https:// ones such as
+//     a CDN's Bootstrap), and every .css/.scss file in the project
+//   - go to definition on a class or id jumps to its rule
+//
+// Everything else goes to the real server untouched. It looks for the real
+// one in $THEDESK_HTML_SERVER, ~/.local/share/thedesk-html-css (npm install
+// --prefix there @zed-industries/vscode-langservers-extracted) and Zed's own
+// copy; without one it still answers the class/id parts by itself.
+'use strict';
+
+const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { fileURLToPath, pathToFileURL } = require('url');
+
+const MAX_FILES = 400;
+const SKIP_DIRS = new Set(['node_modules', '.git', '.hg', '.svn', 'bower_components', '.next', '.cache', 'target']);
+
+// --- JSON-RPC over stdio ----------------------------------------------------
+
+function reader(stream, onMessage) {
+    let buffer = Buffer.alloc(0);
+    stream.on('data', (chunk) => {
+        buffer = Buffer.concat([buffer, chunk]);
+        for (;;) {
+            const end = buffer.indexOf('\r\n\r\n');
+            if (end < 0) return;
+            const header = buffer.subarray(0, end).toString('ascii');
+            const match = /Content-Length:\s*(\d+)/i.exec(header);
+            if (!match) {
+                buffer = buffer.subarray(end + 4);
+                continue;
+            }
+            const length = Number(match[1]);
+            if (buffer.length < end + 4 + length) return;
+            const body = buffer.subarray(end + 4, end + 4 + length).toString('utf8');
+            buffer = buffer.subarray(end + 4 + length);
+            let message;
+            try {
+                message = JSON.parse(body);
+            } catch {
+                continue;
+            }
+            onMessage(message);
+        }
+    });
+}
+
+function send(stream, message) {
+    const body = JSON.stringify(message);
+    stream.write(`Content-Length: ${Buffer.byteLength(body, 'utf8')}\r\n\r\n${body}`);
+}
+
+const toEditor = (message) => send(process.stdout, message);
+
+// --- Documents the editor has open ------------------------------------------
+
+const documents = new Map(); // uri -> { text, languageId }
+
+function lineStarts(text) {
+    const starts = [0];
+    for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 10) starts.push(i + 1);
+    return starts;
+}
+
+function offsetAt(text, position) {
+    const starts = lineStarts(text);
+    if (position.line >= starts.length) return text.length;
+    return Math.min(starts[position.line] + position.character, position.line + 1 < starts.length ? starts[position.line + 1] : text.length);
+}
+
+function positionAt(starts, offset) {
+    let low = 0;
+    let high = starts.length - 1;
+    while (low < high) {
+        const mid = (low + high + 1) >> 1;
+        if (starts[mid] <= offset) low = mid;
+        else high = mid - 1;
+    }
+    return { line: low, character: offset - starts[low] };
+}
+
+function track(message) {
+    const params = message.params || {};
+    switch (message.method) {
+        case 'textDocument/didOpen':
+            documents.set(params.textDocument.uri, { text: params.textDocument.text, languageId: params.textDocument.languageId });
+            break;
+        case 'textDocument/didChange': {
+            const document = documents.get(params.textDocument.uri);
+            if (!document) break;
+            for (const change of params.contentChanges || []) {
+                if (!change.range) {
+                    document.text = change.text;
+                } else {
+                    const start = offsetAt(document.text, change.range.start);
+                    const end = offsetAt(document.text, change.range.end);
+                    document.text = document.text.slice(0, start) + change.text + document.text.slice(end);
+                }
+            }
+            break;
+        }
+        case 'textDocument/didClose':
+            documents.delete(params.textDocument.uri);
+            break;
+    }
+}
+
+// --- CSS: which classes and ids exist, and where ----------------------------
+
+// Comments and quoted strings become spaces, so offsets still line up
+function blank(text) {
+    return text.replace(/\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/g, (m) => m.replace(/[^\n]/g, ' '));
+}
+
+// [{ kind: 'class' | 'id', name, offset }] for every selector in the text
+function selectors(css) {
+    const text = blank(css);
+    const found = [];
+    let segment = 0;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (c === ';' || c === '}') {
+            segment = i + 1;
+        } else if (c === '{') {
+            const selector = text.slice(segment, i);
+            segment = i + 1;
+            if (selector.trim().startsWith('@')) continue; // @media, @supports...
+            const plain = selector.replace(/\[[^\]]*\]/g, (m) => ' '.repeat(m.length));
+            const re = /([.#])(-?[_a-zA-Z -￿][-_a-zA-Z0-9 -￿]*)/g;
+            let m;
+            while ((m = re.exec(plain))) {
+                const before = plain[m.index - 1];
+                if (before && /[0-9\\]/.test(before)) continue; // 12.5% in @keyframes
+                found.push({ kind: m[1] === '.' ? 'class' : 'id', name: m[2], offset: segment - selector.length - 1 + m.index + 1 });
+            }
+        }
+    }
+    return found;
+}
+
+// file -> { mtimeMs, entries: [{ kind, name, line, character }] }
+const fileCache = new Map();
+
+function fileSelectors(file) {
+    let stat;
+    try {
+        stat = fs.statSync(file);
+    } catch {
+        return [];
+    }
+    const cached = fileCache.get(file);
+    if (cached && cached.mtimeMs === stat.mtimeMs) return cached.entries;
+    let text = '';
+    try {
+        text = fs.readFileSync(file, 'utf8');
+    } catch {
+        return [];
+    }
+    const starts = lineStarts(text);
+    const entries = selectors(text).map((s) => ({ kind: s.kind, name: s.name, ...positionAt(starts, s.offset) }));
+    fileCache.set(file, { mtimeMs: stat.mtimeMs, entries });
+    return entries;
+}
+
+// Stylesheets from the web (a CDN's Bootstrap): fetched once a session
+const remote = new Map(); // url -> { entries } | 'pending' | 'failed'
+
+function remoteSelectors(url) {
+    const known = remote.get(url);
+    if (known && typeof known === 'object') return known.entries;
+    if (!known && typeof fetch === 'function') {
+        remote.set(url, 'pending');
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        fetch(url, { signal: controller.signal })
+            .then((response) => (response.ok ? response.text() : Promise.reject(new Error(String(response.status)))))
+            .then((text) => remote.set(url, { entries: selectors(text).map((s) => ({ kind: s.kind, name: s.name })) }))
+            .catch(() => remote.set(url, 'failed'))
+            .finally(() => clearTimeout(timer));
+    }
+    return null; // not yet
+}
+
+let roots = [];
+let projectFiles = { at: 0, files: [] };
+
+function projectStylesheets() {
+    if (Date.now() - projectFiles.at < 5000) return projectFiles.files;
+    const files = [];
+    const walk = (dir, depth) => {
+        if (files.length >= MAX_FILES || depth > 8) return;
+        let entries;
+        try {
+            entries = fs.readdirSync(dir, { withFileTypes: true });
+        } catch {
+            return;
+        }
+        for (const entry of entries) {
+            if (files.length >= MAX_FILES) return;
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                if (!SKIP_DIRS.has(entry.name) && !entry.name.startsWith('.')) walk(full, depth + 1);
+            } else if (/\.(css|scss|less)$/i.test(entry.name) && !/\.min\.css$/i.test(entry.name)) {
+                files.push(full);
+            }
+        }
+    };
+    for (const root of roots) walk(root, 0);
+    projectFiles = { at: Date.now(), files };
+    return files;
+}
+
+// Everything the page at `uri` can use: [{ kind, name, from, location }]
+function available(uri, text) {
+    const result = [];
+    let pending = false;
+    let documentPath = null;
+    try {
+        documentPath = fileURLToPath(uri);
+    } catch {}
+    const seen = new Set();
+    const addFile = (file) => {
+        if (seen.has(file)) return;
+        seen.add(file);
+        for (const e of fileSelectors(file)) {
+            result.push({ kind: e.kind, name: e.name, from: path.basename(file), location: { uri: pathToFileURL(file).href, line: e.line, character: e.character } });
+        }
+    };
+
+    // <style> blocks in the page itself
+    const starts = lineStarts(text);
+    const styleRe = /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi;
+    let m;
+    while ((m = styleRe.exec(text))) {
+        const base = m.index + m[0].indexOf('>') + 1;
+        for (const s of selectors(m[1])) {
+            result.push({ kind: s.kind, name: s.name, from: '<style>', location: { uri, ...positionAt(starts, base + s.offset) } });
+        }
+    }
+
+    // <link rel="stylesheet" href="...">
+    const linkRe = /<link\b[^>]*>/gi;
+    while ((m = linkRe.exec(text))) {
+        const tag = m[0];
+        if (!/\brel\s*=\s*["']?[^"'>]*stylesheet/i.test(tag)) continue;
+        const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(tag);
+        if (!href) continue;
+        let target = href[1] ?? href[2] ?? href[3];
+        if (target.startsWith('//')) target = 'https:' + target;
+        if (/^https?:\/\//i.test(target)) {
+            const entries = remoteSelectors(target);
+            if (entries === null && remote.get(target) === 'pending') pending = true;
+            for (const e of entries || []) result.push({ kind: e.kind, name: e.name, from: new URL(target).pathname.split('/').pop() || target });
+            continue;
+        }
+        target = target.split(/[?#]/)[0];
+        let file = null;
+        if (target.startsWith('/')) {
+            for (const root of roots) {
+                const candidate = path.join(root, target);
+                if (fs.existsSync(candidate)) file = candidate;
+            }
+        } else if (documentPath) {
+            file = path.resolve(path.dirname(documentPath), target);
+        }
+        if (file) addFile(file);
+    }
+
+    // The rest of the project's stylesheets
+    for (const file of projectStylesheets()) addFile(file);
+
+    return { entries: result, pending };
+}
+
+// --- Where the cursor is ----------------------------------------------------
+
+// Inside class="..." or id="..." of a tag: { attribute, word, start, end }
+function attributeAt(text, offset) {
+    const lt = text.lastIndexOf('<', offset - 1);
+    const gt = text.lastIndexOf('>', offset - 1);
+    if (lt < 0 || gt > lt) return null;
+    const head = text.slice(lt, offset);
+    const m = /\s(class|id)\s*=\s*(["'])([^"']*)$/i.exec(head);
+    if (!m) return null;
+    const quote = m[2];
+    let end = offset;
+    while (end < text.length && !/\s/.test(text[end]) && text[end] !== quote && text[end] !== '>') end++;
+    const typed = /[^\s]*$/.exec(m[3])[0];
+    return {
+        attribute: m[1].toLowerCase(),
+        typed,
+        word: typed + text.slice(offset, end),
+        start: offset - typed.length,
+        end,
+        others: new Set(m[3].split(/\s+/).filter(Boolean)),
+    };
+}
+
+function isHtml(uri) {
+    const document = documents.get(uri);
+    if (!document) return false;
+    if (document.languageId) return /html|php|vue|svelte|astro|erb|jinja|handlebars|twig|liquid/i.test(document.languageId);
+    return /\.(html?|php|vue|svelte|astro|erb|hbs|njk|twig|liquid)$/i.test(uri);
+}
+
+function completions(params) {
+    const uri = params.textDocument.uri;
+    if (!isHtml(uri)) return null;
+    const text = documents.get(uri).text;
+    const offset = offsetAt(text, params.position);
+    const at = attributeAt(text, offset);
+    if (!at) return null;
+    const kind = at.attribute === 'class' ? 'class' : 'id';
+    const { entries, pending } = available(uri, text);
+    const starts = lineStarts(text);
+    const range = { start: positionAt(starts, at.start), end: positionAt(starts, at.end) };
+    const byName = new Map();
+    for (const e of entries) {
+        if (e.kind !== kind) continue;
+        if (at.others.has(e.name) && e.name !== at.word) continue; // already on the element
+        const sources = byName.get(e.name) || new Set();
+        sources.add(e.from);
+        byName.set(e.name, sources);
+    }
+    const items = [...byName].map(([name, sources]) => ({
+        label: name,
+        kind: kind === 'class' ? 7 : 12, // Class / Value
+        detail: [...sources].slice(0, 3).join(', '),
+        sortText: '0' + name,
+        filterText: name,
+        textEdit: { range, newText: name },
+    }));
+    return { items, pending };
+}
+
+function definitions(params) {
+    const uri = params.textDocument.uri;
+    if (!isHtml(uri)) return null;
+    const text = documents.get(uri).text;
+    const at = attributeAt(text, offsetAt(text, params.position));
+    if (!at || !at.word) return null;
+    const kind = at.attribute === 'class' ? 'class' : 'id';
+    const locations = available(uri, text)
+        .entries.filter((e) => e.kind === kind && e.name === at.word && e.location)
+        .map((e) => ({ uri: e.location.uri, range: { start: { line: e.location.line, character: e.location.character }, end: { line: e.location.line, character: e.location.character + e.name.length } } }));
+    return locations.length ? locations : null;
+}
+
+function mergeCompletions(theirs, ours) {
+    if (!ours || ours.items.length === 0) return theirs;
+    const list = Array.isArray(theirs) ? { isIncomplete: false, items: theirs } : theirs || { isIncomplete: false, items: [] };
+    return { isIncomplete: Boolean(list.isIncomplete || ours.pending), items: [...ours.items, ...(list.items || [])] };
+}
+
+// --- Wiring -----------------------------------------------------------------
+
+function realServer() {
+    const home = os.homedir();
+    const candidates = [
+        process.env.THEDESK_HTML_SERVER,
+        path.join(home, '.local/share/thedesk-html-css/node_modules/@zed-industries/vscode-langservers-extracted/bin/vscode-html-language-server'),
+        path.join(home, '.local/share/thedesk-html-css/node_modules/vscode-langservers-extracted/bin/vscode-html-language-server'),
+        path.join(home, '.local/share/zed/extensions/work/html/node_modules/@zed-industries/vscode-langservers-extracted/bin/vscode-html-language-server'),
+    ];
+    return candidates.find((p) => p && p !== __filename && fs.existsSync(p)) || null;
+}
+
+const serverPath = realServer();
+const child = serverPath ? spawn(process.execPath, [serverPath, ...process.argv.slice(2)], { stdio: ['pipe', 'pipe', 'inherit'] }) : null;
+const waiting = new Map(); // request id -> { method, ours }
+let childCapabilities = {};
+
+function addCapabilities(capabilities) {
+    const completion = capabilities.completionProvider || {};
+    const triggers = new Set(completion.triggerCharacters || []);
+    triggers.add('"');
+    triggers.add("'");
+    capabilities.completionProvider = { ...completion, triggerCharacters: [...triggers] };
+    capabilities.definitionProvider = true;
+    if (!capabilities.textDocumentSync) capabilities.textDocumentSync = 2;
+    return capabilities;
+}
+
+function answerAlone(message) {
+    // No real server: just enough to be a server
+    switch (message.method) {
+        case 'initialize':
+            return { capabilities: addCapabilities({ textDocumentSync: 2 }) };
+        case 'shutdown':
+            return null;
+        case 'textDocument/completion': {
+            const ours = completions(message.params);
+            return ours ? { isIncomplete: ours.pending, items: ours.items } : null;
+        }
+        case 'textDocument/definition':
+            return definitions(message.params);
+        default:
+            return undefined;
+    }
+}
+
+reader(process.stdin, (message) => {
+    if (message.method === 'initialize') {
+        const params = message.params || {};
+        roots = (params.workspaceFolders || []).map((f) => f.uri).concat(params.rootUri ? [params.rootUri] : []).map((u) => {
+            try {
+                return fileURLToPath(u);
+            } catch {
+                return null;
+            }
+        }).filter(Boolean);
+        roots = [...new Set(roots)];
+    }
+    if (message.method === 'workspace/didChangeWorkspaceFolders') {
+        for (const f of message.params.event.added || []) roots.push(fileURLToPath(f.uri));
+        const removed = new Set((message.params.event.removed || []).map((f) => fileURLToPath(f.uri)));
+        roots = roots.filter((r) => !removed.has(r));
+        projectFiles.at = 0;
+    }
+    track(message);
+
+    if (!child) {
+        if (message.method === 'exit') process.exit(0);
+        if (message.id === undefined || !message.method) return;
+        const result = answerAlone(message);
+        if (result === undefined) toEditor({ jsonrpc: '2.0', id: message.id, error: { code: -32601, message: `Unhandled method ${message.method}` } });
+        else toEditor({ jsonrpc: '2.0', id: message.id, result });
+        return;
+    }
+
+    if (message.id !== undefined && message.method) {
+        if (message.method === 'initialize') {
+            waiting.set(message.id, { method: 'initialize' });
+        } else if (message.method === 'textDocument/completion') {
+            waiting.set(message.id, { method: message.method, ours: completions(message.params) });
+        } else if (message.method === 'textDocument/definition') {
+            const ours = definitions(message.params);
+            if (!childCapabilities.definitionProvider) {
+                toEditor({ jsonrpc: '2.0', id: message.id, result: ours });
+                return;
+            }
+            waiting.set(message.id, { method: message.method, ours });
+        }
+    }
+    send(child.stdin, message);
+});
+
+if (child) {
+    reader(child.stdout, (message) => {
+        // Responses to the editor's requests (requests from the server to
+        // the editor have a method and pass straight through)
+        if (message.id !== undefined && !message.method && waiting.has(message.id)) {
+            const { method, ours } = waiting.get(message.id);
+            waiting.delete(message.id);
+            if (method === 'initialize' && message.result) {
+                childCapabilities = { ...(message.result.capabilities || {}) };
+                message.result.capabilities = addCapabilities(message.result.capabilities || {});
+            } else if (method === 'textDocument/completion' && ours && ours.items.length) {
+                delete message.error;
+                message.result = mergeCompletions(message.result, ours);
+            } else if (method === 'textDocument/definition' && ours) {
+                const theirs = message.result ? (Array.isArray(message.result) ? message.result : [message.result]) : [];
+                delete message.error;
+                message.result = [...ours, ...theirs];
+            }
+        }
+        toEditor(message);
+    });
+    child.on('exit', (code) => process.exit(code ?? 0));
+    process.stdin.on('end', () => child.stdin.end());
+} else {
+    process.stdin.on('end', () => process.exit(0));
+}

@@ -13,6 +13,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSaveFile>
@@ -218,6 +221,180 @@ namespace {
         writeFile(dir + QStringLiteral("/starship.toml"), out);
     }
 
+    // Zed's theme "theDesk" (~/.config/zed/themes/thedesk.json). Zed watches
+    // its themes folder, so an open editor follows the horizon as it goes
+    void writeZed(const M3::Scheme& s, const QList<QColor>& ansi, bool dark) {
+        const QString dir = configHome() + QStringLiteral("/zed");
+        if (!QDir(dir).exists()) return; // no Zed here
+        // Zed writes alpha last: #rrggbbaa
+        auto a = [](QColor c, double alpha) {
+            c.setAlphaF(alpha);
+            const QString argb = c.name(QColor::HexArgb);
+            return QLatin1Char('#') + argb.mid(3) + argb.mid(1, 2);
+        };
+        const QColor red = ansi.value(1), green = ansi.value(2), yellow = ansi.value(3), blue = ansi.value(4), magenta = ansi.value(5), cyan = ansi.value(6);
+
+        QJsonObject style;
+        const QList<QPair<const char*, QString>> colours = {
+            {"background", hex(s.surfaceContainer)},
+            {"border", hex(s.outlineVariant)},
+            {"border.variant", hex(s.surfaceContainerHighest)},
+            {"border.focused", hex(s.primary)},
+            {"border.selected", hex(s.primary)},
+            {"border.transparent", QStringLiteral("#00000000")},
+            {"border.disabled", hex(s.surfaceContainerHigh)},
+            {"elevated_surface.background", hex(s.surfaceContainerHigh)},
+            {"surface.background", hex(s.surfaceContainerLow)},
+            {"element.background", hex(s.surfaceContainerHigh)},
+            {"element.hover", a(s.onSurface, 0.08)},
+            {"element.active", a(s.onSurface, 0.10)},
+            {"element.selected", hex(s.secondaryContainer)},
+            {"element.disabled", a(s.onSurface, 0.12)},
+            {"drop_target.background", a(s.primary, 0.16)},
+            {"ghost_element.background", QStringLiteral("#00000000")},
+            {"ghost_element.hover", a(s.onSurface, 0.08)},
+            {"ghost_element.active", a(s.onSurface, 0.10)},
+            {"ghost_element.selected", hex(s.secondaryContainer)},
+            {"ghost_element.disabled", QStringLiteral("#00000000")},
+            {"text", hex(s.onSurface)},
+            {"text.muted", hex(s.onSurfaceVariant)},
+            {"text.placeholder", hex(s.outline)},
+            {"text.disabled", a(s.onSurface, 0.38)},
+            {"text.accent", hex(s.primary)},
+            {"icon", hex(s.onSurfaceVariant)},
+            {"icon.muted", hex(s.outline)},
+            {"icon.disabled", a(s.onSurface, 0.38)},
+            {"icon.placeholder", hex(s.outline)},
+            {"icon.accent", hex(s.primary)},
+            {"status_bar.background", hex(s.surfaceContainer)},
+            {"title_bar.background", hex(s.surfaceContainer)},
+            {"title_bar.inactive_background", hex(s.surfaceContainerLow)},
+            {"toolbar.background", hex(s.surface)},
+            {"tab_bar.background", hex(s.surfaceContainer)},
+            {"tab.inactive_background", hex(s.surfaceContainer)},
+            {"tab.active_background", hex(s.surface)},
+            {"search.match_background", a(s.tertiary, 0.30)},
+            {"panel.background", hex(s.surfaceContainer)},
+            {"panel.focused_border", hex(s.primary)},
+            {"pane.focused_border", hex(s.primary)},
+            {"pane_group.border", hex(s.outlineVariant)},
+            {"scrollbar.thumb.background", a(s.onSurfaceVariant, 0.30)},
+            {"scrollbar.thumb.hover_background", a(s.onSurfaceVariant, 0.50)},
+            {"scrollbar.thumb.border", QStringLiteral("#00000000")},
+            {"scrollbar.track.background", QStringLiteral("#00000000")},
+            {"scrollbar.track.border", QStringLiteral("#00000000")},
+            {"editor.foreground", hex(s.onSurface)},
+            {"editor.background", hex(s.surface)},
+            {"editor.gutter.background", hex(s.surface)},
+            {"editor.subheader.background", hex(s.surfaceContainerLow)},
+            {"editor.active_line.background", a(s.onSurface, 0.05)},
+            {"editor.highlighted_line.background", a(s.primary, 0.10)},
+            {"editor.line_number", hex(s.outline)},
+            {"editor.active_line_number", hex(s.primary)},
+            {"editor.invisible", hex(s.outlineVariant)},
+            {"editor.wrap_guide", a(s.outlineVariant, 0.6)},
+            {"editor.active_wrap_guide", hex(s.outlineVariant)},
+            {"editor.indent_guide", a(s.outlineVariant, 0.6)},
+            {"editor.indent_guide_active", hex(s.outline)},
+            {"editor.document_highlight.read_background", a(s.primary, 0.12)},
+            {"editor.document_highlight.write_background", a(s.tertiary, 0.16)},
+            {"editor.document_highlight.bracket_background", a(s.primary, 0.20)},
+            {"link_text.hover", hex(s.primary)},
+            {"terminal.background", hex(s.surface)},
+            {"terminal.foreground", hex(s.onSurface)},
+            {"terminal.bright_foreground", hex(s.onSurface)},
+            {"terminal.dim_foreground", hex(s.onSurfaceVariant)},
+            {"terminal.ansi.background", hex(s.surface)},
+        };
+        for (const auto& [key, value] : colours) style.insert(QLatin1String(key), value);
+
+        static const char* ansiNames[] = {"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"};
+        for (int i = 0; i < 8 && i + 8 < ansi.size(); i++) {
+            style.insert(QStringLiteral("terminal.ansi.%1").arg(QLatin1String(ansiNames[i])), hex(ansi.at(i)));
+            style.insert(QStringLiteral("terminal.ansi.bright_%1").arg(QLatin1String(ansiNames[i])), hex(ansi.at(i + 8)));
+            style.insert(QStringLiteral("terminal.ansi.dim_%1").arg(QLatin1String(ansiNames[i])), a(ansi.at(i), 0.7));
+        }
+
+        // Diagnostics and version control states, in the harmonized hues
+        const QList<QPair<const char*, QColor>> states = {
+            {"error", s.error}, {"warning", yellow}, {"info", blue}, {"hint", s.outline}, {"success", green},
+            {"created", green}, {"modified", blue}, {"deleted", red}, {"renamed", cyan}, {"conflict", magenta},
+            {"hidden", s.outline}, {"ignored", s.outline}, {"predictive", s.outline}, {"unreachable", s.outline},
+        };
+        for (const auto& [name, colour] : states) {
+            const QString key = QLatin1String(name);
+            style.insert(key, hex(colour));
+            style.insert(key + QStringLiteral(".background"), a(colour, 0.14));
+            style.insert(key + QStringLiteral(".border"), a(colour, 0.40));
+        }
+
+        QJsonArray players;
+        for (const QColor& c : {s.primary, s.tertiary, s.secondary, green, magenta, cyan, yellow, red}) {
+            players.append(QJsonObject{{QStringLiteral("cursor"), hex(c)}, {QStringLiteral("background"), hex(c)}, {QStringLiteral("selection"), a(c, 0.28)}});
+        }
+        style.insert(QStringLiteral("players"), players);
+        style.insert(QStringLiteral("accents"), QJsonArray{hex(s.primary), hex(s.tertiary), hex(s.secondary)});
+
+        // Syntax: HTML and CSS stay easy to tell apart (tags, attributes,
+        // properties, values), from the same harmonized hues as the terminal
+        QJsonObject syntax;
+        auto token = [&syntax](const char* name, const QColor& colour, const char* fontStyle = nullptr, int weight = 0) {
+            QJsonObject o{{QStringLiteral("color"), colour.name()}};
+            if (fontStyle) o.insert(QStringLiteral("font_style"), QLatin1String(fontStyle));
+            if (weight) o.insert(QStringLiteral("font_weight"), weight);
+            syntax.insert(QLatin1String(name), o);
+        };
+        token("comment", s.outline, "italic");
+        token("comment.doc", s.outline, "italic");
+        token("keyword", s.primary, nullptr, 600);
+        token("tag", s.primary);
+        token("attribute", s.tertiary);
+        token("property", cyan);
+        token("string", green);
+        token("string.special", green);
+        token("string.escape", yellow);
+        token("string.regex", yellow);
+        token("number", yellow);
+        token("boolean", yellow);
+        token("constant", yellow);
+        token("function", blue);
+        token("constructor", blue);
+        token("type", cyan);
+        token("variable", s.onSurface);
+        token("variable.special", magenta);
+        token("label", magenta);
+        token("operator", s.onSurfaceVariant);
+        token("punctuation", s.onSurfaceVariant);
+        token("punctuation.bracket", s.onSurfaceVariant);
+        token("punctuation.delimiter", s.onSurfaceVariant);
+        token("punctuation.special", s.tertiary);
+        token("embedded", s.onSurface);
+        token("title", s.primary, nullptr, 700);
+        token("emphasis", s.tertiary, "italic");
+        token("emphasis.strong", s.tertiary, nullptr, 700);
+        token("link_text", s.primary);
+        token("link_uri", s.tertiary);
+        token("text.literal", green);
+        token("preproc", magenta);
+        token("enum", cyan);
+        token("variant", cyan);
+        style.insert(QStringLiteral("syntax"), syntax);
+
+        const QJsonObject theme{
+            {QStringLiteral("name"), QStringLiteral("theDesk")},
+            {QStringLiteral("appearance"), dark ? QStringLiteral("dark") : QStringLiteral("light")},
+            {QStringLiteral("style"), style},
+        };
+        const QJsonObject family{
+            {QStringLiteral("$schema"), QStringLiteral("https://zed.dev/schema/themes/v0.2.0.json")},
+            {QStringLiteral("name"), QStringLiteral("theDesk")},
+            {QStringLiteral("author"), QStringLiteral("theDesk, from the session's Material 3 colours")},
+            {QStringLiteral("themes"), QJsonArray{theme}},
+        };
+        if (!QDir().mkpath(dir + QStringLiteral("/themes"))) return;
+        writeFile(dir + QStringLiteral("/themes/thedesk.json"), QString::fromUtf8(QJsonDocument(family).toJson(QJsonDocument::Indented)));
+    }
+
     void writeBspwm(const M3::Scheme& s) {
         if (QStandardPaths::findExecutable(QStringLiteral("bspc")).isEmpty() || processesNamed("bspwm").isEmpty()) return;
         const QList<QPair<QString, QColor>> settings = {
@@ -294,4 +471,5 @@ void ThemeSync::apply() {
     writeStarship(scheme);
     writeBspwm(scheme);
     writeGtk(scheme);
+    writeZed(scheme, ansi, dark);
 }

@@ -17,6 +17,7 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * *************************************/
+#include <desksound.h>
 #include "eventhandler.h"
 
 #include "chargingripple.h"
@@ -236,6 +237,7 @@ void EventHandler::setBatteryChunk(QWidget* chunk) {
 
 void EventHandler::trackDevice(DesktopUPowerDevice* device) {
     connect(device, &DesktopUPowerDevice::lowBatteryNotification, this, [=](QString description) {
+        DeskSound::play(QStringLiteral("battery-caution"));
         StateManager::instance()->hudManager()->showHud({
             {"icon",    device->iconName()          },
             {"title",   tr("Battery")               },
@@ -246,6 +248,7 @@ void EventHandler::trackDevice(DesktopUPowerDevice* device) {
         });
     });
     connect(device, &DesktopUPowerDevice::chargingNotification, this, [=] {
+        DeskSound::play(QStringLiteral("power-plug")); // in step with the ripple's start
         // The ripple from where the charger goes in; the snackbar without it
         if (ChargingRipple::play(int(device->percentage()), device->timeToFull(), d->batteryChunk)) return;
         StateManager::instance()->hudManager()->showHud({
@@ -258,6 +261,7 @@ void EventHandler::trackDevice(DesktopUPowerDevice* device) {
         });
     });
     connect(device, &DesktopUPowerDevice::fullNotification, this, [=] {
+        DeskSound::play(QStringLiteral("battery-full"));
         StateManager::instance()->hudManager()->showHud({
             {"icon",    device->iconName()          },
             {"title",   tr("Battery")               },
@@ -268,6 +272,7 @@ void EventHandler::trackDevice(DesktopUPowerDevice* device) {
         });
     });
     connect(device, &DesktopUPowerDevice::dischargingNotification, this, [=] {
+        DeskSound::play(QStringLiteral("power-unplug"));
         StateManager::instance()->hudManager()->showHud({
             {"icon",    device->iconName()          },
             {"title",   tr("Battery")               },

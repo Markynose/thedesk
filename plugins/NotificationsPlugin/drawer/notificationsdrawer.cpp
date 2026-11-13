@@ -25,10 +25,12 @@
 #include "notificationsdrawerwidget.h"
 #include "notificationtracker.h"
 #include <QScreen>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWindow>
 #include <Wm/desktopwm.h>
 #include <barmanager.h>
+#include <desksound.h>
 #include <compositor.h>
 #include <gatewaymanager.h>
 #include <libcontemporary_global.h>
@@ -67,6 +69,13 @@ NotificationsDrawer::NotificationsDrawer(NotificationTracker* tracker) :
     DesktopWm::setSystemWindow(this, DesktopWm::SystemWindowTypeNotification);
 
     connect(StateManager::barManager(), &BarManager::barHeightChanged, this, &NotificationsDrawer::updateGeometry);
+
+    // bspwm doesn't stack notification windows, and raises the window it
+    // focuses above everything: pop-ups that were already up ended up under
+    // the focused window. Come back on top whenever focus moves
+    connect(DesktopWm::instance(), &DesktopWm::activeWindowChanged, this, [this] {
+        if (this->isVisible()) this->raise();
+    });
     connect(StateManager::gatewayManager(), &GatewayManager::gatewayWidthChanged, this, &NotificationsDrawer::updateGeometry);
     d->snackbarWindow = new QDialog(nullptr);
     d->snackbarWindow->setAttribute(Qt::WA_TranslucentBackground);
@@ -207,7 +216,21 @@ void NotificationsDrawer::showNotification(NotificationPtr notification) {
             break;
     }
 
+    // Its sound: the app's own file or theme sound, else theDesk's. Low
+    // urgency is quiet, and an app that plays its own asks for none
+    if (notification->urgency() != Notification::Low && !notification->soundSuppressed()) {
+        const DeskSound::Kind kind = notification->urgency() == Notification::Critical ? DeskSound::Critical : DeskSound::Notification;
+        DeskSound* sound = nullptr;
+        if (!notification->soundFile().isEmpty()) sound = DeskSound::playFile(notification->soundFile(), kind);
+        if (!sound && !notification->soundName().isEmpty()) sound = DeskSound::play(notification->soundName(), kind);
+        // Critical ones have a sound of their own (falls back to the usual)
+        if (!sound) DeskSound::play(kind == DeskSound::Critical ? QStringLiteral("message-new-instant-critical") : QStringLiteral("message-new-instant"), kind);
+    }
+
     NotificationsDrawerWidget* w = new NotificationsDrawerWidget(notification, d->tracker, this);
+    QTimer::singleShot(0, this, [this] {
+        this->raise(); // a new one comes up on top, even if the window was already up
+    });
     w->installEventFilter(this);
     if (QWidget* card = w->findChild<QWidget*>(QStringLiteral("mainFrame"))) card->installEventFilter(this);
     d->widgets.append(w);

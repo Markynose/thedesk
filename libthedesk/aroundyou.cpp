@@ -8,6 +8,7 @@
  *   (at your option) any later version.
  *
  * *************************************/
+#include "desksound.h"
 #include "aroundyou.h"
 
 #include "hudmanager.h"
@@ -50,13 +51,18 @@ AroundYou::AroundYou() :
 
 void AroundYou::setDevice(const AroundYouDevice& device, bool announce) {
     bool found = false;
+    bool wasConnected = false;
     for (AroundYouDevice& existing : d->devices) {
         if (existing.id != device.id) continue;
+        wasConnected = existing.connected;
         existing = device;
         found = true;
     }
     if (!found) d->devices.append(device);
     emit devicesChanged();
+
+    if (announce) DeskSound::play(QStringLiteral("device-added"));
+    else if (wasConnected && !device.connected) DeskSound::play(QStringLiteral("device-removed"));
 
     if (announce) {
         StateManager::hudManager()->showHud({
@@ -71,11 +77,15 @@ void AroundYou::setDevice(const AroundYouDevice& device, bool announce) {
 }
 
 void AroundYou::removeDevice(const QString& id) {
+    bool wasConnected = false;
     const qsizetype before = d->devices.size();
-    d->devices.removeIf([&id](const AroundYouDevice& device) {
-        return device.id == id;
+    d->devices.removeIf([&id, &wasConnected](const AroundYouDevice& device) {
+        if (device.id != id) return false;
+        wasConnected = device.connected;
+        return true;
     });
     if (d->devices.size() != before) emit devicesChanged();
+    if (wasConnected) DeskSound::play(QStringLiteral("device-removed"));
 }
 
 QList<AroundYouDevice> AroundYou::devices() const {

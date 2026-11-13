@@ -20,6 +20,7 @@
 #include "notificationsinterface.h"
 
 #include <QDBusConnection>
+#include <QUrl>
 #include "notification.h"
 #include "notificationtracker.h"
 #include "notifications_adaptor.h"
@@ -88,6 +89,10 @@ quint32 NotificationsInterface::Notify(QString appName, quint32 replacesId, QStr
     if (hints.contains("urgency")) {
         notification->setUrgency(static_cast<Notification::Urgency>(hints.value("urgency").toInt()));
     }
+
+    QString soundFile = hints.value("sound-file").toString();
+    if (soundFile.startsWith("file://")) soundFile = QUrl(soundFile).toLocalFile();
+    notification->setSound(hints.value("sound-name").toString(), soundFile, hints.value("suppress-sound", false).toBool());
 
     return notification->id();
 }

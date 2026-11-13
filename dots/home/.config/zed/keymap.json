@@ -1,0 +1,8 @@
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      "alt-l alt-o": ["task::Spawn", { "task_name": "Live Server" }]
+    }
+  }
+]

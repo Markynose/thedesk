@@ -1,0 +1,30 @@
+// Zed, as theDesk sets it up. A starting point: scripts/install-dots.sh copies
+// it to ~/.config/zed/settings.json only when there is none, and Zed then
+// keeps its own copy (changes made from Zed's UI stay on this computer).
+{
+  "icon_theme": "Material Icon Theme",
+  "vim_mode": true,
+  // Written by theDesk from the session's Material 3 colours
+  // (~/.config/zed/themes/thedesk.json); it follows the horizon
+  "theme": "theDesk",
+  "ui_font_family": "Roboto Flex",
+  "ui_font_size": 15,
+  "buffer_font_family": "Google Sans Code",
+  "buffer_font_size": 14,
+  "terminal": {
+    "font_family": "Google Sans Code"
+  },
+
+  // The web set: HTML (with theDesk's HTML CSS Support, a
+  // vscode-html-language-server in ~/.local/bin) and Emmet
+  "auto_install_extensions": {
+    "html": true,
+    "emmet": true
+  },
+
+  // Prettier: Zed brings its own and formats HTML, CSS and JS with it
+  "format_on_save": "on",
+
+  // Auto Rename Tag: editing an opening tag renames its closing tag
+  "linked_edits": true
+}

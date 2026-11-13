@@ -123,7 +123,7 @@ sudo pacman -S --needed base-devel git cmake ninja clang qt6-tools qt6-svg qt6-m
   qt6-positioning qt6-declarative qt6-wayland qcoro polkit-qt6 networkmanager-qt \
   modemmanager-qt bluez-qt pulseaudio-qt qrencode libxss libxrandr libxext quazip-qt6 \
   libimobiledevice bspwm picom kitty starship zsh-autosuggestions zsh-syntax-highlighting \
-  zsh-completions code tlp tlp-openrc xclip adw-gtk-theme noto-fonts ttf-roboto ttf-roboto-flex
+  zsh-completions code zed tlp tlp-openrc xclip adw-gtk-theme noto-fonts ttf-roboto ttf-roboto-flex
 # AUR: ttf-material-symbols-variable-git ttf-google-sans-code-vf
 
 # 2. Build and install theDesk + its libraries (to /usr, via sudo)
@@ -157,7 +157,7 @@ theDesk LightDM greeter), `scripts/install-plymouth.sh` (the boot splash) and
 | Print Screen, Super+Alt+P | Screenshot |
 | Alt+F2 | Run a command |
 | Ctrl+Alt+Esc | Make a stuck app quit |
-| Super+Return / Super+W / Super+E | kitty / Firefox / VS Code |
+| Super+Return / Super+W / Super+E | kitty / Firefox / Zed |
 | Super+C / Super+Shift+C | Close / force-stop window |
 | Super+H J K L | Focus window (Shift: swap, Alt: resize) |
 | Super+1…9, 0 / Super+Shift+1…9, 0 | Go to / send to desktop |
@@ -176,7 +176,7 @@ Global shortcuts are theDesk's (`~/.config/theSuite/theDesk.conf`): built-ins un
 | `style-m3/` | The `Material3` Qt style |
 | `greeter/ boot/` | The LightDM greeter, Limine and Plymouth themes |
 | `deps/` | Vendored theDesk libraries, with local patches listed in `deps/README.md` |
-| `dots/` | Dotfiles: `home/` (symlinked), `merge/` (merged into app-managed INI files), `system/` (copied to `/`) |
+| `dots/` | Dotfiles: `home/` (symlinked), `merge/` (merged into app-managed INI files), `seed/` (copied once, for settings apps rewrite), `system/` (copied to `/`) |
 | `scripts/` | Build, dotfiles, boot chain and network setup |
 | `docs/checkpoints/` | Screenshots from each stage of the redesign (`CHECKPOINTS.md`) |
 

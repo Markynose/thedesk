@@ -216,6 +216,7 @@ struct BarWindowPrivate {
         bool barExpanding = true;
         bool statusCenterShown = false;
         bool barPendingShow = false;
+        bool covered = false; // a fullscreen window is in front
 
         GestureInteractionPtr lastGesture;
 
@@ -346,7 +347,10 @@ BarWindow::BarWindow(QWidget* parent) :
             d->maximisedWindows.removeAll(window);
             this->update();
         }
+        QTimer::singleShot(0, this, &BarWindow::updateCovered);
     });
+    connect(DesktopWm::instance(), &DesktopWm::activeWindowChanged, this, &BarWindow::updateCovered);
+    connect(DesktopWm::instance(), &DesktopWm::currentDesktopChanged, this, &BarWindow::updateCovered);
     for (const DesktopWmWindowPtr& window : DesktopWm::openWindows()) {
         trackWindow(window);
     }
@@ -455,13 +459,34 @@ void BarWindow::trackWindow(DesktopWmWindowPtr window) {
 
     QRect screenGeometry = QApplication::primaryScreen()->geometry();
     if (window->isMaximised() && !window->isMinimized() && screenGeometry.contains(window->geometry()) && window->isOnCurrentDesktop()) {
-        if (d->maximisedWindows.contains(window)) return;
-        d->maximisedWindows.append(window);
-        this->update();
+        if (!d->maximisedWindows.contains(window)) {
+            d->maximisedWindows.append(window);
+            this->update();
+        }
     } else if (!window->isMaximised() || window->isMinimized() || !window->isOnCurrentDesktop()) {
-        if (!d->maximisedWindows.contains(window)) return;
-        d->maximisedWindows.removeAll(window);
-        this->update();
+        if (d->maximisedWindows.contains(window)) {
+            d->maximisedWindows.removeAll(window);
+            this->update();
+        }
+    }
+    updateCovered();
+}
+
+void BarWindow::updateCovered() {
+    // The bar is a dock: bspwm doesn't stack it, so it stayed above
+    // fullscreen windows (games, videos). While the active window is
+    // fullscreen on this screen the bar steps behind it; the Status Center
+    // (Super+Tab) still comes up over it
+    DesktopWmWindowPtr active = DesktopWm::activeWindow();
+    QScreen* screen = QApplication::primaryScreen();
+    const bool covered = active && active->isFullScreen() && !active->isMinimized() && active->isOnCurrentDesktop() &&
+                         screen && screen->geometry().intersects(active->geometry()) && !d->statusCenterShown;
+    if (covered == d->covered) return;
+    d->covered = covered;
+    if (covered) {
+        this->lower();
+    } else if (!StateManager::gatewayManager()->isOpen()) {
+        this->raise();
     }
 }
 
@@ -509,6 +534,7 @@ void BarWindow::showStatusCenter() {
 
     // Stay above tiled/floating windows (the WM does not restack docks)
     this->raise();
+    d->covered = false; // up over a fullscreen window too, for now
     if (!d->statusCenterShown) {
         d->focusBeforeStatusCenter = DesktopWm::activeWindow();
         d->inputFocusBeforeStatusCenter = currentInputFocus();
@@ -534,6 +560,7 @@ void BarWindow::hideStatusCenter() {
     DesktopWm::instance()->setSystemWindow(this, DesktopWm::SystemWindowTypeTaskbar);
     d->mainBarWidget->setFocus();
     d->statusCenterShown = false;
+    QTimer::singleShot(0, this, &BarWindow::updateCovered); // after focus goes back
 
     // Give the keyboard back to the window that had it. The bar took X focus
     // itself (bspwm ignores unmanaged windows), so bspwm still thinks that
@@ -552,6 +579,7 @@ void BarWindow::hideStatusCenter() {
 
 void BarWindow::showBar() {
     d->barPendingShow = false;
+    if (d->covered) return; // the pointer at the top of a fullscreen game
     // The expanded bar overlaps windows; make sure it is drawn above them,
     // except the Gateway's sheet, which stays on top while it's open
     if (!StateManager::gatewayManager()->isOpen()) this->raise();

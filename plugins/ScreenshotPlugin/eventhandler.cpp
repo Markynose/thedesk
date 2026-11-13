@@ -17,6 +17,7 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * *************************************/
+#include <desksound.h>
 #include <QApplication>
 #include <QClipboard>
 #include <QDateTime>
@@ -79,6 +80,7 @@ QCoro::Task<> EventHandler::takeScreenshot() {
         const QString path = QUrl(results.value(QStringLiteral("uri")).toString()).toLocalFile();
         QImage image(path);
         if (!image.isNull()) {
+            DeskSound::play(QStringLiteral("screen-capture"));
             QApplication::clipboard()->setImage(image);
             QDir dir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
             if (dir.mkpath(QStringLiteral("Screenshots")) && dir.cd(QStringLiteral("Screenshots"))) {

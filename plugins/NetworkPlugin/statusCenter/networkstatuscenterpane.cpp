@@ -79,6 +79,11 @@ NetworkStatusCenterPane::NetworkStatusCenterPane(SwitchManager* switchManager) :
 }
 
 NetworkStatusCenterPane::~NetworkStatusCenterPane() {
+    // The device panes take their rows out of the left pane's list as they
+    // go (after this, with the rest of our children); the list then reports
+    // a new current row, and switching the half-destroyed stack crashed
+    // theDesk on the way out
+    d->leftPane->disconnect(this);
     d->leftPane->deleteLater();
     delete d;
     delete ui;

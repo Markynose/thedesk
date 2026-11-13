@@ -71,6 +71,13 @@ class Notification : public QObject {
         void setUrgency(Urgency urgency);
         Urgency urgency();
 
+        // The spec's sound hints: a theme sound's name or a file, or none
+        // at all (the app plays its own)
+        void setSound(QString name, QString file, bool suppress);
+        QString soundName();
+        QString soundFile();
+        bool soundSuppressed();
+
         void dismiss(NotificationCloseReason reason);
 
     signals:

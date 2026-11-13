@@ -54,6 +54,7 @@ class BarWindow : public QWidget {
         void mouseMoveEvent(QMouseEvent* event);
 
         void trackWindow(DesktopWmWindowPtr window);
+        void updateCovered();
 
         void updatePrimaryScreen();
         void barHeightChanged();

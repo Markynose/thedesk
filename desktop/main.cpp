@@ -26,6 +26,7 @@
 #include <Wm/desktopwm.h>
 #include <gatewaymanager.h>
 #include <localemanager.h>
+#include <desksound.h>
 #include <powermanager.h>
 #include <statemanager.h>
 #include <statuscentermanager.h>
@@ -112,6 +113,15 @@ int main(int argc, char* argv[]) {
     QTimer::singleShot(0, [=] {
         SessionServer::instance()->hideSplashes();
         SessionServer::instance()->performAutostart();
+    });
+
+    // The desktop's sounds, decoded once the desktop is up so each one
+    // starts with the motion it goes with
+    QTimer::singleShot(4000, [] {
+        DeskSound::preload({QStringLiteral("message-new-instant"), QStringLiteral("power-plug"), QStringLiteral("power-unplug"),
+            QStringLiteral("device-added"), QStringLiteral("device-removed"), QStringLiteral("audio-volume-change"),
+            QStringLiteral("screen-capture"), QStringLiteral("screen-lock"), QStringLiteral("screen-unlock"),
+            QStringLiteral("phone-incoming-call"), QStringLiteral("battery-caution")});
     });
 
     return a.exec();
