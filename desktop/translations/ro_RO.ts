@@ -443,6 +443,120 @@
     </message>
 </context>
 <context>
+    <name>ClipboardPanel</name>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="50"/>
+        <source>Just now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../clipboard/clipboardpanel.cpp" line="51"/>
+        <source>%n min ago</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="104"/>
+        <source>Clipboard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="108"/>
+        <source>Search clipboard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="188"/>
+        <source>Image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="304"/>
+        <source>Copy something and it shows up here</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="304"/>
+        <source>Nothing matches</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="348"/>
+        <source>Image · %1 × %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="356"/>
+        <source>Looks like a password</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../clipboard/clipboardpanel.cpp" line="356"/>
+        <source>%n more lines</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="375"/>
+        <source>Enter paste · Shift+Enter copy · Ctrl+P pin · Del remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="406"/>
+        <source>Paste</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="409"/>
+        <source>Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="412"/>
+        <source>Unpin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="412"/>
+        <source>Pin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="415"/>
+        <source>Remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../clipboard/clipboardpanel.cpp" line="419"/>
+        <source>Clear history (keeps pins)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ColourPicker</name>
+    <message>
+        <location filename="../colourpicker/colourpicker.cpp" line="313"/>
+        <source>%1 copied</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../colourpicker/colourpicker.cpp" line="314"/>
+        <source>Click to copy %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../colourpicker/colourpicker.cpp" line="314"/>
+        <source>Click a tone to copy it instead</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>CommandLine</name>
     <message>
         <location filename="../cli/commandline.cpp" line="37"/>
@@ -519,6 +633,44 @@
     <message>
         <location filename="../systemsettings/about/aboutcards.cpp" line="271"/>
         <source>Named %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>EmojiPanel</name>
+    <message>
+        <location filename="../emoji/emojipanel.cpp" line="152"/>
+        <source>Emoji</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../emoji/emojipanel.cpp" line="156"/>
+        <source>Search emoji and symbols</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../emoji/emojipanel.cpp" line="245"/>
+        <source>Results</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../emoji/emojipanel.cpp" line="251"/>
+        <source>Recent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../emoji/emojipanel.cpp" line="372"/>
+        <source>Nothing matches</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../emoji/emojipanel.cpp" line="416"/>
+        <source>Enter types it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../emoji/emojipanel.cpp" line="416"/>
+        <source>%1 · Enter types it</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1369,12 +1521,12 @@ O să continuăm cu resetarea în %n secunde dacă nu faceți nimic.</translatio
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="77"/>
+        <location filename="../main.cpp" line="80"/>
         <source>Safe Mode</source>
         <translation>Modul de siguranță</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="77"/>
+        <location filename="../main.cpp" line="80"/>
         <source>You&apos;re holding the CTRL key. Start theDesk in Safe Mode?</source>
         <translation>Țineți apăsata tasta CTRL. Porniți theDesk în modul de siguranță?</translation>
     </message>

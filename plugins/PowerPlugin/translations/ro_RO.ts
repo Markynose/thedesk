@@ -2,6 +2,79 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ro_RO" sourcelanguage="en_US">
 <context>
+    <name>BatteryHealth</name>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="81"/>
+        <source>Battery %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="81"/>
+        <location filename="../settings/batteryhealth.cpp" line="138"/>
+        <source>Battery</source>
+        <translation type="unfinished">Baterie</translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="138"/>
+        <source>Batteries</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="183"/>
+        <source>Draining · %1 W</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="184"/>
+        <source>Charging · %1 W</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="185"/>
+        <source>Full</source>
+        <translation type="unfinished">Încărcat complet</translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="186"/>
+        <source>Resting</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="187"/>
+        <source>charges to %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="195"/>
+        <source>Good</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="195"/>
+        <source>Worn</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="195"/>
+        <source>Replace soon</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/batteryhealth.cpp" line="216"/>
+        <source>health · holds %1 of %2 Wh</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../settings/batteryhealth.cpp" line="228"/>
+        <source>%n cycles</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+</context>
+<context>
     <name>ChargingRipple</name>
     <message>
         <location filename="../chargingripple.cpp" line="130"/>
@@ -56,25 +129,25 @@
         </translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="243"/>
-        <location filename="../eventhandler.cpp" line="256"/>
-        <location filename="../eventhandler.cpp" line="267"/>
-        <location filename="../eventhandler.cpp" line="278"/>
+        <location filename="../eventhandler.cpp" line="247"/>
+        <location filename="../eventhandler.cpp" line="260"/>
+        <location filename="../eventhandler.cpp" line="270"/>
+        <location filename="../eventhandler.cpp" line="280"/>
         <source>Battery</source>
         <translation>Baterie</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="257"/>
+        <location filename="../eventhandler.cpp" line="261"/>
         <source>Charging</source>
         <translation>Se încarcă</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="268"/>
+        <location filename="../eventhandler.cpp" line="271"/>
         <source>Full</source>
         <translation>Încărcat complet</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="279"/>
+        <location filename="../eventhandler.cpp" line="281"/>
         <source>Discharging</source>
         <translation>Se descarcă</translation>
     </message>
@@ -97,7 +170,7 @@
     <name>PowerSettings</name>
     <message>
         <location filename="../settings/powersettings.ui" line="35"/>
-        <location filename="../settings/powersettings.cpp" line="74"/>
+        <location filename="../settings/powersettings.cpp" line="80"/>
         <source>Power</source>
         <translation>Energie</translation>
     </message>
@@ -211,37 +284,37 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="141"/>
+        <location filename="../settings/powersettings.cpp" line="147"/>
         <source>Performance mode unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="142"/>
+        <location filename="../settings/powersettings.cpp" line="148"/>
         <source>unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="160"/>
+        <location filename="../settings/powersettings.cpp" line="166"/>
         <source>Performance mode is %1 because your device is getting warm.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="161"/>
+        <location filename="../settings/powersettings.cpp" line="167"/>
         <source>Performance mode is %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="159"/>
+        <location filename="../settings/powersettings.cpp" line="165"/>
         <source>Performance mode is %1 because the device is on your lap.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="147"/>
+        <location filename="../settings/powersettings.cpp" line="153"/>
         <source>Performance mode temporarily unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="148"/>
+        <location filename="../settings/powersettings.cpp" line="154"/>
         <source>temporarily unavailable</source>
         <translation type="unfinished"></translation>
     </message>

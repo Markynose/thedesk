@@ -38,7 +38,7 @@
 <context>
     <name>KeyboardLayoutChunk</name>
     <message>
-        <location filename="../chunks/keyboardlayoutchunk.cpp" line="75"/>
+        <location filename="../chunks/keyboardlayoutchunk.cpp" line="127"/>
         <source>Select Keyboard Layout</source>
         <translation type="unfinished"></translation>
     </message>

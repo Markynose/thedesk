@@ -178,22 +178,27 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/screenshotwindow.cpp" line="245"/>
+        <location filename="../dialogs/screenshotwindow.cpp" line="77"/>
+        <source>Record</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../dialogs/screenshotwindow.cpp" line="258"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/screenshotwindow.cpp" line="246"/>
+        <location filename="../dialogs/screenshotwindow.cpp" line="259"/>
         <source>Share Screenshot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/screenshotwindow.cpp" line="256"/>
+        <location filename="../dialogs/screenshotwindow.cpp" line="269"/>
         <source>Discard</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/screenshotwindow.cpp" line="257"/>
+        <location filename="../dialogs/screenshotwindow.cpp" line="270"/>
         <source>Copy</source>
         <translation type="unfinished"></translation>
     </message>
