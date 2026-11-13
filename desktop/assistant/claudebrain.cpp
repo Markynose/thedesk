@@ -448,6 +448,7 @@ QString ClaudeBrain::stepText(const QString& tool, const QJsonObject& input, boo
             {"trash", {QT_TR_NOOP("Putting it in the trash"), QT_TR_NOOP("In the trash")}},
             {"move", {QT_TR_NOOP("Moving it"), QT_TR_NOOP("Moved it")}},
             {"search_documents", {QT_TR_NOOP("Searching your documents"), QT_TR_NOOP("Searched your documents")}},
+            {"clipboard_history", {QT_TR_NOOP("Looking through what you copied"), QT_TR_NOOP("Looked through what you copied")}},
             {"quick_switch", {QT_TR_NOOP("Flipping %1"), QT_TR_NOOP("Flipped %1")}},
             {"set_theme", {QT_TR_NOOP("Changing the theme"), QT_TR_NOOP("Changed the theme")}},
             {"copy_to_clipboard", {QT_TR_NOOP("Copying"), QT_TR_NOOP("Copied")}},
@@ -493,7 +494,7 @@ void ClaudeBrain::handleLine(const QByteArray& line) {
             // reading the web or a downloaded file: from here on, everything asks
             const QString path = b.value("input").toObject().value("file_path").toString() + b.value("input").toObject().value("path").toString();
             const bool downloaded = path.startsWith(QDir::homePath() + QStringLiteral("/Downloads")) || path.startsWith(QStringLiteral("/tmp"));
-            if (tool == "WebFetch" || tool == "WebSearch" || tool == "mcp__desk__search_documents" || ((tool == "Read" || tool == "Grep") && downloaded)) d->tainted = true;
+            if (tool == "WebFetch" || tool == "WebSearch" || tool == "mcp__desk__search_documents" || tool == "mcp__desk__clipboard_history" || ((tool == "Read" || tool == "Grep") && downloaded)) d->tainted = true;
             emit stepStarted(b.value("id").toString(), stepText(tool, b.value("input").toObject(), false));
         }
     } else if (type == "user") {
