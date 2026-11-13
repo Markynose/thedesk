@@ -17,6 +17,8 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * *************************************/
+#include <assistanttools.h>
+#include <QDateTime>
 #include "plugin.h"
 
 #include "chunks/mprischunk.h"
@@ -78,6 +80,30 @@ void Plugin::activate() {
         signal.setArguments({appName, iconName, notification->summary()});
         QDBusConnection::sessionBus().send(signal);
     });
+    // For the assistant: the last notifications, when the user asks about them
+    {
+        struct Recent {
+                QString app, summary, body;
+                QDateTime when;
+        };
+        auto recent = QSharedPointer<QList<Recent>>::create();
+        connect(d->tracker, &NotificationTracker::newNotification, d->tracker, [recent](NotificationPtr notification) {
+            if (!notification) return;
+            QString app;
+            if (notification->application()) app = notification->application()->getProperty(QStringLiteral("Name")).toString();
+            recent->prepend({app, notification->summary(), notification->body(), QDateTime::currentDateTime()});
+            if (recent->size() > 20) recent->removeLast();
+        });
+        AssistantTools::instance()->add({QStringLiteral("recent_notifications"),
+            QStringLiteral("The user's last notifications (newest first): app, title, text, time. Use it when they ask about a message or something that popped up."),
+            AssistantTools::schemaOf({}), false, [recent](QJsonObject) {
+                AssistantToolResult result;
+                QStringList lines;
+                for (const Recent& r : std::as_const(*recent)) lines.append(QStringLiteral("- %1 · %2 · %3: %4").arg(r.when.toString(QStringLiteral("HH:mm")), r.app, r.summary, QString(r.body).simplified().left(300)));
+                result.text = lines.isEmpty() ? QStringLiteral("No notifications since theDesk started.") : lines.join('\n');
+                return result;
+            }});
+    }
     d->interface = new NotificationsInterface(d->tracker);
     d->drawer = new NotificationsDrawer(d->tracker);
     d->jobController = new SystemJobController(QDBusConnection::sessionBus());
@@ -90,6 +116,7 @@ void Plugin::activate() {
 void Plugin::deactivate() {
     StateManager::statusCenterManager()->removePane(d->statusCenter);
 
+    AssistantTools::instance()->remove(QStringLiteral("recent_notifications"));
     d->tracker->deleteLater();
     d->statusCenter->deleteLater();
     d->mprisChunk->deleteLater();

@@ -22,6 +22,8 @@
 #include "clipboard/clipboardpanel.h"
 #include "emoji/emojipanel.h"
 #include "colourpicker/colourpicker.h"
+#include "assistant/assistantpanel.h"
+#include "assistant/desktools.h"
 #include <QDir>
 #include <QTimer>
 
@@ -117,6 +119,10 @@ int main(int argc, char* argv[]) {
 
     // The colour picker, Super+Shift+P
     ColourPicker::setUp();
+
+    // Pebble, the assistant, Super+Space
+    AssistantPanel::setUp();
+    DeskTools::setUp();
 
 
     BarWindow w;

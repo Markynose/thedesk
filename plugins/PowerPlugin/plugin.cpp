@@ -17,6 +17,7 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * *************************************/
+#include <assistanttools.h>
 #include <desksound.h>
 #include "plugin.h"
 
@@ -72,6 +73,15 @@ void Plugin::activate() {
     d->powerProfiles = new DesktopPowerProfiles();
 
     d->upower = new DesktopUPower(this);
+    // For the assistant: the battery as the bar shows it
+    AssistantTools::instance()->add({QStringLiteral("battery_status"),
+        QStringLiteral("The battery: charge, charging or not, time left."),
+        AssistantTools::schemaOf({}), false, [upower = d->upower](QJsonObject) {
+            AssistantToolResult result;
+            result.text = upower->overallStateDescription();
+            if (result.text.isEmpty()) result.text = QStringLiteral("No battery.");
+            return result;
+        }});
     d->powerChunk = new IconTextChunk("Power");
     connect(d->upower, &DesktopUPower::overallStateChanged, this, [=] {
         d->powerChunk->setIcon(d->upower->overallStateIcon());
@@ -136,6 +146,7 @@ void Plugin::activate() {
 }
 
 void Plugin::deactivate() {
+    AssistantTools::instance()->remove(QStringLiteral("battery_status"));
     if (d->powerChunk->chunkRegistered()) {
         // Deregister the chunk
         StateManager::barManager()->removeChunk(d->powerChunk);

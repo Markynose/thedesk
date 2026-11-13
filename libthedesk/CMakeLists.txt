@@ -13,6 +13,7 @@ find_package(libtdesktopenvironment REQUIRED)
 set(SOURCES
     aroundyou.cpp
     desksound.cpp
+    assistanttools.cpp
     claude/claudeusage.cpp
     actionquickwidget.cpp
     barmanager.cpp
@@ -46,6 +47,7 @@ set(SOURCES
     onboarding/onboardingchrome.cpp
     onboarding/onboardingyou.cpp
     onboarding/onboardingtips.cpp
+    onboarding/onboardingpebble.cpp
     onboarding/onboardingintro.cpp
     livingtypeview.cpp
     farewell.cpp
@@ -83,6 +85,7 @@ set(SOURCES
 set(HEADERS
     aroundyou.h
     desksound.h
+    assistanttools.h
     claude/claudeusage.h
     actionquickwidget.h
     barmanager.h
@@ -117,6 +120,7 @@ set(HEADERS
     onboarding/onboardingchrome.h
     onboarding/onboardingyou.h
     onboarding/onboardingtips.h
+    onboarding/onboardingpebble.h
     onboarding/onboardingintro.h
     livingtypeview.h
     farewell.h

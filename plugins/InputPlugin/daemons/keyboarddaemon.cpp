@@ -28,9 +28,14 @@
 #include <Wm/desktopwm.h>
 #include "chunks/keyboardlayoutchunk.h"
 
+namespace {
+    void releaseCapsLock();
+} // namespace
+
 struct KeyboardDaemonPrivate {
     tSettings settings;
     KeyboardLayoutChunk* chunk;
+    KeyGrab* capsGrab;
 };
 
 KeyboardDaemon::KeyboardDaemon(QObject* parent)
@@ -39,8 +44,13 @@ KeyboardDaemon::KeyboardDaemon(QObject* parent)
 
     d->chunk = new KeyboardLayoutChunk();
 
-    KeyGrab* nextLayoutGrab = new KeyGrab(QKeySequence(Qt::MetaModifier | Qt::Key_Space), "nextlayout", this);
-    connect(nextLayoutGrab, &KeyGrab::activated, this, &KeyboardDaemon::setNextKeyboardLayout);
+    // Caps Lock switches layouts (Shift+Caps Lock still locks capitals);
+    // Super+Space belongs to the assistant
+    d->capsGrab = new KeyGrab(QKeySequence(Qt::Key_CapsLock), "nextlayout", this);
+    connect(d->capsGrab, &KeyGrab::activated, this, [this] {
+        setNextKeyboardLayout();
+        releaseCapsLock();
+    });
     KeyGrab* nextLayoutGrabAlternate = new KeyGrab(QKeySequence(Qt::MetaModifier | Qt::Key_Return), "nextlayoutAlternate", this);
     connect(nextLayoutGrabAlternate, &KeyGrab::activated, this, &KeyboardDaemon::setNextKeyboardLayout);
 
@@ -85,8 +95,28 @@ void KeyboardDaemon::setNextKeyboardLayout() {
     });
 }
 
+#ifdef HAVE_X11
+    // X11 last: its macros clash with Qt's headers
+    #include <tx11info.h>
+    #include <X11/XKBlib.h>
+#endif
+
+namespace {
+    // The grab doesn't stop the server toggling the lock: undo that
+    void releaseCapsLock() {
+#ifdef HAVE_X11
+        if (!tX11Info::isPlatformX11()) return;
+        XkbLockModifiers(tX11Info::display(), XkbUseCoreKbd, LockMask, 0);
+        XFlush(tX11Info::display());
+#endif
+    }
+} // namespace
+
 void KeyboardDaemon::updateChunkVisibility() {
     bool shouldBeVisible = d->settings.delimitedList("Input/keyboard.layouts").length() > 1;
+    // With one layout Caps Lock stays Caps Lock
+    if (shouldBeVisible) d->capsGrab->resume();
+    else d->capsGrab->pause();
     if (shouldBeVisible && !d->chunk->chunkRegistered()) {
         StateManager::barManager()->addChunk(d->chunk);
     } else if (!shouldBeVisible && d->chunk->chunkRegistered()) {

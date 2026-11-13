@@ -454,7 +454,7 @@ OnboardingShortcuts::OnboardingShortcuts(QWidget* parent) :
                                {QStringLiteral("timer"), tr("Super + Z"), tr("Start or stop a focus session")},
                                {QStringLiteral("volume_off"), tr("The mute key"), tr("Sound, Critical only, No notifications, Mute: it goes round them")},
                                {QStringLiteral("photo_camera"), tr("Print Screen, or Super + Alt + P"), tr("A screenshot, copied and saved in Pictures")},
-                               {QStringLiteral("keyboard"), tr("Super + Space"), tr("The next keyboard layout")},
+                               {QStringLiteral("keyboard"), tr("Caps Lock"), tr("The next keyboard layout (Shift + Caps Lock locks capitals)")},
                                {QStringLiteral("block"), tr("Ctrl + Alt + Esc"), tr("Make a stuck app quit")},
                                {QStringLiteral("terminal"), tr("Alt + F2"), tr("Run a command")},
                                {QStringLiteral("healing"), tr("Hold Ctrl as theDesk starts"), tr("Safe Mode, if something's broken")},

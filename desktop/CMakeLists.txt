@@ -26,6 +26,13 @@ set(SOURCES
     clipboard/pasteback.cpp
     emoji/emojipanel.cpp
     colourpicker/colourpicker.cpp
+    assistant/assistantpanel.cpp
+    assistant/assistantchunk.cpp
+    assistant/demobrain.cpp
+    assistant/claudebrain.cpp
+    assistant/desktools.cpp
+    assistant/pebblesettings.cpp
+    assistant/selectionbutton.cpp
     gateway/gateway.cpp
     gateway/launcher.cpp
     gateway/launcherdata.cpp
@@ -93,6 +100,15 @@ set(HEADERS
     clipboard/pasteback.h
     emoji/emojipanel.h
     colourpicker/colourpicker.h
+    assistant/assistantbrain.h
+    assistant/assistantpanel.h
+    assistant/assistantchunk.h
+    assistant/demobrain.h
+    assistant/claudebrain.h
+    assistant/desktools.h
+    assistant/pebblesettings.h
+    assistant/selectionbutton.h
+    assistant/assistantface.h
     gateway/gateway.h
     gateway/launcher.h
     gateway/launcherdata.h

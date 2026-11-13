@@ -18,6 +18,7 @@
  *
  * *************************************/
 #include "onboardingbar.h"
+#include <tsettings.h>
 
 #include <m3motion.h>
 #include "ui_onboardingbar.h"
@@ -36,6 +37,8 @@ OnboardingBar::OnboardingBar(QWidget* parent) :
     QWidget(parent),
     ui(new Ui::OnboardingBar) {
     ui->setupUi(this);
+    // no music (Onboarding/onboardingAudio is off): nothing to mute
+    ui->muteButton->setVisible(tSettings().value(QStringLiteral("Onboarding/onboardingAudio")).toBool());
 
     d = new OnboardingBarPrivate();
     d->dateOpacity = new QGraphicsOpacityEffect();

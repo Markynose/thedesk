@@ -30,6 +30,7 @@
 #include "onboardingfinal.h"
 #include "onboardingyou.h"
 #include "onboardingtips.h"
+#include "onboardingpebble.h"
 #include "onboardingvideo.h"
 #include "onboardingwelcome.h"
 
@@ -45,6 +46,7 @@ bool OnboardingController::performOnboarding(bool isSystemOnboarding) {
         manager->addOnboardingStep(new OnboardingWelcome);
         manager->addOnboardingStep(new OnboardingYou);
         manager->addOnboardingStep(new OnboardingTips);
+        manager->addOnboardingStep(new OnboardingPebble);
         manager->addOnboardingStep(new OnboardingShortcuts);
         manager->addOnboardingStep(new OnboardingFinal);
         emit manager->onboardingRequired();

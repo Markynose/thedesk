@@ -3,5 +3,6 @@
         <file>icons/thedesk.svg</file>
         <file>icons/cactus.svg</file>
         <file>emoji/emoji.txt</file>
+        <file>assistant/pebble-prompt.md</file>
     </qresource>
 </RCC>

@@ -52,6 +52,7 @@ namespace {
         if (page == QLatin1String("OnboardingYou")) return {"Cookie4Sided", "face", Primary};
         if (page == QLatin1String("OnboardingTheme")) return {"Flower", "palette", Tertiary};
         if (page == QLatin1String("OnboardingTips")) return {"SoftBurst", "lightbulb", Primary};
+        if (page == QLatin1String("OnboardingPebble")) return {"Cookie9Sided", "chat", Secondary};
         if (page == QLatin1String("OnboardingShortcuts")) return {"Cookie12Sided", "keyboard", Tertiary};
         if (page == QLatin1String("OnboardingBetaThankYou")) return {"Heart", "favorite", Tertiary};
         return {"Circle", "settings", Primary};

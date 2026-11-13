@@ -26,6 +26,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QKeySequence>
+#include <assistanttools.h>
 #include <Screens/screendaemon.h>
 #include <Screens/systemscreen.h>
 #include <hudmanager.h>
@@ -83,6 +84,32 @@ void Plugin::activate() {
     });
 
     d->chunk = new ScreenBrightnessChunk();
+
+    // For the assistant: a slider card the user can keep moving
+    AssistantTools::instance()->add({QStringLiteral("set_brightness"),
+        QStringLiteral("Set the built-in screen's brightness, 1 to 100 percent. Returns what it was before."),
+        AssistantTools::schemaOf({{"percent", "number"}}), false, [](QJsonObject args) {
+            AssistantToolResult result;
+            if (!Backlight::available()) {
+                result.text = QStringLiteral("This screen's brightness can't be changed.");
+                return result;
+            }
+            const double before = Backlight::value();
+            const double value = qBound(0.01, args.value("percent").toDouble() / 100, 1.0);
+            Backlight::set(value);
+            result.text = QStringLiteral("Brightness is now %1% (was %2%).").arg(qRound(value * 100)).arg(qRound(before * 100));
+            result.card = QStringLiteral("level");
+            result.icon = QStringLiteral("brightness_6");
+            result.title = tr("Brightness");
+            result.value = value;
+            result.setValue = [](double v) {
+                Backlight::set(qBound(0.01, v, 1.0));
+            };
+            result.undo = [before] {
+                Backlight::set(before);
+            };
+            return result;
+        }});
 }
 
 void Plugin::deactivate() {
@@ -90,6 +117,7 @@ void Plugin::deactivate() {
     d->brightnessDown->deleteLater();
 
     d->chunk->deleteLater();
+    AssistantTools::instance()->remove(QStringLiteral("set_brightness"));
 
     tApplication::removePluginTranslator(CNTP_TARGET_NAME);
 }

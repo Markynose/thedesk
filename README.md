@@ -84,6 +84,28 @@ your theme before you pick it. Tips can be tried right there.
 
 <p align="center"><img src="readme/m3/onboarding.png" width="100%" alt="Onboarding: welcome, region, theme and tips" /></p>
 
+## Pebble
+
+**Super+Space** opens Pebble, the desktop's own assistant. It runs on your Claude Code
+login (headless `claude -p`) and changes the desktop through theDesk's own tools:
+brightness, volume, do not disturb, layouts, apps and windows. Every change lands as
+a card you can keep adjusting, and it can undo them.
+
+- **It shows what it can see.** A row of chips under the field lists the window you
+  were in, the copied text, the selection and the screen; tap one away and it's not
+  sent.
+- **It asks before anything risky.** Commands, file changes and closing windows wait
+  for Allow. Private folders (keys, passwords, browser profiles) are off limits.
+- **Answers in living type.** Words spring to their weight as they arrive, key words
+  land bold in the accent colour, files and apps become chips, code becomes a card.
+- **Quick by default, deeper when needed.** A small model answers most things; code,
+  files and long writing go to a bigger one, or tap *Think harder*.
+- **Out of the way.** Esc while it works puts it in the bar until it's done. Select
+  text and its face shows next to it.
+
+Its instructions live in `~/.config/theSuite/pebble-prompt.md`; System Settings has a
+Pebble page for its colour, what it remembers and its nudges.
+
 ## And more
 
 - **iPhone notifications, with no app.** *Link an iPhone* in Bluetooth settings. It
@@ -168,7 +190,8 @@ theDesk LightDM greeter), `scripts/install-plymouth.sh` (the boot splash) and
 | Super+O | Overview |
 | Super+Z | Focus tide |
 | Super+Escape | Lock |
-| Super+Space | Next keyboard layout |
+| Super+Space | Pebble |
+| Caps Lock | Next keyboard layout (Shift+Caps Lock locks capitals) |
 | Print Screen, Super+Alt+P | Screenshot (and Record) |
 | Super+Shift+R | Stop recording |
 | Super+V | Clipboard history |
