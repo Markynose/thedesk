@@ -873,11 +873,19 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
         }});
         if (!visibleSees.isEmpty()) text(p, QRectF(left, top, 50, 32), tr("Sees"), flex(13, 600), s.onSurfaceVariant);
         double x = left + 46;
+        // the chips share what's left before Think harder: the widest ones shrink first
+        auto seenK = [this](const Private::Sees& seen) { return seen.dismissed ? 1 - c01(springAt(M3Motion::SpatialFast, d->since(seen.dismissedAt))) : 1.0; };
+        auto rowWidth = [&](double cap) {
+            double sum = 0;
+            for (const Private::Sees& seen : std::as_const(d->sees)) sum += (qMin(chipWidth(seen.icon, seen.label) + 24, cap) + 8) * qMax(0.0, seenK(seen));
+            return sum;
+        };
+        double cap = harder.left() - 8 - x;
+        while (cap > 96 && rowWidth(cap) > harder.left() - x) cap -= 2;
         for (int i = 0; i < d->sees.size(); i++) {
             Private::Sees& seen = d->sees[i];
-            const double full = chipWidth(seen.icon, seen.label) + 24;
-            double k = 1;
-            if (seen.dismissed) k = 1 - c01(springAt(M3Motion::SpatialFast, d->since(seen.dismissedAt)));
+            const double full = qMin(chipWidth(seen.icon, seen.label) + 24, cap);
+            const double k = seenK(seen);
             if (k <= 0.01) continue;
             const QRectF r(x, top, full * k, 32);
             p.save();
@@ -887,7 +895,7 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
             p.setBrush(r.contains(d->mouse) ? mix(s.surfaceContainer, s.onSurface, 0.08) : s.surfaceContainer);
             p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 8, 8);
             icon(p, QRectF(r.left() + 8, r.top(), 20, 32), seen.icon, s.onSurfaceVariant, 17);
-            text(p, QRectF(r.left() + 32, r.top(), full - 56, 32), seen.label, flex(13, 520), s.onSurface);
+            text(p, QRectF(r.left() + 32, r.top(), full - 56, 32), QFontMetricsF(flex(13, 520)).elidedText(seen.label, Qt::ElideRight, full - 56), flex(13, 520), s.onSurface);
             const QRectF x2(r.left() + full - 28, r.top(), 24, 32);
             icon(p, x2, QStringLiteral("close"), s.onSurfaceVariant, 16);
             p.restore();
