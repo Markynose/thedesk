@@ -35,6 +35,7 @@
 #include <QCalendarWidget>
 #include <QLayout>
 #include <QDialogButtonBox>
+#include <QListView>
 #include <QErrorMessage>
 #include <QProgressDialog>
 #include <QInputDialog>
@@ -114,6 +115,17 @@ namespace {
     }
 
     // Per-corner radii: top-left, top-right, bottom-right, bottom-left
+    // Lists drawn as segmented tiles: one-column list views (settings lists, file dialogs),
+    // not a combo box's or completer's popup; m3Segmented=false opts out, true opts in
+    bool segmentedList(const QWidget* widget) {
+        auto* view = qobject_cast<const QListView*>(widget);
+        if (!view) return false;
+        const QVariant asked = view->property("m3Segmented");
+        if (asked.isValid()) return asked.toBool();
+        if (view->viewMode() != QListView::ListMode || view->flow() != QListView::TopToBottom || view->isWrapping()) return false;
+        return view->window()->windowType() != Qt::Popup && !qobject_cast<const QComboBox*>(view->parentWidget());
+    }
+
     QPainterPath roundedRect(const QRectF& r, double tl, double tr, double br, double bl) {
         const double m = qMin(r.width(), r.height()) / 2;
         tl = qMin(tl, m);
@@ -898,7 +910,8 @@ QSize M3Style::sizeFromContents(ContentsType type, const QStyleOption* option, c
         }
         case CT_ItemViewItem: {
             QSize s = QProxyStyle::sizeFromContents(type, option, size, widget);
-            return QSize(s.width() + 8, qMax(s.height() + 4, 28));
+            // segmented tiles sit taller (list item one-line height at density -2), others stay tight
+            return QSize(s.width() + 8, qMax(s.height() + 4, segmentedList(widget) ? 48 + 4 * density() : 28));
         }
         case CT_ProgressBar: {
             auto* bar = qstyleoption_cast<const QStyleOptionProgressBar*>(option);
@@ -2057,6 +2070,24 @@ void M3Style::drawPrimitive(PrimitiveElement element, const QStyleOption* option
         }
         case PE_PanelItemViewItem: {
             auto* item = qstyleoption_cast<const QStyleOptionViewItem*>(option);
+            if (item && item->index.isValid() && segmentedList(widget)) {
+                // Android 16's segmented list: each row a tile 2 dp from the
+                // next, the group's outer corners Large, the inner ones
+                // ExtraSmall; the selected row rounds all round
+                const QAbstractItemModel* model = item->index.model();
+                const bool first = item->index.row() == 0, last = item->index.row() == model->rowCount(item->index.parent()) - 1;
+                const bool selected = option->state & State_Selected;
+                const double outer = Shape::Large, inner = Shape::ExtraSmall;
+                const QRectF r = QRectF(option->rect).adjusted(0, 1, 0, -1);
+                const double top = selected || first ? outer : inner, bottom = selected || last ? outer : inner;
+                const QPainterPath shape = roundedRect(r, top, top, bottom, bottom);
+                painter->save();
+                painter->setRenderHint(QPainter::Antialiasing);
+                fill(painter, shape, selected ? (enabled(option) ? s.secondaryContainer : alpha(s.onSurface, Opacity::DisabledContainer)) : s.surfaceContainerHigh);
+                if ((option->state & State_MouseOver) && enabled(option)) fill(painter, shape, alpha(selected ? s.onSecondaryContainer : s.onSurface, Opacity::Hover));
+                painter->restore();
+                return;
+            }
             QRectF r = QRectF(option->rect).adjusted(0, 1, 0, -1);
             double radius = qMin(Shape::Large, r.height() / 2);
             double startR = radius, endR = radius;
