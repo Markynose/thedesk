@@ -3,6 +3,7 @@
 
 #include "libthedesk_global.h"
 #include <QJsonObject>
+#include <QImage>
 #include <QObject>
 #include <functional>
 
@@ -41,8 +42,12 @@ class LIBTHEDESK_EXPORT AssistantTools : public QObject {
         // A schema in one line: {"percent": "number"} -> an object schema, all required
         static QJsonObject schemaOf(const QJsonObject& properties, const QStringList& optional = {});
 
+        // Something to ask Pebble about (a screenshot from the screenshot editor)
+        void requestAsk(const QImage& image) { emit askRequested(image); }
+
     signals:
         void changed();
+        void askRequested(QImage image);
 
     private:
         AssistantTools() = default;

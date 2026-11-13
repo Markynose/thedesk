@@ -1,5 +1,7 @@
 #include "claudebrain.h"
 #include "pebblerules.h"
+#include "docsearch.h"
+#include <QThread>
 
 #include <QBuffer>
 #include <QDateTime>
@@ -89,6 +91,7 @@ namespace {
             {"forget", "Forget remembered facts containing these words.", AssistantTools::schemaOf({{"words", "string"}}), false},
             {"undo_last", "Undo what you changed in your last answer: desk settings, file edits, files moved or put in the trash.", AssistantTools::schemaOf({}), false},
             {"trash", "Put files or folders in the trash (never delete them for good). They can be restored with undo_last.", AssistantTools::schemaOf({{"paths", "array: full paths"}}), true},
+            {"search_documents", "Find documents by what's inside them (PDFs, Word and LibreOffice files, text), newest first. words: what must appear, space separated. folder: optional, else Documents, Downloads and Desktop.", AssistantTools::schemaOf({{"words", "string"}, {"folder", "string: full path"}}, {"folder"}), false},
             {"move", "Move or rename a file or folder. Won't replace an existing one. Can be undone with undo_last.", AssistantTools::schemaOf({{"from", "string: full path"}, {"to", "string: full path"}}), true},
         };
     }
@@ -442,6 +445,16 @@ QString ClaudeBrain::stepText(const QString& tool, const QJsonObject& input, boo
             {"desk_status", {QT_TR_NOOP("Checking the desk"), QT_TR_NOOP("Checked the desk")}},
             {"battery_status", {QT_TR_NOOP("Checking the battery"), QT_TR_NOOP("Checked the battery")}},
             {"recent_notifications", {QT_TR_NOOP("Checking notifications"), QT_TR_NOOP("Checked notifications")}},
+            {"trash", {QT_TR_NOOP("Putting it in the trash"), QT_TR_NOOP("In the trash")}},
+            {"move", {QT_TR_NOOP("Moving it"), QT_TR_NOOP("Moved it")}},
+            {"search_documents", {QT_TR_NOOP("Searching your documents"), QT_TR_NOOP("Searched your documents")}},
+            {"quick_switch", {QT_TR_NOOP("Flipping %1"), QT_TR_NOOP("Flipped %1")}},
+            {"set_theme", {QT_TR_NOOP("Changing the theme"), QT_TR_NOOP("Changed the theme")}},
+            {"copy_to_clipboard", {QT_TR_NOOP("Copying"), QT_TR_NOOP("Copied")}},
+            {"remind_me", {QT_TR_NOOP("Setting a reminder"), QT_TR_NOOP("Reminder set")}},
+            {"media", {QT_TR_NOOP("Talking to the player"), QT_TR_NOOP("Player")}},
+            {"window_layout", {QT_TR_NOOP("Arranging windows"), QT_TR_NOOP("Arranged windows")}},
+            {"watch", {QT_TR_NOOP("Setting up a watch"), QT_TR_NOOP("Watching")}},
         };
         const QString subject = input.value("name").toString(input.value("window").toString());
         if (words.contains(name)) {
@@ -480,7 +493,7 @@ void ClaudeBrain::handleLine(const QByteArray& line) {
             // reading the web or a downloaded file: from here on, everything asks
             const QString path = b.value("input").toObject().value("file_path").toString() + b.value("input").toObject().value("path").toString();
             const bool downloaded = path.startsWith(QDir::homePath() + QStringLiteral("/Downloads")) || path.startsWith(QStringLiteral("/tmp"));
-            if (tool == "WebFetch" || tool == "WebSearch" || ((tool == "Read" || tool == "Grep") && downloaded)) d->tainted = true;
+            if (tool == "WebFetch" || tool == "WebSearch" || tool == "mcp__desk__search_documents" || ((tool == "Read" || tool == "Grep") && downloaded)) d->tainted = true;
             emit stepStarted(b.value("id").toString(), stepText(tool, b.value("input").toObject(), false));
         }
     } else if (type == "user") {
@@ -530,6 +543,27 @@ void ClaudeBrain::handleControl(const QJsonObject& message) {
     if (subtype == "mcp_message") {
         const QJsonObject mcp = request.value("message").toObject();
         const QJsonObject params = mcp.value("params").toObject();
+        if (mcp.value("method") == "tools/call" && params.value("name") == "search_documents") {
+            // reading every document takes a while: off the desktop's thread
+            const QJsonObject args = params.value("arguments").toObject();
+            const QStringList words = args.value("words").toString().split(' ', Qt::SkipEmptyParts);
+            QStringList folders;
+            if (!args.value("folder").toString().isEmpty() && !args.value("folder").toString().contains(QStringLiteral("/."))) folders.append(args.value("folder").toString());
+            else for (const char* folder : {"Documents", "Downloads", "Desktop"}) folders.append(QDir::homePath() + '/' + folder);
+            auto* found = new QString();
+            QThread* worker = QThread::create([found, words, folders] {
+                *found = DocSearch::find(words, folders);
+            });
+            connect(worker, &QThread::finished, this, [this, worker, found, mcp, requestId] {
+                const QJsonObject reply{{"jsonrpc", "2.0"}, {"id", mcp.value("id")}, {"result", QJsonObject{{"content", QJsonArray{QJsonObject{{"type", "text"}, {"text", *found}}}}}}};
+                d->mcpCards["search_documents"].append(false);
+                write(QJsonObject{{"type", "control_response"}, {"response", QJsonObject{{"subtype", "success"}, {"request_id", requestId}, {"response", QJsonObject{{"mcp_response", reply}}}}}});
+                delete found;
+                worker->deleteLater();
+            });
+            worker->start();
+            return;
+        }
         if (mcp.value("method") == "tools/call" && params.value("name") == "run_command") {
             // the user allowed it already (it always asks); it runs without holding up the desktop
             auto* shell = new QProcess(this);

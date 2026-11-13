@@ -396,6 +396,8 @@ void AssistantPanel::setUp() {
         QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("PropertiesChanged"), instance(), SLOT(batteryChanged()));
     PebbleSelectionButton::setUp();
     PebbleNudges::setUp();
+    // the screenshot editor's Ask Pebble
+    connect(AssistantTools::instance(), &AssistantTools::askRequested, instance(), &AssistantPanel::openWithScreenshot);
     StateManager::statusCenterManager()->addPane(new PebbleSettings(), StatusCenterManager::SystemSettings);
     connect(new KeyGrab(QKeySequence(Qt::MetaModifier | Qt::Key_Space), QStringLiteral("assistant")), &KeyGrab::activated, instance(), [] {
         AssistantPanel* panel = instance();
@@ -659,6 +661,18 @@ void AssistantPanel::batteryChanged() {
     });
 }
 
+void AssistantPanel::openWithScreenshot(const QImage& image) {
+    // what it sees is the screenshot they just took, in place of the screen
+    open();
+    d->screen = image;
+    d->sees.removeIf([](const Private::Sees& seen) {
+        return seen.context.isEmpty();
+    });
+    d->sees.prepend({QStringLiteral("screenshot_region"), tr("Screenshot"), {}});
+    d->field->setPlaceholderText(tr("Ask about this screenshot"));
+    this->update();
+}
+
 void AssistantPanel::openWithSelection() {
     // from the face next to selected text: open, with a few things to do with it
     open();
@@ -780,6 +794,8 @@ void AssistantPanel::sendText(QString text) {
         if (seen.dismissed) continue;
         if (seen.context.isEmpty()) screen = true; // the screen goes as a picture, when it asks
         else context.append(seen.context);
+        // a screenshot they took to ask about: the question is about it
+        if (seen.icon == QStringLiteral("screenshot_region")) context.append(QStringLiteral("They just took a screenshot to ask about; \"this\" and \"it\" mean the screenshot. Look at it with look_at_screen first."));
     }
     d->brain->setScreen(screen ? d->screen : QImage());
     if (!d->items.isEmpty()) d->items.last().greeting = false;

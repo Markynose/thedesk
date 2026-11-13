@@ -19,6 +19,7 @@ class ScreenshotManager : public QObject {
         QColor clickedColor();
         bool accepted();
         QRect recordRegion(); // set when Record was chosen
+        bool ask();           // Ask Pebble was chosen
 
     signals:
         void finished();

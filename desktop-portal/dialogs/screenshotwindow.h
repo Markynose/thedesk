@@ -64,6 +64,7 @@ class ScreenshotWindow : public QWidget {
     signals:
         void screenshotAvailable(QPixmap result);
         void recordRequested(QRect region); // global; theDesk records it
+        void askRequested(QPixmap result);  // theDesk hands it to Pebble
         void colourClicked(QColor color);
         void cancelled();
         void animationComplete();

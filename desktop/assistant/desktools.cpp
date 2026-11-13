@@ -14,6 +14,13 @@
 #include <quietmodemanager.h>
 #include <statemanager.h>
 #include <tsettings.h>
+#include <QDirIterator>
+#include <QElapsedTimer>
+#include <memory>
+#include <QJsonDocument>
+#include <QProcess>
+#include <mpris/mprisengine.h>
+#include <mpris/mprisplayer.h>
 #include <QClipboard>
 #include <QDBusInterface>
 #include <QGuiApplication>
@@ -92,6 +99,52 @@ namespace {
         };
         return result;
     }
+
+    // ---- bspwm, for window layouts ------------------------------------------
+    QString bspc(const QStringList& args) {
+        QProcess process;
+        process.start(QStringLiteral("bspc"), args);
+        process.waitForFinished(2000);
+        return QString::fromUtf8(process.readAllStandardOutput()).trimmed();
+    }
+    QString nodeOf(const DesktopWmWindowPtr& window) {
+        return window && window->nativeId() ? QStringLiteral("0x%1").arg(window->nativeId(), 8, 16, QLatin1Char('0')) : QString();
+    }
+    // where a window is and how it's laid out, to put it back
+    struct Place {
+            QString node, desktop, state;
+    };
+    Place placeOf(const QString& node) {
+        const QJsonObject tree = QJsonDocument::fromJson(bspc({"query", "-T", "-n", node}).toUtf8()).object();
+        return {node, bspc({"query", "-D", "-n", node}), tree.value("client").toObject().value("state").toString(QStringLiteral("tiled"))};
+    }
+    void putBack(const QList<Place>& places) {
+        for (const Place& place : places) {
+            bspc({"node", place.node, "-d", place.desktop});
+            bspc({"node", place.node, "-t", place.state});
+        }
+    }
+
+    // ---- Watching -------------------------------------------------------------
+    // shortcut: watches live in memory and give up after 12 hours; logging out ends them
+    void notify(const QString& title, const QString& text) {
+        QDBusInterface(QStringLiteral("org.freedesktop.Notifications"), QStringLiteral("/org/freedesktop/Notifications"), QStringLiteral("org.freedesktop.Notifications"))
+            .call(QStringLiteral("Notify"), QStringLiteral("Pebble"), uint(0), QStringLiteral("dialog-information"), title, text, QStringList(), QVariantMap(), -1);
+    }
+    QStringList partialDownloads() {
+        QStringList found;
+        QDirIterator it(QDir::homePath() + QStringLiteral("/Downloads"), {"*.part", "*.crdownload", "*.download", "*.partial"}, QDir::Files);
+        while (it.hasNext()) found.append(it.next());
+        return found;
+    }
+    bool processRunning(const QString& name) {
+        QDirIterator it(QStringLiteral("/proc"), QDir::Dirs | QDir::NoDotAndDotDot);
+        while (it.hasNext()) {
+            QFile comm(it.next() + QStringLiteral("/comm"));
+            if (comm.open(QFile::ReadOnly) && QString::fromUtf8(comm.readAll()).trimmed() == name) return true;
+        }
+        return false;
+    }
 } // namespace
 
 void DeskTools::setUp() {
@@ -126,6 +179,165 @@ void DeskTools::setUp() {
             };
             result.undo = [sw, before] {
                 if (sw) sw->setChecked(before);
+            };
+            return result;
+        }});
+
+    tools->add({QStringLiteral("media"),
+        QStringLiteral("Music and video players: action is play, pause, toggle, next, previous, or status (what's playing). player: optional, part of its name."),
+        AssistantTools::schemaOf({{"action", "string"}, {"player", "string"}}, {"player"}), false, [](QJsonObject args) {
+            AssistantToolResult result;
+            const QList<MprisPlayerPtr> players = MprisEngine::players();
+            if (players.isEmpty()) {
+                result.text = QStringLiteral("Nothing is playing and no player is open.");
+                return result;
+            }
+            auto describe = [](const MprisPlayerPtr& player) {
+                const MetadataMap meta = player->metadata();
+                const QString state = player->playbackStatus() == MprisPlayerInterface::Playing ? QStringLiteral("playing") : player->playbackStatus() == MprisPlayerInterface::Paused ? QStringLiteral("paused") : QStringLiteral("stopped");
+                return QStringLiteral("%1: %2 %3 by %4").arg(player->identity(), state, meta.value(QStringLiteral("xesam:title")).toString(), meta.value(QStringLiteral("xesam:artist")).toStringList().join(QStringLiteral(", ")));
+            };
+            const QString action = args.value("action").toString().toLower();
+            if (action == "status") {
+                QStringList lines;
+                for (const MprisPlayerPtr& player : players) lines.append(describe(player));
+                result.text = lines.join('\n');
+                return result;
+            }
+            // the one asked for, else the one playing, else the first
+            MprisPlayerPtr player;
+            const QString wanted = args.value("player").toString();
+            for (const MprisPlayerPtr& p : players) {
+                if (!wanted.isEmpty() && p->identity().contains(wanted, Qt::CaseInsensitive)) player = p;
+            }
+            for (const MprisPlayerPtr& p : players) {
+                if (!player && p->playbackStatus() == MprisPlayerInterface::Playing) player = p;
+            }
+            if (!player) player = players.first();
+            const bool wasPlaying = player->playbackStatus() == MprisPlayerInterface::Playing;
+            if (action == "play") player->play();
+            else if (action == "pause") player->pause();
+            else if (action == "next") player->next();
+            else if (action == "previous") player->previous();
+            else player->playPause();
+            result.text = QStringLiteral("Done (%1). Before: %2").arg(action, describe(player));
+            if (action == "play" || action == "pause" || action == "toggle") {
+                const QPointer<MprisPlayerInterface> p = player.data();
+                result.undo = [p, wasPlaying] {
+                    if (p && wasPlaying) p->play();
+                    else if (p) p->pause();
+                };
+            }
+            return result;
+        }});
+
+    tools->add({QStringLiteral("window_layout"),
+        QStringLiteral("Arrange windows (bspwm). action: side_by_side (window and other, on a free desktop), to_desktop (window, desktop number from 1), fullscreen or floating (window, on). window/other: part of a title or app name."),
+        AssistantTools::schemaOf({{"action", "string"}, {"window", "string"}, {"other", "string"}, {"desktop", "number"}, {"on", "boolean"}}, {"other", "desktop", "on"}), false, [](QJsonObject args) {
+            AssistantToolResult result;
+            const QString action = args.value("action").toString();
+            const QString node = nodeOf(findWindow(args.value("window").toString()));
+            if (node.isEmpty()) {
+                result.text = QStringLiteral("No window like \"%1\" is open.").arg(args.value("window").toString());
+                return result;
+            }
+            QList<Place> before{placeOf(node)};
+            if (action == "side_by_side") {
+                const QString other = nodeOf(findWindow(args.value("other").toString()));
+                if (other.isEmpty() || other == node) {
+                    result.text = QStringLiteral("No second window like \"%1\" is open.").arg(args.value("other").toString());
+                    return result;
+                }
+                before.append(placeOf(other));
+                // an empty desktop, so the two split the screen between them
+                QString desktop = bspc({"query", "-D", "-d", ".!occupied"}).section('\n', 0, 0);
+                if (desktop.isEmpty()) desktop = bspc({"query", "-D", "-d", "focused"});
+                for (const QString& n : {node, other}) {
+                    bspc({"node", n, "-t", "tiled"});
+                    bspc({"node", n, "-d", desktop});
+                }
+                bspc({"desktop", "-f", desktop});
+                result.text = QStringLiteral("Put them side by side.");
+            } else if (action == "to_desktop") {
+                const int number = args.value("desktop").toInt();
+                bspc({"node", node, "-d", QStringLiteral("^%1").arg(number)});
+                result.text = QStringLiteral("Moved it to desktop %1.").arg(number);
+            } else if (action == "fullscreen" || action == "floating") {
+                const bool on = args.contains("on") ? args.value("on").toBool() : true;
+                bspc({"node", node, "-t", on ? action : QStringLiteral("tiled")});
+                result.text = QStringLiteral("%1 is %2 now.").arg(args.value("window").toString(), on ? action : QStringLiteral("tiled"));
+            } else {
+                result.text = QStringLiteral("Unknown action %1.").arg(action);
+                return result;
+            }
+            result.undo = [before] {
+                putBack(before);
+            };
+            return result;
+        }});
+
+    tools->add({QStringLiteral("watch"),
+        QStringLiteral("Tell the user later, with a notification, when something finishes. kind: download (every download in ~/Downloads is done), file (path exists and stops growing), or process (no program called name runs any more, e.g. make, cargo, ffmpeg). say: what the notification says."),
+        AssistantTools::schemaOf({{"kind", "string"}, {"path", "string"}, {"name", "string"}, {"say", "string"}}, {"path", "name"}), false, [](QJsonObject args) {
+            AssistantToolResult result;
+            const QString kind = args.value("kind").toString();
+            const QString path = args.value("path").toString(), name = args.value("name").toString();
+            const QString say = args.value("say").toString().isEmpty() ? QStringLiteral("It's done.") : args.value("say").toString();
+            std::function<bool()> done;
+            if (kind == "download") {
+                if (partialDownloads().isEmpty()) {
+                    result.text = QStringLiteral("No download is running in ~/Downloads right now.");
+                    return result;
+                }
+                done = [] { return partialDownloads().isEmpty(); };
+            } else if (kind == "file") {
+                auto last = std::make_shared<qint64>(-1);
+                done = [path, last] {
+                    const QFileInfo info(path);
+                    if (!info.exists()) return false;
+                    const bool still = info.size() == *last;
+                    *last = info.size();
+                    return still;
+                };
+            } else if (kind == "process") {
+                if (!processRunning(name)) {
+                    result.text = QStringLiteral("Nothing called %1 is running.").arg(name);
+                    return result;
+                }
+                done = [name] { return !processRunning(name); };
+            } else {
+                result.text = QStringLiteral("kind must be download, file or process.");
+                return result;
+            }
+            auto* timer = new QTimer();
+            timer->setInterval(2000);
+            QElapsedTimer* age = new QElapsedTimer();
+            age->start();
+            QObject::connect(timer, &QTimer::timeout, [timer, age, done, say] {
+                if (age->elapsed() > qint64(12) * 3600 * 1000) {
+                    timer->deleteLater();
+                    delete age;
+                    return;
+                }
+                if (!done()) return;
+                notify(tr("Pebble"), say);
+                timer->deleteLater();
+                delete age;
+            });
+            timer->start();
+            const QPointer<QTimer> guard = timer;
+            result.text = QStringLiteral("Watching. The user gets a notification when it's done.");
+            result.card = QStringLiteral("switch");
+            result.icon = QStringLiteral("visibility");
+            result.title = kind == "download" ? tr("Watching your downloads") : kind == "process" ? tr("Watching %1").arg(name) : tr("Watching %1").arg(QFileInfo(path).fileName());
+            result.subtitle = say;
+            result.value = 1;
+            result.setValue = [guard](double on) {
+                if (guard && on < 0.5) guard->stop();
+                else if (guard) guard->start();
+            };
+            result.undo = [guard] {
+                if (guard) guard->stop();
             };
             return result;
         }});

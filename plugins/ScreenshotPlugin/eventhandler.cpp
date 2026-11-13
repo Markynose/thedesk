@@ -30,6 +30,8 @@
 #include <hudmanager.h>
 #include <statemanager.h>
 #include "eventhandler.h"
+
+#include <assistanttools.h>
 #include "recorder.h"
 
 #include <QApplication>
@@ -87,6 +89,12 @@ QCoro::Task<> EventHandler::takeScreenshot() {
         }
         const QString path = QUrl(results.value(QStringLiteral("uri")).toString()).toLocalFile();
         QImage image(path);
+        if (results.value(QStringLiteral("x-thedesk-ask")).toBool() && !image.isNull()) {
+            // Ask Pebble was chosen: the picture goes to Pebble, not the clipboard
+            QFile::remove(path);
+            AssistantTools::instance()->requestAsk(image);
+            co_return;
+        }
         if (!image.isNull()) {
             DeskSound::play(QStringLiteral("screen-capture"));
             QApplication::clipboard()->setImage(image);

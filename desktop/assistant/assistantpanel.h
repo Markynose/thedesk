@@ -18,6 +18,7 @@ class AssistantPanel : public QDialog {
         void open();
         void close();
         void openWithSelection();
+        void openWithScreenshot(const QImage& image);
 
     private slots:
         void batteryChanged();

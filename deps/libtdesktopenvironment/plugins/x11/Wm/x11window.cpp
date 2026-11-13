@@ -190,6 +190,10 @@ void X11Window::activate() {
     TX11::sendMessageToRootWindow("_NET_ACTIVE_WINDOW", d->wid, 2, userTimeValue, activeWindow);
 }
 
+quint64 X11Window::nativeId() {
+    return d->wid;
+}
+
 quint64 X11Window::pid() {
     TX11::WindowPropertyPtr<long> pid = TX11::getWindowProperty<long>("_NET_WM_PID", d->wid, XA_CARDINAL);
     if (pid->nItems == 0) return 0;

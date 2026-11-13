@@ -49,6 +49,7 @@ struct ScreenshotWindowPrivate {
 
         QScreen* screen;
         QPushButton* recordButton;
+        QPushButton* askButton;
         QPixmap originalShot;
 
         tVariantAnimation* darkenAnim;
@@ -97,6 +98,12 @@ ScreenshotWindow::ScreenshotWindow(QScreen* screen, QWidget* parent) :
     // theDesk records the cropped area (or the whole screen) instead
     d->recordButton = new QPushButton(QIcon::fromTheme(QStringLiteral("media-record")), tr("Record"), this);
     d->recordButton->setVisible(false);
+    // ...or asks Pebble about it
+    d->askButton = new QPushButton(QIcon::fromTheme(QStringLiteral("chat-symbolic")), tr("Ask Pebble about it"), this);
+    d->askButton->setVisible(false);
+    connect(d->askButton, &QPushButton::clicked, this, [this] {
+        emit askRequested(finalResult());
+    });
     if (auto* row = qobject_cast<QBoxLayout*>(ui->copyButton->parentWidget()->layout())) {
         row->insertWidget(row->indexOf(ui->copyButton), d->recordButton);
     }
@@ -195,7 +202,7 @@ ScreenshotWindow::ScreenshotWindow(QScreen* screen, QWidget* parent) :
         tools->addWidget(button);
     }
     for (PenButton* pen : this->findChildren<PenButton*>()) tools->addWidget(pen, 0, Qt::AlignVCenter);
-    for (QPushButton* button : {ui->resetButton, ui->discardButton, d->recordButton}) {
+    for (QPushButton* button : {ui->resetButton, ui->discardButton, d->recordButton, d->askButton}) {
         iconOnly(button);
         tools->addWidget(button);
     }
@@ -326,6 +333,7 @@ void ScreenshotWindow::setType(Type type) {
                 ui->copyButton->setText(tr("Copy"));
                 ui->copyButton->setIcon(QIcon::fromTheme("edit-copy"));
                 d->recordButton->setVisible(true);
+                d->askButton->setVisible(true);
                 ui->topPane->setVisible(false);
                 ui->bottomPane->setVisible(true);
                 this->setMouseTracking(false);

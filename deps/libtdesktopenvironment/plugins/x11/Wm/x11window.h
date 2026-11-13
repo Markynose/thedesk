@@ -42,6 +42,7 @@ class X11Window : public DesktopWmWindow {
         bool isFullScreen();
         QIcon icon();
         quint64 pid();
+        quint64 nativeId() override;
         bool shouldShowInTaskbar();
         uint desktop();
         bool isOnDesktop(uint desktop);

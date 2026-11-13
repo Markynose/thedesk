@@ -99,3 +99,8 @@ full strength. Other styles are unchanged. A `tTitleLabel` placed right above
 a scroll area in its layout becomes a medium flexible top app bar: 112 px with
 a 28 px headline at the top of the page, collapsing to 64 px and 22 px as the
 page scrolls (pages that can't scroll keep the big title).
+
+### libtdesktopenvironment: window ids
+
+`DesktopWmWindow::nativeId()` (0 by default; the X11 window id in the X11
+plugin), so Pebble can tell bspwm which window to move or tile.

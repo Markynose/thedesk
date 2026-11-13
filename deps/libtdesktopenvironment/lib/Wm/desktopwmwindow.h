@@ -58,6 +58,10 @@ class DesktopWmWindow : public QObject {
         virtual void close() = 0;
         virtual void kill() = 0;
 
+    public:
+        // theDesk: the window system's own id (the X11 window), 0 when there is none
+        virtual quint64 nativeId() { return 0; }
+
     protected:
         explicit DesktopWmWindow();
 };

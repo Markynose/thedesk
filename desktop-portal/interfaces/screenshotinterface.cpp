@@ -42,6 +42,7 @@ uint ScreenshotInterface::Screenshot(QDBusObjectPath handle, QString app_id, QSt
         auto isTheDesk = app_id == "com.vicr123.thedesk" && options.value("x-thedesk-screenshot", false).toBool();
 
         QPixmap finalPixmap;
+        bool ask = false;
         if (interactive) {
             ScreenshotManager mgr;
             if (isTheDesk) {
@@ -64,6 +65,7 @@ uint ScreenshotInterface::Screenshot(QDBusObjectPath handle, QString app_id, QSt
             }
 
             finalPixmap = mgr.finalPixmap();
+            ask = mgr.ask();
         } else {
             if (!permissionStoreChecked) {
                 // We haven't checked permissions of the app, so deny the request
@@ -95,10 +97,9 @@ uint ScreenshotInterface::Screenshot(QDBusObjectPath handle, QString app_id, QSt
         finalPixmap.save(&temp, "PNG");
         temp.close();
 
-        reply.setArguments({
-            uint(0), QVariantMap({{"uri", QUrl::fromLocalFile(temp.fileName()).toString()}}
-             )
-        });
+        QVariantMap results{{"uri", QUrl::fromLocalFile(temp.fileName()).toString()}};
+        if (ask) results.insert(QStringLiteral("x-thedesk-ask"), true); // theDesk gives it to Pebble
+        reply.setArguments({uint(0), results});
         QDBusConnection::sessionBus().send(reply);
     },
         message);
