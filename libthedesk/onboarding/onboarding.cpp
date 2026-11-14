@@ -45,7 +45,7 @@
 #include <QShortcut>
 #include <QPainterPath>
 #include <m3scheme.h>
-#include <horizon/horizonview.h>
+#include <wallpaperview.h>
 
 #include <private/onboardingmanager_p.h>
 
@@ -69,7 +69,7 @@ struct OnboardingPrivate {
         tVariantAnimation* fadeAnim;
 
         bool onboardingStarted = false;
-        HorizonView* horizon = nullptr; // the living horizon behind it all
+        WallpaperView* wallpaper = nullptr; // the wallpaper behind it all
         bool textOnShow = false;        // started before being shown: play the words then
         OnboardingHero* hero = nullptr;         // every step's picture, morphing between them
         OnboardingProgress* progress = nullptr; // the wavy line across the card's top
@@ -91,10 +91,10 @@ Onboarding::Onboarding(QWidget* parent) :
     d = new OnboardingPrivate();
     d->preferredOnboardingOrder = d->settings.delimitedList("Onboarding/order");
 
-    // M3E: the living horizon behind everything, the steps in a rounded card
-    d->horizon = new HorizonView(this);
-    d->horizon->lower();
-    d->horizon->playIntro();
+    // M3E: the wallpaper behind everything, the steps in a rounded card
+    d->wallpaper = new WallpaperView(this);
+    d->wallpaper->lower();
+    d->wallpaper->playIntro();
     ui->contentWrapper->installEventFilter(this);
     ui->line->setVisible(false);
     {
@@ -308,7 +308,7 @@ void Onboarding::showEvent(QShowEvent* event) {
 }
 
 void Onboarding::resizeEvent(QResizeEvent* event) {
-    if (d->horizon) d->horizon->setGeometry(this->rect());
+    if (d->wallpaper) d->wallpaper->setGeometry(this->rect());
     // The card draws itself (eventFilter): no frame, no divider
     ui->contentWrapper->setFrameShape(QFrame::NoFrame);
     ui->line->setVisible(false);

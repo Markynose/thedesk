@@ -12,9 +12,9 @@
 
 #include "horizon/horizonscene.h"
 #include "horizon/horizonshapes.h"
-#include "horizon/horizonview.h"
 #include "m3expressiveclock.h"
 #include "m3usercard.h"
+#include "wallpaperview.h"
 #include <QDate>
 #include <QEasingCurve>
 #include <QLineF>
@@ -205,7 +205,7 @@ namespace {
                 const QRectF bar(centre.x() - 120, centre.y() + 76, 240, 8);
                 const double colour = ease((t - 0.3) / 1.0);
 
-                // Plymouth's sky, giving way to the rising horizon underneath
+                // Plymouth's sky, giving way to the wallpaper popping in underneath
                 QColor sky = bootSky();
                 sky.setAlphaF(1 - ease((t - 0.35) / 0.9));
                 p.fillRect(this->rect(), sky);
@@ -293,7 +293,7 @@ namespace {
 } // namespace
 
 struct M3LockSurfacePrivate {
-        HorizonView* horizon;
+        WallpaperView* wallpaper;
         Choreography* choreography;
         M3ExpressiveClock* clock;
         QLabel* date;
@@ -318,8 +318,7 @@ M3LockSurface::M3LockSurface(QWidget* parent) :
     QWidget(parent) {
     d = new M3LockSurfacePrivate();
 
-    d->horizon = new HorizonView(this);
-    d->horizon->setTopShade(true);
+    d->wallpaper = new WallpaperView(this);
 
     d->clock = new M3ExpressiveClock(this);
     d->clock->setStyle(M3ExpressiveClock::Style::Stack);
@@ -405,8 +404,8 @@ M3LockSurface::~M3LockSurface() {
     delete d;
 }
 
-HorizonView* M3LockSurface::horizon() const {
-    return d->horizon;
+WallpaperView* M3LockSurface::wallpaper() const {
+    return d->wallpaper;
 }
 
 void M3LockSurface::setUser(const QString& displayName, const QString& picturePath) {
@@ -444,11 +443,13 @@ void M3LockSurface::open(Opening opening) {
         d->choreography->picture = d->picturePath.isEmpty() ? QImage() : QImage(d->picturePath);
         d->choreography->initial = d->displayName.left(1).toUpper();
         d->choreography->setGeometry(this->rect());
-        d->horizon->playIntro();
+        d->wallpaper->setLook(WallpaperView::Look::Greeter, false);
+        d->wallpaper->playIntro();
         d->choreography->start(Choreography::Boot);
     } else {
-        // Locking: the desktop's wallpaper is already there (the lock wears
-        // it as it is), so no rising horizon
+        // Locking: the desktop's wallpaper (it starts as the desktop has it)
+        // dims and zooms in; the greeter's is darker and still
+        d->wallpaper->setLook(opening == Opening::FromLock ? WallpaperView::Look::Lock : WallpaperView::Look::Greeter, opening == Opening::FromLock);
         d->card->playEntrance();
         this->focusPassword();
     }
@@ -503,6 +504,7 @@ void M3LockSurface::playExitToSplash() {
 void M3LockSurface::playExitToDesktop() {
     if (d->exiting) return;
     d->exiting = true;
+    d->wallpaper->setLook(WallpaperView::Look::Desktop);
     // The shape the loading screen opens with, growing from the field until
     // even its dips (0.243 of its box) are past the farthest corner. A window
     // mask, so it works without a compositor.
@@ -592,7 +594,7 @@ void M3LockSurface::setClockNote(QWidget* note) {
 
 void M3LockSurface::relayout() {
     const QRect r = this->rect();
-    d->horizon->setGeometry(r);
+    d->wallpaper->setGeometry(r);
     d->choreography->setGeometry(r);
 
     // The clock and date, top left (the lock screen's place for them);
@@ -616,7 +618,7 @@ void M3LockSurface::relayout() {
             clockArea.setWidth(qMax(clockArea.width(), noteSize.width() - 8));
         }
     }
-    d->horizon->setQuietRect(QRectF(clockArea).adjusted(-24, -16, 24, 16));
+    d->wallpaper->setQuietRect(QRectF(clockArea).adjusted(-24, -16, 24, 16));
 
     // The card and the field: a column a little above the middle, below
     // the clock when the screen is too narrow for both side by side

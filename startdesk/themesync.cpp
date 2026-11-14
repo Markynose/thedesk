@@ -434,6 +434,10 @@ void ThemeSync::writeGreeterPalette() {
     if (desk.keysInGroup(QStringLiteral("UserCard")).contains(QStringLiteral("shapes"))) {
         t << "\n[UserCard]\nshapes=" << desk.value(QStringLiteral("UserCard/shapes")).toString() << '\n';
     }
+    // The wallpaper's two shapes, so the login screen wears the same wallpaper
+    if (desk.keysInGroup(QStringLiteral("Wallpaper")).contains(QStringLiteral("shapes"))) {
+        t << "\n[Wallpaper]\nshapes=" << desk.value(QStringLiteral("Wallpaper/shapes")).toStringList().join(QLatin1Char(',')) << '\n';
+    }
     t.flush();
     file.commit();
 }

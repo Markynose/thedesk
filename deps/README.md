@@ -74,7 +74,7 @@ Every change made here on top of upstream is listed below.
   drops a trailing *empty* name (bspwm doesn't NUL-terminate the last one, so
   its last desktop showed as "Desktop 9"); fallback names are 1-based.
 - `libtdesktopenvironment/lib/SystemSlide`: `setBackgroundWidget()` lets the
-  lock screen use a live widget (theDesk's horizon) instead of a pixmap.
+  lock screen use a live widget (theDesk's wallpaper) instead of a pixmap.
 - `material-color-utilities/`: only the C++ sources (no tests). Abseil
   removed (`HexFromArgb` uses `snprintf`, `wsmeans` uses
   `std::unordered_map`); `temperature_cache.h` gains a missing

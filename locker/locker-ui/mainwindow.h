@@ -8,8 +8,7 @@ struct MainWindowPrivate;
 /**
  * The lock screen: libthedesk's M3LockSurface (the same screen as the
  * login greeter) with the lock's own behaviour: the password goes to the
- * PAM checker, the horizon sets when the machine sleeps and rises when it
- * wakes, notifications rise as moons.
+ * PAM checker, and it wears the desktop's wallpaper, dimmed and zoomed in.
  */
 class MainWindow : public QMainWindow {
         Q_OBJECT

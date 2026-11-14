@@ -1,6 +1,6 @@
 /****************************************
  *
- *   theDesk - horizon scenes (splash, wallpaper, lock screen)
+ *   theDesk - horizon scenes (the boot art)
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@
  * sky with a glowing rim. No text is drawn here.
  *
  * Scenes can be rendered whole, or as separate layers so the planet can be
- * moved independently of the sky (HorizonView slides it between desktops).
+ * moved independently of the sky.
  */
 namespace HorizonScene {
     enum SceneId {

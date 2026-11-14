@@ -26,6 +26,7 @@
 #include <shapes/morph.h>
 #include <shapes/shapepath.h>
 #include <tsettings.h>
+#include <wallpaperview.h>
 
 namespace {
     // Seeds after the horizon: M3's baseline purple and a spread of hues
@@ -145,13 +146,24 @@ namespace {
             M3SpringAnimation* select;
             M3SpringAnimation* hover;
     };
+    const m3shapes::RoundedPolygon& shapeNamed(const QString& name) {
+        for (const auto& named : MaterialShapes::all()) {
+            if (name.compare(QLatin1String(named.name), Qt::CaseInsensitive) == 0) return named.shape();
+        }
+        return MaterialShapes::circle();
+    }
+
     // A live picture of the desktop in the chosen colours, like Android's
-    // wallpaper and style preview: the horizon's shapes, the bar, a window
+    // wallpaper and style preview: the wallpaper's shapes, the bar, a window
     class PreviewCard : public QWidget {
         public:
             explicit PreviewCard(QWidget* parent) :
                 QWidget(parent) {
                 this->setFixedHeight(200);
+                auto* desk = new tSettings(QStringLiteral("theSuite"), QStringLiteral("theDesk"), this);
+                QObject::connect(desk, &tSettings::settingChanged, this, [this](QString key) {
+                    if (key == QStringLiteral("Wallpaper/shapes")) this->update();
+                });
             }
 
         protected:
@@ -172,8 +184,9 @@ namespace {
                     p.fillPath(m3shapes::toPath(poly, QRectF(-size / 2, -size / 2, size, size)), colour);
                     p.restore();
                 };
-                shape(MaterialShapes::cookie12Sided(), r.bottomLeft() + QPointF(40, -10), 220, 12, s.primaryContainer);
-                shape(MaterialShapes::sunny(), r.topRight() + QPointF(-30, 20), 180, -8, s.tertiaryContainer);
+                const QStringList picked = WallpaperView::shapeNames();
+                shape(shapeNamed(picked.at(0)), r.bottomLeft() + QPointF(40, -10), 220, 12, s.primaryContainer);
+                shape(shapeNamed(picked.at(1)), r.topRight() + QPointF(-30, 20), 180, -8, s.tertiaryContainer);
                 const QRectF bar(r.center().x() - 120, r.top() + 12, 240, 26);
                 p.setPen(Qt::NoPen);
                 p.setBrush(s.surfaceContainer);
@@ -221,7 +234,9 @@ QWidget* M3ColourSettings::previewCard(QWidget* parent) {
 
 struct M3ColourSettingsPrivate {
         tSettings* settings;
+        tSettings* desk;
         QList<Swatch*> swatches;
+        QComboBox* shapes[2];
         QComboBox* style;
         QComboBox* mode;
         QComboBox* contrast;
@@ -233,6 +248,7 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
     QObject(parent) {
     d = new M3ColourSettingsPrivate();
     d->settings = settings;
+    d->desk = new tSettings(QStringLiteral("theSuite"), QStringLiteral("theDesk"), this);
 
     auto* swatchRow = new QWidget(parent);
     swatchRow->setProperty("m3Tile", true); // one card of swatches
@@ -243,7 +259,7 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
     for (const QColor& c : presetSeeds()) values.append(c.name());
     for (const QString& value : values) {
         auto* swatch = new Swatch(value, swatchRow);
-        swatch->setToolTip(value == QStringLiteral("horizon") ? tr("Living horizon: follows the time of day") : value);
+        swatch->setToolTip(value == QStringLiteral("horizon") ? tr("Time of day: the colour follows the clock") : value);
         if (!d->swatches.isEmpty()) swatchLayout->addStretch();
         swatchLayout->addWidget(swatch);
         d->swatches.append(swatch);
@@ -257,11 +273,37 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
     d->mode = new QComboBox(parent);
     d->mode->addItem(tr("Dark"), QStringLiteral("dark"));
     d->mode->addItem(tr("Light"), QStringLiteral("light"));
-    d->mode->addItem(tr("Follow the horizon (light by day)"), QStringLiteral("horizon"));
+    d->mode->addItem(tr("Time of day (light by day)"), QStringLiteral("horizon"));
     d->contrast = new QComboBox(parent);
     d->contrast->addItem(tr("Standard"), 0.0);
     d->contrast->addItem(tr("Medium"), 0.5);
     d->contrast->addItem(tr("High"), 1.0);
+    // The wallpaper's two shapes, as Pixel's shape wallpaper picks them
+    auto* shapeRow = new QWidget(parent);
+    auto* shapeLayout = new QHBoxLayout(shapeRow);
+    shapeLayout->setContentsMargins(0, 0, 0, 0);
+    shapeLayout->addStretch();
+    for (QComboBox*& combo : d->shapes) {
+        combo = new QComboBox(shapeRow);
+        combo->setIconSize(QSize(24, 24));
+        const QColor colour = M3::currentScheme().primary;
+        const qreal dpr = parent->devicePixelRatioF();
+        for (const auto& named : MaterialShapes::all()) {
+            QPixmap icon(QSize(24, 24) * dpr);
+            icon.setDevicePixelRatio(dpr);
+            icon.fill(Qt::transparent);
+            QPainter p(&icon);
+            p.setRenderHint(QPainter::Antialiasing);
+            p.fillPath(m3shapes::toPath(named.shape(), QRectF(2, 2, 20, 20)), colour);
+            p.end();
+            combo->addItem(QIcon(icon), QString::fromLatin1(named.name), QString::fromLatin1(named.name));
+        }
+        shapeLayout->addWidget(combo);
+        connect(combo, &QComboBox::currentIndexChanged, this, [this] {
+            if (!d->loading) d->desk->setValue(QStringLiteral("Wallpaper/shapes"), d->shapes[0]->currentData().toString() + QLatin1Char(',') + d->shapes[1]->currentData().toString());
+        });
+    }
+
     d->density = new QComboBox(parent);
     d->density->addItem(tr("Default"), 0);
     d->density->addItem(tr("Compact"), -1);
@@ -305,10 +347,11 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
     };
 
     grid->addWidget(swatchRow, row, 0, 1, grid->columnCount());
+    addRow(++row, tr("Wallpaper shapes"), QStringLiteral("interests"), shapeRow);
     auto* appearance = new QLabel(tr("Appearance"), parent);
     appearance->setProperty("m3Header", true);
     grid->addWidget(appearance, row + 1, 0, 1, grid->columnCount());
-    addRow(row + 2, tr("Mode"), QStringLiteral("dark_mode"), connectedGroup(d->mode, {tr("Dark"), tr("Light"), tr("Horizon")}, {QString(), QString(), tr("Follow the horizon: light by day, dark at night")}));
+    addRow(row + 2, tr("Mode"), QStringLiteral("dark_mode"), connectedGroup(d->mode, {tr("Dark"), tr("Light"), tr("Time of day")}, {QString(), QString(), tr("Light by day, dark at night")}));
     addRow(row + 3, tr("Contrast"), QStringLiteral("contrast"), connectedGroup(d->contrast, {tr("Standard"), tr("Medium"), tr("High")}, {}));
     addRow(row + 4, tr("Style"), QStringLiteral("style"), d->style);
     // M3 density for a mouse or touchpad: each step makes controls 4 px shorter (apps pick it up when they start)
@@ -328,6 +371,9 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
     });
     connect(settings, &tSettings::settingChanged, this, [this](QString key) {
         if (key.startsWith(QStringLiteral("Palette/m3.")) || key == QStringLiteral("Platform/density")) load();
+    });
+    connect(d->desk, &tSettings::settingChanged, this, [this](QString key) {
+        if (key == QStringLiteral("Wallpaper/shapes")) load();
     });
     load();
 }
@@ -362,5 +408,7 @@ void M3ColourSettings::load() {
     d->mode->setCurrentIndex(qMax(0, i));
     d->contrast->setCurrentIndex(contrast >= 0.75 ? 2 : contrast >= 0.25 ? 1 : 0);
     d->density->setCurrentIndex(qBound(0, -d->settings->value(QStringLiteral("Platform/density")).toInt(), 2));
+    const QStringList picked = WallpaperView::shapeNames();
+    for (int s = 0; s < 2; s++) d->shapes[s]->setCurrentIndex(qMax(0, d->shapes[s]->findData(picked.at(s))));
     d->loading = false;
 }

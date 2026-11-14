@@ -75,7 +75,7 @@ void Plugin::activate() {
     d->tracker = new NotificationTracker();
 
     // Broadcast new notifications (app, icon, summary; never the body) so
-    // the lock screen can show them as moons rising from the horizon
+    // Pebble's away count and the focus tide can count them
     connect(d->tracker, &NotificationTracker::newNotification, d->tracker, [](NotificationPtr notification) {
         if (!notification) return;
         QString appName, iconName;

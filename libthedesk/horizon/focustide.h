@@ -17,8 +17,7 @@
 struct FocusTidePrivate;
 
 /**
- * A focus session shown as a tide: light slowly crossing the bar and the
- * horizon. Notifications are held back (quiet mode "critical only") while
+ * A focus session shown as a tide: light slowly crossing the bar. Notifications are held back (quiet mode "critical only") while
  * it runs; when the tide turns, a HUD says how many waited.
  */
 class LIBTHEDESK_EXPORT FocusTide : public QObject {

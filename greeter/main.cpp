@@ -120,6 +120,8 @@ int main(int argc, char* argv[]) {
         tSettings desk(QStringLiteral("theSuite"), QStringLiteral("theDesk"));
         if (userPalette.contains(QStringLiteral("UserCard/shapes"))) desk.setValue(QStringLiteral("UserCard/shapes"), userPalette.value(QStringLiteral("UserCard/shapes")));
         else if (desk.keysInGroup(QStringLiteral("UserCard")).contains(QStringLiteral("shapes"))) desk.setValue(QStringLiteral("UserCard/shapes"), QString()); // empty: the defaults
+        // The wallpaper's shapes (WallpaperView reads them when it's built, below)
+        desk.setValue(QStringLiteral("Wallpaper/shapes"), userPalette.value(QStringLiteral("Wallpaper/shapes")).toStringList().join(QLatin1Char(','))); // empty: the defaults
     }
 
     // The picture: the user's home is usually private to them, so their

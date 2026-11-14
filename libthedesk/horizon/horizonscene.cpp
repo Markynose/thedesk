@@ -232,7 +232,7 @@ namespace {
 
 namespace {
     // The M3 Expressive look (horizonshapes.h): flat and dark. The shapes
-    // themselves are painted live by HorizonView.
+    // themselves are painted on top by HorizonShapes::paint.
     void paintExpressive(QPainter& p, int scene, const HorizonScene::Geometry& g, QSizeF canvas, QSizeF screen, int layers) {
         using namespace HorizonScene;
         const double w = canvas.width(), h = screen.height();

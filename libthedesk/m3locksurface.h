@@ -14,28 +14,29 @@
 #include "libthedesk_global.h"
 #include <QWidget>
 
-class HorizonView;
+class WallpaperView;
 struct M3LockSurfacePrivate;
 
 /**
- * The one screen behind the login greeter and the lock screen: the living
- * horizon, the Stack clock top left, the user card and a password pill in
- * the middle, actions (session, power) bottom right.
+ * The one screen behind the login greeter and the lock screen: the shape
+ * wallpaper (dimmed and zoomed in; darker and greyer for the greeter), the
+ * Stack clock top left, the user card and a password pill in the middle,
+ * actions (session, power) bottom right.
  *
  * Its openings and exits hand over frame for frame:
  *   open(FromBoot)    starts on Plymouth's last frame (the Gateway mark and
  *                     the wavy bar on the night sky): the bar stretches into
  *                     the password field, the mark morphs into the user's
- *                     picture, and the horizon rises under it, colours
- *                     going from the boot theme to the live scheme
- *   open(FromLock)    the horizon rises (locking)
+ *                     picture, and the wallpaper's shapes pop in under
+ *                     it, colours going from the boot theme to the live scheme
+ *   open(FromLock)    the desktop's wallpaper dims and zooms in (locking)
  *   playExitToSplash  the field shrinks into the M3 loading indicator at the
  *                     loading screen's place and size (72 px, centred) while
  *                     the rest goes; the last frame is the loading screen's
  *                     first (see writeSplashHandoff)
  *   playExitToDesktop the lock opens like the loading screen does: a morphing
  *                     M3E shape grows from the field until the desktop is
- *                     all that's left
+ *                     all that's left, the wallpaper zooming back out
  */
 class LIBTHEDESK_EXPORT M3LockSurface : public QWidget {
         Q_OBJECT
@@ -49,7 +50,7 @@ class LIBTHEDESK_EXPORT M3LockSurface : public QWidget {
         explicit M3LockSurface(QWidget* parent = nullptr);
         ~M3LockSurface() override;
 
-        HorizonView* horizon() const;
+        WallpaperView* wallpaper() const;
         void setUser(const QString& displayName, const QString& picturePath = QString());
         void setGreeting(const QString& greeting);
         void addAction(QWidget* action); // bottom right, left of the ones before

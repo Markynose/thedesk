@@ -18,7 +18,7 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QVBoxLayout>
-#include <horizon/horizonview.h>
+#include <wallpaperview.h>
 #include <farewell.h>
 #include <livingtypeview.h>
 #include <tsettings.h>
@@ -27,7 +27,7 @@
 struct SplashSettingsPrivate {
         tSettings settings{QStringLiteral("theSuite"), QStringLiteral("theDesk")};
         QWidget* card;
-        HorizonView* horizon;
+        WallpaperView* wallpaper;
         LivingTypeView* view;
         QButtonGroup* exits;
         QButtonGroup* colours;
@@ -73,12 +73,12 @@ SplashSettings::SplashSettings(QWidget* parent) :
     layout->setHorizontalSpacing(16);
     layout->setVerticalSpacing(12);
 
-    // The preview: the real loading screen in a card, over a small living
-    // horizon that its exit opens onto
+    // The preview: the real loading screen in a card, over a small
+    // wallpaper that its exit opens onto
     d->card = new QWidget(this);
     d->card->setFixedSize(384, 216);
-    d->horizon = new HorizonView(d->card);
-    d->horizon->setGeometry(d->card->rect());
+    d->wallpaper = new WallpaperView(d->card);
+    d->wallpaper->setGeometry(d->card->rect());
     d->view = new LivingTypeView(d->card);
     d->view->setPreview(true);
     d->view->setMode(LivingTypeView::Field);
@@ -87,7 +87,7 @@ SplashSettings::SplashSettings(QWidget* parent) :
     rounded.addRoundedRect(QRectF(d->card->rect()), 16, 16);
     d->card->setMask(QRegion(rounded.toFillPolygon().toPolygon()));
     connect(d->view, &LivingTypeView::exitFinished, this, [this] {
-        d->horizon->playIntro();
+        d->wallpaper->playIntro();
         d->replay->start();
     });
     d->replay = new QTimer(this);

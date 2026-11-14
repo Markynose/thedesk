@@ -30,7 +30,6 @@
 #include <tsettings.h>
 #include <QGridLayout>
 #include <QPainterPath>
-#include <horizon/horizonview.h>
 #include "settings/m3coloursettings.h"
 
 struct OnboardingThemePrivate {

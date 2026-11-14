@@ -24,9 +24,9 @@
 #include "ui_background.h"
 
 #include <QPainter>
-#include <horizon/horizonscene.h>
-#include <horizon/focustide.h>
-#include <horizon/horizonview.h>
+#include <powermanager.h>
+#include <statemanager.h>
+#include <wallpaperview.h>
 
 #include <Background/backgroundcontroller.h>
 #include <Background/backgroundselectionmodel.h>
@@ -50,9 +50,9 @@ struct BackgroundPrivate {
         bool retrieveAgain = false;
         BackgroundController::BackgroundData background;
 
-        // Live "planet horizon" wallpaper (horizon:living / horizon:<scene>)
-        HorizonView* horizon = nullptr;
-        bool horizonIntroPlayed = false;
+        // The live shape wallpaper ("shapes"; the old "horizon:..." names too)
+        WallpaperView* wallpaper = nullptr;
+        bool wallpaperIntroPlayed = false;
 
         bool isChangeBackgroundVisible = false;
         bool communityBackgroundSettingsShown = true;
@@ -68,10 +68,13 @@ Background::Background() :
     d = new BackgroundPrivate();
 
     // Created first: changeBackground() can run during construction
-    d->horizon = new HorizonView(ui->backgroundPage);
-    d->horizon->setGeometry(ui->backgroundPage->rect());
-    d->horizon->hide();
-    connect(FocusTide::instance(), &FocusTide::progressChanged, d->horizon, &HorizonView::setTide);
+    d->wallpaper = new WallpaperView(ui->backgroundPage);
+    d->wallpaper->setGeometry(ui->backgroundPage->rect());
+    d->wallpaper->hide();
+    // Unlocking: the shapes bounce from the middle outwards
+    connect(StateManager::powerManager(), &PowerManager::lockedChanged, d->wallpaper, [this](bool locked) {
+        if (!locked && d->wallpaper->isVisible()) d->wallpaper->playPop();
+    });
 
     if (!d->bg) {
         d->bg = new BackgroundController(BackgroundController::Desktop);
@@ -135,15 +138,15 @@ Background::Background() :
     ui->stackedWidget->setCurrentAnimation(tStackedWidget::Fade);
     ui->backgroundPage->installEventFilter(this);
 
-    auto updateHorizonDesktop = [this](bool animate) {
-        d->horizon->setDesktop(int(DesktopWm::currentDesktop()), int(DesktopWm::desktops().count()), animate);
+    auto updateWallpaperDesktop = [this](bool animate) {
+        d->wallpaper->setDesktop(int(DesktopWm::currentDesktop()), int(DesktopWm::desktops().count()), animate);
     };
-    updateHorizonDesktop(false);
-    connect(DesktopWm::instance(), &DesktopWm::currentDesktopChanged, this, [updateHorizonDesktop] {
-        updateHorizonDesktop(true);
+    updateWallpaperDesktop(false);
+    connect(DesktopWm::instance(), &DesktopWm::currentDesktopChanged, this, [updateWallpaperDesktop] {
+        updateWallpaperDesktop(true);
     });
-    connect(DesktopWm::instance(), &DesktopWm::desktopCountChanged, this, [updateHorizonDesktop] {
-        updateHorizonDesktop(false);
+    connect(DesktopWm::instance(), &DesktopWm::desktopCountChanged, this, [updateWallpaperDesktop] {
+        updateWallpaperDesktop(false);
     });
 
     ui->backgroundSelectionWidget->setFixedHeight(0);
@@ -176,25 +179,19 @@ QCoro::Task<> Background::changeBackground() {
         co_return;
     }
 
-    // Live horizon wallpapers are drawn by HorizonView, not loaded
+    // The live wallpaper is drawn by WallpaperView, not loaded
     QString backgroundName = d->bg->currentBackgroundName(BackgroundController::Desktop);
-    if (backgroundName.startsWith(QStringLiteral("horizon:"))) {
-        QString sceneName = backgroundName.mid(8);
-        int scene = -1; // "living": follow the time of day
-        for (int i = 0; i < HorizonScene::SceneCount; i++) {
-            if (HorizonScene::sceneName(i) == sceneName) scene = i;
-        }
-        d->horizon->setFixedScene(scene);
-        d->horizon->setGeometry(ui->backgroundPage->rect());
-        d->horizon->show();
+    if (backgroundName == QStringLiteral("shapes") || backgroundName.startsWith(QStringLiteral("horizon:"))) {
+        d->wallpaper->setGeometry(ui->backgroundPage->rect());
+        d->wallpaper->show();
         ui->stackedWidget->setCurrentWidget(ui->backgroundPage);
-        if (!d->horizonIntroPlayed) {
-            d->horizonIntroPlayed = true;
-            d->horizon->playIntro();
+        if (!d->wallpaperIntroPlayed) {
+            d->wallpaperIntroPlayed = true;
+            d->wallpaper->playIntro();
         }
         co_return;
     }
-    d->horizon->hide();
+    d->wallpaper->hide();
 
     d->retrieving = true;
     ui->stackedWidget->setCurrentWidget(ui->loadingBackgroundPage);
@@ -333,7 +330,7 @@ void Background::reject() {
 bool Background::eventFilter(QObject* watched, QEvent* event) {
     if (watched == ui->backgroundPage) {
         if (event->type() == QEvent::Resize) {
-            if (d->horizon) d->horizon->setGeometry(ui->backgroundPage->rect());
+            if (d->wallpaper) d->wallpaper->setGeometry(ui->backgroundPage->rect());
         } else if (event->type() == QEvent::Paint) {
             QPainter p(ui->backgroundPage);
             if (d->retrieving) {

@@ -7,20 +7,17 @@
 #include <QDateTime>
 #include <QKeyEvent>
 #include <QProcess>
-#include <QSettings>
 #include <QTime>
 #include <QTimer>
 #include <QToolButton>
 #include <Wm/desktopwm.h>
-#include <horizon/horizonscene.h>
-#include <horizon/horizonview.h>
 #include <lockmanager.h>
 #include <m3locksurface.h>
+#include <wallpaperview.h>
 
 struct MainWindowPrivate {
         QString lockCheckProcess;
         M3LockSurface* surface;
-        HorizonView* horizon;
 };
 
 MainWindow::MainWindow(QWidget* parent) :
@@ -31,24 +28,14 @@ MainWindow::MainWindow(QWidget* parent) :
     d->surface->setGreeting(tr("Locked"));
     d->surface->setPlaceholder(tr("Password to unlock"));
     this->setCentralWidget(d->surface);
-    d->horizon = d->surface->horizon();
     connect(d->surface, &M3LockSurface::submitted, this, &MainWindow::submit);
     // Under the date: what Claude Code is doing while you're away
     d->surface->setClockNote(new ClaudeLockChip(d->surface));
 
-    // The desktop's own wallpaper, exactly as it is now: its scene and the
-    // turn it has for the current desktop, so locking doesn't change it
-    QString desktopBackground = QSettings(QStringLiteral("theSuite"), QStringLiteral("theShell")).value(QStringLiteral("desktop/background")).toString();
-    int scene = -1; // "living"
-    for (int i = 0; i < HorizonScene::SceneCount; i++) {
-        if (desktopBackground == QStringLiteral("horizon:") + HorizonScene::sceneName(i)) scene = i;
-    }
-    d->horizon->setFixedScene(scene);
+    // The desktop's own wallpaper, panned as it is for the current desktop,
+    // so it starts exactly as the desktop has it before it dims and zooms in
     DesktopWm::instance(); // its window system backend, for the desktops
-    d->horizon->setDesktop(int(DesktopWm::currentDesktop()), int(qMax(qsizetype(1), DesktopWm::desktops().count())), false);
-
-    // (No text on the horizon: the old wake caption and notification
-    // "moons" are gone; the lock is the desktop's picture, the clock and you)
+    d->surface->wallpaper()->setDesktop(int(DesktopWm::currentDesktop()), int(qMax(qsizetype(1), DesktopWm::desktops().count())), false);
 
     if (qEnvironmentVariableIsSet("TD_LOCK_CHECKER")) {
         d->lockCheckProcess = qEnvironmentVariable("TD_LOCK_CHECKER");

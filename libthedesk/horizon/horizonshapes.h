@@ -25,9 +25,8 @@ class QPainter;
  * its colour; big MaterialShapes sit half off the edges with small bright
  * accents, over a flat dark planet with a thin rim.
  *
- * The shapes are painted live by HorizonView so they move with it: they drift
- * (parallax) and turn with desktop switches, spring in as the planet rises,
- * and morph slot by slot from one scene's shapes to the next's through the day.
+ * Since the shape wallpaper (WallpaperView) replaced the living horizon, this
+ * is the boot art's (tools/boot-theme: Limine's menu, Plymouth's sky).
  */
 namespace HorizonShapes {
     LIBTHEDESK_EXPORT bool enabled();

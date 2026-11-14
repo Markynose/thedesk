@@ -21,7 +21,8 @@ struct M3ColourSettingsPrivate;
  * The Theme pane's colour settings when Palette/base=m3: a row of colour
  * swatches in the manner of Android's wallpaper colour picker (each a circle
  * split into its scheme's primary, secondary and tertiary; the first follows
- * the living horizon), then style, mode and contrast. Writes Palette/m3.* in
+ * the time of day), the wallpaper's two shapes (Wallpaper/shapes in
+ * theDesk.conf), then style, mode and contrast. Writes Palette/m3.* in
  * theDesk.platform; the platform theme recolours live.
  */
 class M3ColourSettings : public QObject {

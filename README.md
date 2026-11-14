@@ -24,12 +24,14 @@ dotfiles for that machine (a ThinkPad T460).
 
 ## A desktop that follows the day
 
-The wallpaper is a living planet horizon, and the whole desktop takes its colours from
-it. The seed colour moves with the time of day, and every Material colour role (the
-bar, sheets, buttons, the pointer, even the terminal's palette) is regenerated from it
-as the day goes on.
+The wallpaper is two MaterialShapes of your choice in a grid around the edges, in the
+manner of Pixel's shape wallpaper, and the whole desktop takes its colours from the same
+seed. The seed moves with the time of day (or stays on a colour you pick), and every
+Material colour role (the wallpaper, the bar, sheets, buttons, the pointer, even the
+terminal's palette) is regenerated from it. Each desktop pans the wallpaper a step, the
+lock screen wears it dimmed and zoomed in, and a new seed sweeps across it, shape by shape.
 
-<p align="center"><img src="readme/m3/horizon.png" width="100%" alt="The desktop at midday, golden hour, after sunset and at night" /></p>
+<p align="center"><img src="readme/m3/wallpaper.png" width="100%" alt="The wallpaper on the desktop and the lock screen, and a new seed colour sweeping across it" /></p>
 
 ## From power button to desktop, one animation
 
@@ -150,7 +152,7 @@ Widgets that Android doesn't have get designs that are consistent with Material.
 
 | | |
 |---|---|
-| **Colour** | Google's [material-color-utilities](https://github.com/material-foundation/material-color-utilities) (HCT, tonal palettes, dynamic schemes), seeded from the horizon's time of day. The Light / Dark / Horizon mode and the Contrast level live in the Theme settings. |
+| **Colour** | Google's [material-color-utilities](https://github.com/material-foundation/material-color-utilities) (HCT, tonal palettes, dynamic schemes), seeded from the time of day or a picked colour. The Light / Dark / Time of day mode and the Contrast level live in the Theme settings. |
 | **Shape** | `androidx.graphics.shapes` ported to C++ (`m3/shapes/`): all 35 `MaterialShapes` plus `Morph`. Buttons morph on press, the user picture wears a cookie, and the loading indicator morphs from shape to shape. |
 | **Motion** | Spring physics with Compose's tokens (`m3/m3motion.*`): spatial springs may overshoot, effects springs never do. `Platform/motion=standard` (in `theDesk.platform.conf`) swaps the expressive scheme for the calmer standard one. |
 | **Type** | Roboto Flex everywhere, with its variable axes (weight, width, optical size) springing for emphasis. Google Sans Code in the terminal. |

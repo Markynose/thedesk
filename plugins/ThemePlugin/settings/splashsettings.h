@@ -17,7 +17,7 @@ struct SplashSettingsPrivate;
 
 /**
  * The loading screen's settings in the Theme pane: a live preview (the real
- * loading screen over a small living horizon, its exit opening onto it), the
+ * loading screen over a small wallpaper, its exit opening onto it), the
  * exit (Splash/exit), the colours (Splash/colours: the scheme, the MLM pride
  * flag, or the flag now and then) and the seasonal phrases (Splash/seasonal).
  * All in theDesk.conf; they take effect from the next start.

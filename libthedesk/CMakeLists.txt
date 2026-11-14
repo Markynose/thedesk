@@ -27,7 +27,6 @@ set(SOURCES
     horizon/focustide.cpp
     horizon/horizonscene.cpp
     horizon/horizonshapes.cpp
-    horizon/horizonview.cpp
     hudmanager.cpp
     icontextchunk.cpp
     keygrab.cpp
@@ -35,6 +34,7 @@ set(SOURCES
     m3expressiveclock.cpp
     m3usercard.cpp
     m3locksurface.cpp
+    wallpaperview.cpp
     compositor.cpp
     m3themedicon.cpp
     m3rollinglabel.cpp
@@ -103,7 +103,6 @@ set(HEADERS
     horizon/focustide.h
     horizon/horizonscene.h
     horizon/horizonshapes.h
-    horizon/horizonview.h
     hudmanager.h
     icontextchunk.h
     keygrab.h
@@ -112,6 +111,7 @@ set(HEADERS
     m3expressiveclock.h
     m3usercard.h
     m3locksurface.h
+    wallpaperview.h
     compositor.h
     m3themedicon.h
     m3rollinglabel.h
