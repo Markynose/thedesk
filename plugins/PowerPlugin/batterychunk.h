@@ -30,6 +30,9 @@ class BatteryChunk : public Chunk {
         // state: UPower's words for anything else ("Fully Charged")
         void setBattery(int percentage, bool onBattery, bool charging, qint64 seconds, const QString& state);
 
+        // Nobody sees the wave with the screen off: it rests
+        void setScreenOff(bool off);
+
         // "1 h 12 min"
         static QString span(qint64 seconds);
 
@@ -46,6 +49,8 @@ class BatteryChunk : public Chunk {
         Private* d;
 
         void retext(bool animate);
+        void updateDrift();
+        void updateCovered();
         void recolour();
         QRect ringRect() const;
 };

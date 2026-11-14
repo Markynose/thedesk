@@ -145,6 +145,7 @@ void Plugin::activate() {
     }
     d->logind = new EventHandler();
     d->logind->setBatteryChunk(d->powerChunk);
+    connect(d->logind, &EventHandler::screenOffChanged, d->powerChunk, &BatteryChunk::setScreenOff);
     RichTip::attach(d->powerChunk, [this] {
         return RichTip::Content{tr("Battery"), d->upower->overallStateDescription(), tr("Power settings"), [] {
             StateManager::statusCenterManager()->showWithPane(QStringLiteral("PowerSettings"));

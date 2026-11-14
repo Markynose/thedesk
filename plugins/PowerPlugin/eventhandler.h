@@ -34,6 +34,8 @@ class EventHandler : public QObject {
         void setBatteryChunk(QWidget* chunk);
 
     signals:
+        // theDesk turned the screen off for idling, or it came back
+        void screenOffChanged(bool off);
 
     private:
         EventHandlerPrivate* d;

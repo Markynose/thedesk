@@ -17,10 +17,12 @@
 #include <QPainterPath>
 #include <QTimer>
 #include <QtMath>
+#include <Wm/desktopwm.h>
 #include <barmanager.h>
 #include <m3motion.h>
 #include <m3rollinglabel.h>
 #include <m3scheme.h>
+#include <powermanager.h>
 #include <shapes/materialshapes.h>
 #include <shapes/morph.h>
 #include <shapes/shapepath.h>
@@ -110,6 +112,9 @@ struct BatteryChunk::Private {
         // While low the wave drifts (and at 5% the burst turns and beats): the ring alone, 20 fps
         QTimer drift;
         QElapsedTimer clock;
+        qint64 clockAt = 0; // where the wave was when it last rested
+        bool locked = false, screenOff = false, covered = false; // nobody sees it: it rests
+        DesktopWmWindowPtr active;
 
         QPainterPath burst; // the morph's path at burstAt, in a unit square
         float burstAt = -1;
@@ -156,6 +161,13 @@ BatteryChunk::BatteryChunk() :
         this->update(ringRect());
     });
 
+    connect(StateManager::powerManager(), &PowerManager::lockedChanged, this, [this](bool locked) {
+        d->locked = locked;
+        updateDrift();
+    });
+    connect(DesktopWm::instance(), &DesktopWm::activeWindowChanged, this, &BatteryChunk::updateCovered);
+    connect(DesktopWm::instance(), &DesktopWm::currentDesktopChanged, this, &BatteryChunk::updateCovered);
+
     connect(StateManager::barManager(), &BarManager::barHeightTransitioning, this, [this](qreal percentage) {
         d->open = percentage;
         this->layout()->setContentsMargins(qRound(Closed + (Open - Closed) * percentage) + 2, 0, 12, 0);
@@ -196,16 +208,38 @@ void BatteryChunk::setBattery(int percentage, bool onBattery, bool charging, qin
     d->bolt->animateTo(charging ? 1.0 : 0.0);
     retext(true);
 
-    // Calmer motion leaves the wave still
-    if (low && M3Motion::expressive()) {
-        if (!d->drift.isActive()) {
-            d->clock.start();
-            d->drift.start();
-        }
-    } else if (d->drift.isActive()) {
+    updateDrift();
+    this->update();
+}
+
+void BatteryChunk::setScreenOff(bool off) {
+    d->screenOff = off;
+    updateDrift();
+}
+
+void BatteryChunk::updateCovered() {
+    // A fullscreen window in front (the bar steps behind it); its state can change while it stays active
+    DesktopWmWindowPtr active = DesktopWm::activeWindow();
+    if (active != d->active) {
+        if (d->active) d->active->disconnect(this);
+        d->active = active;
+        if (active) connect(active, &DesktopWmWindow::windowStateChanged, this, &BatteryChunk::updateCovered);
+    }
+    d->covered = active && active->isFullScreen() && !active->isMinimized() && active->isOnCurrentDesktop();
+    updateDrift();
+}
+
+void BatteryChunk::updateDrift() {
+    // The wave drifts while low and seen; calmer motion leaves it still
+    const bool run = d->onBattery && d->percentage <= 20 && M3Motion::expressive() && !d->locked && !d->screenOff && !d->covered;
+    if (run == d->drift.isActive()) return;
+    if (run) {
+        d->clock.start();
+        d->drift.start();
+    } else {
+        d->clockAt += d->clock.elapsed(); // it carries on from where it rested
         d->drift.stop();
     }
-    this->update();
 }
 
 void BatteryChunk::retext(bool animate) {
@@ -275,7 +309,7 @@ void BatteryChunk::paintEvent(QPaintEvent* event) {
     p.setBrush(box);
     p.drawRoundedRect(pill, h / 2, h / 2);
 
-    const double t = d->drift.isActive() ? d->clock.elapsed() / 1000.0 : 0;
+    const double t = (d->clockAt + (d->drift.isActive() ? d->clock.elapsed() : 0)) / 1000.0;
     const QPointF lead(pill.left() + h / 2, cy);
     const double r = 7 + 2 * e;
     QColor track = ink;

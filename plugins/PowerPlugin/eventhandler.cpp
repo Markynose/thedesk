@@ -209,6 +209,7 @@ void EventHandler::checkIdleTimer() {
         }
 
         // Reset all variables
+        if (d->screenOffActionPerformed) emit screenOffChanged(false);
         d->screenOffActionPerformed = false;
         d->suspendActionPerformed = false;
     }
@@ -229,6 +230,7 @@ void EventHandler::checkIdleTimer() {
                 // Turn the screen off now
                 StateManager::powerManager()->performPowerOperation(PowerManager::TurnOffScreen);
                 d->screenOffActionPerformed = true;
+                emit screenOffChanged(true);
             }
         }
 
