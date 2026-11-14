@@ -16,11 +16,12 @@
 struct M3OverviewPagePrivate;
 
 /**
- * The Status Center overview as a profile page: the user card, then cards
- * for the session, battery, storage and memory, today's date, "your day" on
- * the living horizon's clock, what's playing (with the M3 Expressive wavy
- * seek bar) and live system readings. Cards rise in on springs, numbers count
- * up, and the live readings only tick while the page is visible.
+ * The Status Center overview: your day as a ribbon on the living horizon's
+ * clock with the big clock riding the "now" line, world clocks as pins at
+ * their own hour and the greeting; then what's playing (with the M3
+ * Expressive wavy seek bar), usage, live system readings and the session,
+ * battery, storage and memory as pills. Cards rise in on springs, numbers
+ * count up, and the live readings only tick while the page is visible.
  */
 class M3OverviewPage : public QWidget {
         Q_OBJECT
@@ -28,7 +29,10 @@ class M3OverviewPage : public QWidget {
         explicit M3OverviewPage(QWidget* parent = nullptr);
         ~M3OverviewPage() override;
 
-        static constexpr int ColumnWidth = 1000;
+        static constexpr int ColumnWidth = 1160;
+
+        // A short line under the date (the clocks are about to change) and its full text on hover
+        void setNotice(const QString& notice, const QString& details);
 
     protected:
         void showEvent(QShowEvent* event) override;

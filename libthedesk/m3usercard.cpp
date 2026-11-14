@@ -219,6 +219,12 @@ QSize M3UserCard::sizeHint() const {
     nameFont.setVariableAxis(QFont::Tag("wght"), 1000);
     nameFont.setVariableAxis(QFont::Tag("wdth"), 151);
     int nameWidth = QFontMetrics(nameFont).horizontalAdvance(d->name);
+    // A short name mustn't clip the greeting over it
+    if (d->greetingShown) {
+        QFont greetingFont = this->font();
+        greetingFont.setPixelSize(int(m.greeting));
+        nameWidth = qMax(nameWidth, QFontMetrics(greetingFont).horizontalAdvance(d->greeting.isEmpty() ? greetingForNow() : d->greeting));
+    }
     int width = int(m.picture + m.gap) + nameWidth;
     if (d->alignment & Qt::AlignHCenter) width = qMax(int(m.picture), nameWidth);
     const double greetingLine = d->greetingShown ? m.greeting * 1.5 : 0;

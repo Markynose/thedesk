@@ -44,6 +44,7 @@ struct OverviewPanePrivate {
             worldClockSettings("theSuite", "the24"){};
 
         QToolButton* hamburgerButton;
+        M3OverviewPage* page;
         QList<WorldClock*> worldClocks;
 
         tSettings worldClockSettings;
@@ -91,7 +92,8 @@ OverviewPane::OverviewPane() :
     // M3 Expressive: the overview is a profile page (m3overview.h); the old
     // greeting, clock and calendar stay built but hidden
     ui->mainWidget->setVisible(false);
-    ui->horizontalLayout_3->insertWidget(ui->horizontalLayout_3->indexOf(ui->mainWidget), new M3OverviewPage(ui->scrollAreaWidgetContents));
+    d->page = new M3OverviewPage(ui->scrollAreaWidgetContents);
+    ui->horizontalLayout_3->insertWidget(ui->horizontalLayout_3->indexOf(ui->mainWidget), d->page);
     ui->scrollAreaWidgetContents->installEventFilter(this);
 
     connect(&d->worldClockSettings, &tSettings::settingChanged, this, [=](QString key, QVariant value) {
@@ -211,13 +213,17 @@ void OverviewPane::updateDSTNotification() {
         if (showDaylightSavingsPanel) {
             ui->dstPanel->setVisible(true);
 
+            const QDate day = changeover.changeoverDate.toLocalTime().date();
             if (currentLocal.isDaylightTime()) {
-                ui->dstLabel->setText(tr("Daylight Savings Time is ending on %1. The clock will automatically shift backwards by %n hour(s).", nullptr, 1).arg(QLocale().toString(changeover.changeoverDate.toLocalTime().date())));
+                ui->dstLabel->setText(tr("Daylight Savings Time is ending on %1. The clock will automatically shift backwards by %n hour(s).", nullptr, 1).arg(QLocale().toString(day)));
+                d->page->setNotice(tr("Clocks go back %1").arg(QLocale().toString(day, QStringLiteral("d MMM"))), ui->dstLabel->text());
             } else {
-                ui->dstLabel->setText(tr("Daylight Savings Time is starting on %1. The clock will automatically shift forwards by %n hour(s).", nullptr, 1).arg(QLocale().toString(changeover.changeoverDate.toLocalTime().date())));
+                ui->dstLabel->setText(tr("Daylight Savings Time is starting on %1. The clock will automatically shift forwards by %n hour(s).", nullptr, 1).arg(QLocale().toString(day)));
+                d->page->setNotice(tr("Clocks go forward %1").arg(QLocale().toString(day, QStringLiteral("d MMM"))), ui->dstLabel->text());
             }
         } else {
             ui->dstPanel->setVisible(false);
+            d->page->setNotice(QString(), QString());
         }
     });
     timezoneProcess->start("zdump", {"-v", currentTimezone});
