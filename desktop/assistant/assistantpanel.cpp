@@ -562,7 +562,7 @@ AssistantPanel::AssistantPanel() :
             answer.wordBorn.append(qMax(d->now(), last + (last > d->now() + 250 ? 22 : 65)));
         }
         scrollToEnd();
-        animateFor(1500);
+        animateFor(int(answer.wordBorn.isEmpty() ? 0 : answer.wordBorn.last() - d->now()) + 1500); // words queued up land later
     });
     connect(d->brain, &AssistantBrain::cardAdded, this, [this](AssistantCard card) {
         qint64 born = d->now();
@@ -677,7 +677,11 @@ void AssistantPanel::open() {
     d->leave->stop();
     this->setWindowOpacity(1);
     if (QScreen* screen = QGuiApplication::primaryScreen()) this->setGeometry(screen->geometry());
-    if (!Compositor::isActive()) this->setMask(sheetRect().toAlignedRect());
+    if (!Compositor::isActive()) {
+        QPainterPath round;
+        round.addRoundedRect(sheetRect(), 28, 28);
+        this->setMask(QRegion(round.toFillPolygon().toPolygon()));
+    }
     else this->clearMask();
     if (StateManager::barManager() && d->chunk->chunkRegistered()) StateManager::barManager()->removeChunk(d->chunk);
     d->toBarAt = -1;
@@ -1367,11 +1371,14 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
     double y = 0;
     // The line: the answer; while it works, the question waiting faintly; an ask says what it wants
     if (pendingAsk >= 0) {
+        const AssistantCard& ask = d->items.at(pendingAsk).card;
+        QString wants = ask.subtitle.isEmpty() ? ask.title : ask.subtitle;
+        if (!wants.isEmpty()) wants[0] = wants.at(0).toUpper();
         const QFont f = flex(26, 560);
-        const QRectF r = QFontMetricsF(f).boundingRect(QRectF(0, 0, W, 1e6), Qt::AlignHCenter | Qt::TextWordWrap, d->items.at(pendingAsk).card.title);
+        const QRectF r = QFontMetricsF(f).boundingRect(QRectF(0, 0, W, 1e6), Qt::AlignHCenter | Qt::TextWordWrap, wants);
         p.save();
         rise(p, QRectF(0, y, W, r.height()), (d->now() - d->items.at(pendingAsk).born) / 1000.0);
-        text(p, QRectF(0, y, W, r.height() + 4), d->items.at(pendingAsk).card.title, f, s.onSurface, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap);
+        text(p, QRectF(0, y, W, r.height() + 4), wants, f, s.onSurface, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap);
         p.restore();
         y += r.height() + 24;
     } else if (!line.isEmpty()) {
@@ -1690,7 +1697,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             return lerp(at(lo), at(lo + 1), off - lo);
         };
         const int lo = int(std::floor(pos)), hi = qMin(n - 1, lo + 1);
-        const double height = qMax(120.0, lerp(heightOf(tiles.at(lo), large), heightOf(tiles.at(hi), large), pos - lo));
+        const double height = qMax(n == 1 ? 0.0 : 120.0, lerp(heightOf(tiles.at(lo), large), heightOf(tiles.at(hi), large), pos - lo));
         double total = -gap;
         for (int i = 0; i < n; i++) {
             const double w = widthAt(i - pos);
@@ -1713,7 +1720,8 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             QPainterPath tile;
             tile.addRoundedRect(r, 28, 28);
             p.setClipPath(tile, Qt::IntersectClip);
-            const double full = c01((w - (large - 60)) / 50); // only the large one shows the whole card
+            const bool picture = slot.item >= 0 && d->items.at(slot.item).card.kind == AssistantCard::Image;
+            const double full = picture ? 1 : c01((w - (large - 60)) / 50); // only the large one shows the whole card
             if (full < 1) {
                 p.save();
                 p.setOpacity(p.opacity() * (1 - full));
@@ -1735,7 +1743,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
                         ty += paintLiving(p, answer.text, answer.wordBorn, QPointF(r.left() + 24, ty), r.width() - 48, readPx, hit, hovered, answer.countFrom) + 12;
                     }
                 }
-                if (full < 0.9) d->hits.resize(hitsBefore); // only the large one is live
+                if (i != qRound(pos)) d->hits.resize(hitsBefore); // only the large one is live
                 p.restore();
             }
             p.restore();
