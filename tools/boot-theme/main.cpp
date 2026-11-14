@@ -34,9 +34,11 @@
 #include <QTextStream>
 #include <horizon/horizonscene.h>
 #include <horizon/horizonshapes.h>
+#include <m3motion.h>
 #include <m3scheme.h>
 #include <shapes/m3loadingindicator.h>
 #include <shapes/materialshapes.h>
+#include <shapes/morph.h>
 #include <QtMath>
 #include <shapes/shapepath.h>
 
@@ -198,16 +200,22 @@ namespace {
         return true;
     }
     // ---- Plymouth: the mark morphing through the loading indicator's shapes
-    // over an M3E wavy progress bar (stage 10 option 1). Plymouth's script
-    // plugin can crop and rotate images but not draw, so the pieces are
-    // rendered here and put together by thedesk.script:
-    //   mark-N.png   the morph springs, 7 morphs x 15 steps of 20 ms, each
-    //                at its own spring rotation only; the script adds the
-    //                quarter-turn steps and the slow spin (Image.Rotate)
-    //   d.png        the "d", which stays upright
-    //   wave.png     a long wave, cropped every frame to scroll it (back
-    //                toward the start) and to the boot progress
-    //   track.png    the rest of the track, with the stop dot at its end
+    // over an M3E wavy progress bar; for a disk passphrase the bar's track
+    // springs into a pill with a lock badge. Plymouth's script plugin can
+    // crop, scale and rotate images but not draw, so the pieces are rendered
+    // here and put together by thedesk.script:
+    //   mark-N.png        the morph springs, 7 morphs x 15 steps of 20 ms, each
+    //                     at its own spring rotation only; the script adds the
+    //                     quarter-turn steps and the slow spin (Image.Rotate)
+    //   d.png             the "d", which stays upright
+    //   wave-N.png        a long wave at amplitude 3 * N / 6, cropped every
+    //                     frame to scroll it (back toward the start) and to the
+    //                     boot progress; wave-0 is the flat, finished bar
+    //   track.png         the rest of the track (capped with the dot images)
+    //   pill-T-S.png      the pill's round ends: S px circles in tone T (track
+    //   pill-T.png        colour to field colour) and a block for its middle
+    //   badge-N.png       the lock badge, Cookie4Sided morphing to a Circle
+    //   lock(-open).png   its icon; bullet.png, a typed character
     QImage canvas(QSize size) {
         QImage img(size, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -220,13 +228,17 @@ namespace {
         return QStringLiteral("%1, %2, %3").arg(c.redF(), 0, 'f', 3).arg(c.greenF(), 0, 'f', 3).arg(c.blueF(), 0, 'f', 3);
     }
 
+    QColor mix(const QColor& a, const QColor& b, double t) {
+        return QColor::fromRgbF(float(a.redF() + (b.redF() - a.redF()) * t), float(a.greenF() + (b.greenF() - a.greenF()) * t), float(a.blueF() + (b.blueF() - a.blueF()) * t));
+    }
+
     bool writePlymouth(const QString& dir, int scene) {
         QDir().mkpath(dir);
         const M3::Scheme s = schemeFor(scene);
         const QColor background = HorizonShapes::sky(scene);
         const int morphs = 7, steps = 15, stepMs = 20, markCanvas = 160;
         const double waveLength = 40, amplitude = 3, stroke = 4, barWidth = 240;
-        const int stripHeight = 16;
+        const int stripHeight = 16, waveLevels = 6, tones = 5, badgeSteps = 15;
 
         // The mark's shape: the indeterminate indicator in a 156 px container
         // around the 128 px mark, as theDesk draws it
@@ -262,11 +274,11 @@ namespace {
         }
 
         // y = amplitude * sin(2 pi x / wavelength), one wavelength longer than
-        // the bar so any crop offset fits; wave.png at full amplitude, then
-        // wave-1..3 flatter (the bar irons flat as boot finishes, as M3's
-        // wavy progress does when it's done)
-        for (int level = 0; level < 4; level++) {
-            const double a = amplitude * (1 - level / 3.0);
+        // the bar so any crop offset fits; the script picks the level nearest
+        // its amplitude spring (Compose's rule: flat at 10 % or less and at
+        // 95 % or more)
+        for (int level = 0; level <= waveLevels; level++) {
+            const double a = amplitude * level / waveLevels;
             QImage img = canvas(QSize(int(barWidth + waveLength) + 1, stripHeight));
             QPainter p(&img);
             p.setRenderHint(QPainter::Antialiasing);
@@ -279,46 +291,75 @@ namespace {
             p.setPen(QPen(s.primary, stroke, Qt::SolidLine, Qt::FlatCap, Qt::RoundJoin));
             p.drawPath(wave);
             p.end();
-            if (!savePng(img, level == 0 ? dir + QStringLiteral("/wave.png") : QStringLiteral("%1/wave-%2.png").arg(dir).arg(level))) return false;
+            if (!savePng(img, QStringLiteral("%1/wave-%2.png").arg(dir).arg(level))) return false;
         }
 
         {
-            // The track to the bar's end (flat at the left: it's cropped
-            // there and capped with track-dot.png), then the stop dot
+            // The track, flat at both ends: the script crops it to length and
+            // caps it with track-dot.png; wave-dot.png is also the stop dot
             QImage img = canvas(QSize(int(barWidth) + 4, stripHeight));
             QPainter p(&img);
-            p.setRenderHint(QPainter::Antialiasing);
-            p.setPen(QPen(s.secondaryContainer, stroke, Qt::SolidLine, Qt::RoundCap));
-            p.drawLine(QPointF(-4, stripHeight / 2.0), QPointF(barWidth, stripHeight / 2.0));
-            p.setPen(Qt::NoPen);
-            p.setBrush(s.primary);
-            p.drawEllipse(QPointF(barWidth, stripHeight / 2.0), 2, 2);
+            p.fillRect(QRectF(0, stripHeight / 2.0 - stroke / 2, img.width(), stroke), s.secondaryContainer);
             p.end();
             if (!savePng(img, dir + QStringLiteral("/track.png"))) return false;
         }
 
-        auto dot = [&](const QColor& c, const QString& name) {
-            QImage img = canvas(QSize(int(stroke) + 2, int(stroke) + 2));
+        auto dot = [&](const QColor& c, double diameter, int size, const QString& name) {
+            QImage img = canvas(QSize(size, size));
             QPainter p(&img);
             p.setRenderHint(QPainter::Antialiasing);
             p.setPen(Qt::NoPen);
             p.setBrush(c);
-            p.drawEllipse(QRectF(1, 1, stroke, stroke));
+            p.drawEllipse(QRectF((size - diameter) / 2, (size - diameter) / 2, diameter, diameter));
             p.end();
             return savePng(img, dir + QStringLiteral("/") + name);
         };
-        if (!dot(s.primary, QStringLiteral("wave-dot.png")) || !dot(s.secondaryContainer, QStringLiteral("track-dot.png"))) return false;
+        if (!dot(s.primary, stroke, int(stroke) + 2, QStringLiteral("wave-dot.png")) || !dot(s.secondaryContainer, stroke, int(stroke) + 2, QStringLiteral("track-dot.png"))) return false;
+        // a typed character: a 10 px dot with room to overshoot as it pops in
+        if (!dot(s.onSurface, 10, 12, QStringLiteral("bullet.png"))) return false;
+
+        // The pill grows out of the track (SecondaryContainer) into the
+        // field (SurfaceContainerHighest); its ends come in a few sizes so the
+        // script never scales one down more than twice
+        for (int t = 0; t <= tones; t++) {
+            const QColor c = mix(s.secondaryContainer, s.surfaceContainerHighest, double(t) / tones);
+            for (int size : {8, 16, 32, 64}) {
+                if (!dot(c, size, size, QStringLiteral("pill-%1-%2.png").arg(t).arg(size))) return false;
+            }
+            QImage block(8, 8, QImage::Format_ARGB32_Premultiplied);
+            block.fill(c);
+            if (!savePng(block, QStringLiteral("%1/pill-%2.png").arg(dir).arg(t))) return false;
+        }
 
         {
-            // The password field (disk encryption prompts): a 56 dp pill
-            QImage img = canvas(QSize(320, 56));
-            QPainter p(&img);
-            p.setRenderHint(QPainter::Antialiasing);
-            QPainterPath pill;
-            pill.addRoundedRect(QRectF(0, 0, 320, 56), 28, 28);
-            p.fillPath(pill, s.surfaceContainerHighest);
-            p.end();
-            if (!savePng(img, dir + QStringLiteral("/field.png"))) return false;
+            // The lock badge: Cookie4Sided in PrimaryContainer that morphs to
+            // a Primary circle as the disk unlocks (room to turn 45 degrees)
+            const m3shapes::Morph lock(MaterialShapes::cookie4Sided(), MaterialShapes::circle());
+            for (int k = 0; k <= badgeSteps; k++) {
+                const double progress = double(k) / badgeSteps;
+                QImage img = canvas(QSize(56, 56));
+                QPainter p(&img);
+                p.setRenderHint(QPainter::Antialiasing);
+                p.fillPath(m3shapes::toPath(lock, float(progress), QRectF(8, 8, 40, 40)), progress > 0.5 ? s.primary : s.primaryContainer);
+                p.end();
+                if (!savePng(img, QStringLiteral("%1/badge-%2.png").arg(dir).arg(k))) return false;
+            }
+            auto icon = [&](const QString& name, const QColor& c, const QString& file) {
+                QFont f(QStringLiteral("Material Symbols Rounded"));
+                f.setPixelSize(20);
+                f.setVariableAxis(QFont::Tag("FILL"), 1);
+                f.setVariableAxis(QFont::Tag("wght"), 500);
+                f.setVariableAxis(QFont::Tag("opsz"), 20);
+                QImage img = canvas(QSize(40, 40));
+                QPainter p(&img);
+                p.setRenderHint(QPainter::Antialiasing);
+                p.setFont(f);
+                p.setPen(c);
+                p.drawText(img.rect(), Qt::AlignCenter, name);
+                p.end();
+                return savePng(img, dir + QStringLiteral("/") + file);
+            };
+            if (!icon(QStringLiteral("lock"), s.onPrimaryContainer, QStringLiteral("lock.png")) || !icon(QStringLiteral("lock_open"), s.onPrimary, QStringLiteral("lock-open.png"))) return false;
         }
 
         QFile theme(dir + QStringLiteral("/thedesk.plymouth"));
@@ -338,18 +379,23 @@ namespace {
         if (!in.open(QFile::ReadOnly) || !out.open(QFile::WriteOnly)) return false;
         QString script = QString::fromUtf8(in.readAll());
         script.replace(QStringLiteral("@BACKGROUND@"), rgbF(background));
-        // The entrance: an expressive spring (damping 0.5, stiffness 300),
-        // sampled every 20 ms for 1.2 s (Plymouth's script has no exp())
+        // The M3 springs (the motion scheme the user picked) as one 20 ms
+        // step: x' = A x + B v, v' = C x + D v around the target, which is
+        // exact for a spring and needs no exp() (Plymouth's script has none)
         {
             QStringList values;
-            for (int i = 0; i < 60; i++) {
-                const double t = i * 0.02, w = std::sqrt(300.0), z = 0.5, wd = w * std::sqrt(1 - z * z);
-                const double v = 1 - std::exp(-z * w * t) * (std::cos(wd * t) + z * w / wd * std::sin(wd * t));
-                values.append(QStringLiteral("ENTRANCE[%1] = %2;").arg(i).arg(v, 0, 'f', 4));
+            for (int token = M3Motion::SpatialFast; token <= M3Motion::EffectsSlow; token++) {
+                const M3Motion::Spring spring = M3Motion::spring(M3Motion::Token(token));
+                const auto x = M3Motion::stepSpring(1, 0, 0, spring, 0.02), v = M3Motion::stepSpring(0, 1, 0, spring, 0.02);
+                values.append(QStringLiteral("SPRING_A[%1] = %2; SPRING_B[%1] = %3; SPRING_C[%1] = %4; SPRING_D[%1] = %5;")
+                                  .arg(token)
+                                  .arg(x.value, 0, 'f', 6)
+                                  .arg(v.value, 0, 'f', 6)
+                                  .arg(x.velocity, 0, 'f', 6)
+                                  .arg(v.velocity, 0, 'f', 6));
             }
-            script.replace(QStringLiteral("@ENTRANCE@"), values.join(QLatin1Char('\n')));
+            script.replace(QStringLiteral("@SPRINGS@"), values.join(QLatin1Char('\n')));
         }
-        script.replace(QStringLiteral("@ON_SURFACE@"), rgbF(s.onSurface));
         script.replace(QStringLiteral("@ON_SURFACE_VARIANT@"), rgbF(s.onSurfaceVariant));
         out.write(script.toUtf8());
         return true;

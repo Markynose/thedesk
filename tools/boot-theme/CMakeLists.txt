@@ -13,6 +13,8 @@ install(TARGETS thedesk-boot-theme RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 set(PLYMOUTH_THEME_DIR ${CMAKE_CURRENT_BINARY_DIR}/plymouth/thedesk)
 add_custom_command(OUTPUT ${PLYMOUTH_THEME_DIR}/thedesk.plymouth
+    # start clean so pictures an older theme used aren't installed with it
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${PLYMOUTH_THEME_DIR}
     COMMAND ${CMAKE_COMMAND} -E env QT_QPA_PLATFORM=offscreen
         LD_LIBRARY_PATH=$<TARGET_FILE_DIR:libthedesk>
         $<TARGET_FILE:thedesk-boot-theme> plymouth ${PLYMOUTH_THEME_DIR}
