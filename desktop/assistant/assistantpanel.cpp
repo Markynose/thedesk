@@ -1191,7 +1191,9 @@ void AssistantPanel::tick() {
         } else settled = false;
         ++glide;
     }
-    redraw();
+    // a long turn with nothing else arriving: only the pill moves (its face, its steps), the stage waits still
+    if (d->busy && settled && d->readTurn < 0 && d->toBarAt < 0 && d->now() > d->animateUntil + 1000) this->update(pillRect().toAlignedRect().adjusted(-8, -8, 8, 8));
+    else redraw();
     if ((d->now() > d->animateUntil && !d->busy && settled) || this->isHidden()) d->frame.stop();
 }
 

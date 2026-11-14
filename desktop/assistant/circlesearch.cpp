@@ -171,6 +171,12 @@ struct CircleSearch::Private {
 
         qint64 now() const { return clock.elapsed(); }
         double since(qint64 t) const { return t < 0 ? -1 : (now() - t) / 1000.0; }
+        // something on screen still moves: the opening shimmer, the picked ring's pulse, a turning indicator, a fade
+        bool moving() const {
+            auto recent = [this](qint64 at, double seconds) { return at >= 0 && since(at) < seconds; };
+            return selectedAt >= 0 || (mode != Circling && !read) || translating || recent(openedAt, 4) || recent(modeAt, 2) || recent(strokeDoneAt, 2)
+                || recent(copiedAt, 2.5) || recent(translatedAt, 8);
+        }
 };
 
 CircleSearch* CircleSearch::instance() {
@@ -203,7 +209,10 @@ CircleSearch::CircleSearch() :
     this->setCursor(Qt::CrossCursor);
     d->clock.start();
     d->frame.setInterval(33);
-    connect(&d->frame, &QTimer::timeout, this, qOverload<>(&QWidget::update));
+    connect(&d->frame, &QTimer::timeout, this, [this] {
+        if (d->moving()) this->update();
+        else d->frame.stop(); // still: whatever changes it next repaints, and the paint starts the frames again
+    });
 
     d->field = new QLineEdit(this);
     d->field->setFrame(false);
@@ -252,6 +261,13 @@ void CircleSearch::finish() {
     d->answering = false;
     this->hide();
     d->shot = QImage();
+    if (d->reader) { // closed before Tesseract was done: its reading is no use now
+        d->reader->disconnect(this);
+        d->reader->kill();
+        d->reader->deleteLater();
+        d->reader = nullptr;
+        QFile::remove(QDir::temp().filePath(QStringLiteral("thedesk-circle-%1.bmp").arg(QCoreApplication::applicationPid())));
+    }
 }
 
 void CircleSearch::readText() {
@@ -413,6 +429,7 @@ void CircleSearch::ask(const QString& question) {
 
 void CircleSearch::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event)
+    if (this->isVisible() && !d->frame.isActive() && d->moving()) d->frame.start();
     const M3::Scheme s = M3::currentScheme();
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
