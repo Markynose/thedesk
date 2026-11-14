@@ -60,7 +60,6 @@
 namespace {
     constexpr double PillWidth = 640, PillHeight = 64, StageWidth = 760;
     constexpr double ScrimOpacity = 0.45;
-    constexpr qint64 LineGoesAfterMs = 1500; // a long answer's first-sentence line, after the last word lands
     constexpr qint64 FreshThreadAfterMs = 10 * 60 * 1000; // a new thread after 10 idle minutes
     const QString Name = QStringLiteral("Pebble");
 
@@ -456,7 +455,7 @@ struct AssistantPanel::Private {
                 bool greeting = false;               // Answer: said on opening, not part of the talk yet
                 bool reacted = false;                // Answer: its face tag played
                 bool opens = false;                  // Answer: a greeting, which starts a turn of its own
-                qint64 doneAt = -1;                  // Answer: when its turn finished
+                int flowAt = -1;                     // Card: a code block written into the answer, at this length of its text
                 qint64 pressedAt = -1;
         };
         struct Sees {
@@ -504,6 +503,15 @@ struct AssistantPanel::Private {
         int flipDir = 0;
         bool listOpen = false;        // the earlier turns, as a list
         bool sheet = false;           // circle to search: a sheet at the bottom instead of the pill at the top
+        // a long answer: the pill unrolls into a reading sheet (one at a time, for the turn starting at readTurn)
+        int readTurn = -1, readAutoTurn = -1; // the last turn that unrolled by itself: rolled up, it stays up
+        bool readOpen = false, readFollow = true; // following the words down until they scroll by hand
+        qint64 readAt = -1;           // when it began unrolling or rolling up
+        double readK = 0;             // how far it's unrolled, as drawn
+        double readHeight = PillHeight, readBelow = 0, readMax = 0, readScrollTarget = 0;
+        QRectF readRect;              // the sheet as drawn
+        QString copied;               // a code block's Copy, ticked for a moment
+        qint64 copiedAt = -1;
         // layout on springs: where things go glides there instead of jumping
         struct Glide {
                 double value = 0, velocity = 0, target = 0;
@@ -544,6 +552,11 @@ struct AssistantPanel::Private {
 
         qint64 now() const { return clock.elapsed(); }
         double since(qint64 t) const { return t < 0 ? -1 : (now() - t) / 1000.0; }
+        double unroll() const { // 0 the line, 1 the sheet
+            if (readTurn < 0 || readAt < 0) return 0;
+            const double k = springAt(M3Motion::SpatialDefault, since(readAt));
+            return readOpen ? k : 1 - k;
+        }
 };
 
 AssistantPanel* AssistantPanel::instance() {
@@ -696,6 +709,8 @@ AssistantPanel::AssistantPanel() :
         if (!d->items.isEmpty() && d->items.last().kind == Private::Item::Card) born = qMax(born, d->items.last().born + 100);
         Private::Item item{Private::Item::Card, born};
         item.card = card;
+        // a fenced block mid-answer (not a file's change): a long answer shows it in place
+        if (card.kind == AssistantCard::Code && d->turnAnswer >= 0 && !card.path.startsWith('/') && !card.path.startsWith('~')) item.flowAt = int(d->items.at(d->turnAnswer).text.size());
         d->items.append(item);
         if (card.kind == AssistantCard::Ask) d->carousel->animateTo(0.0); // an ask comes first
         scrollToEnd();
@@ -727,12 +742,6 @@ AssistantPanel::AssistantPanel() :
     connect(d->brain, &AssistantBrain::turnFinished, this, [this] {
         d->busy = false;
         if (d->turnSteps >= 0 && d->items[d->turnSteps].foldAt < 0) d->items[d->turnSteps].foldAt = d->now();
-        if (d->turnAnswer >= 0) {
-            Private::Item& answer = d->items[d->turnAnswer];
-            answer.doneAt = d->now();
-            // a long answer's line folds away once it's all there: keep drawing till then
-            if (!answer.wordBorn.isEmpty()) animateFor(int(qMax<qint64>(0, answer.wordBorn.last() - d->now())) + LineGoesAfterMs + 1500);
-        }
         if (d->turnAnswer >= 0) {
             static const QRegularExpression keyNumber(QStringLiteral("\\*\\*(\\d+)(%?)\\*\\*"));
             auto it = keyNumber.globalMatch(d->items[d->turnAnswer].text);
@@ -775,6 +784,7 @@ void AssistantPanel::open() {
         if (!d->busy && d->closedAt >= 0 && d->now() - d->closedAt > FreshThreadAfterMs) {
             d->items.clear();
             d->turnSteps = d->turnAnswer = d->turnChips = -1;
+            d->readTurn = d->readAutoTurn = -1;
             d->brain->forget();
             d->field->setPlaceholderText(tr("Ask %1").arg(Name));
         }
@@ -805,6 +815,7 @@ void AssistantPanel::open() {
         if (!selected.trimmed().isEmpty() && selected != copied && !ClipboardHistory::looksLikePassword(selected)) d->sees.append({QStringLiteral("select"), tr("Selection"), QStringLiteral("Selected text:\n") + selected.left(4000)});
     }
 
+    if (!fromBar) d->readTurn = -1; // reopened: a long answer waits rolled up
     d->open = true;
     d->inBar = false;
     d->focus = -1;
@@ -1234,10 +1245,22 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
         p.drawRoundedRect(sheet, 28, 28);
         d->solid.append(sheet);
     }
+    // a long answer: the pill grows down into a reading sheet, staying in it as the field, a tone up
+    d->readK = d->sheet ? 0 : qMax(0.0, d->unroll() * (1 - c01(toward * 2)));
+    if (d->readK > 0.001) {
+        const double w = lerp(pill.width(), stageWidth(), d->readK), corner = lerp(PillHeight / 2, 28, c01(d->readK));
+        d->readRect = QRectF(pill.center().x() - w / 2, pill.top() - 8 * d->readK, w, lerp(pill.height(), glide(QStringLiteral("readHeight"), d->readHeight), d->readK) + 8 * d->readK);
+        p.setPen(Qt::NoPen);
+        p.setBrush(alpha(s.shadow, 0.25));
+        p.drawRoundedRect(d->readRect.translated(0, 3), corner, corner);
+        p.setBrush(s.surfaceContainerHigh);
+        p.drawRoundedRect(d->readRect, corner, corner);
+        d->solid.append(d->readRect);
+    }
     double content = 1 - c01(toward * 4);
     if (d->introToPanelAt >= 0) content *= c01((d->since(d->introToPanelAt) - 0.45) / 0.25); // after the tour, the insides fade in
     p.setPen(Qt::NoPen);
-    p.setBrush(s.surfaceContainerHigh);
+    p.setBrush(mix(s.surfaceContainerHigh, s.surfaceContainerHighest, d->readK));
     p.drawRoundedRect(pill, pill.height() / 2, pill.height() / 2);
     d->solid.append(pill);
     if (content <= 0) {
@@ -1331,7 +1354,7 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
         p.drawRoundedRect(buttonRect, corner, corner);
         icon(p, buttonRect, QStringLiteral("stop"), s.onSecondaryContainer, 22, true);
         d->hits.append({buttonRect, [this](QPointF) { d->brain->stop(); }});
-    } else if (!d->field->text().trimmed().isEmpty() || squash > 0) {
+    } else if (!d->field->text().trimmed().isEmpty() || squash > 0.001) { // sin(pi) is a hair over 0
         p.setBrush(buttonRect.contains(d->mouse) ? mix(s.primary, s.onPrimary, 0.08) : s.primary);
         p.drawRoundedRect(buttonRect, corner, corner);
         icon(p, buttonRect, QStringLiteral("arrow_upward"), s.onPrimary, 22);
@@ -1502,7 +1525,8 @@ QList<int> AssistantPanel::turnStarts() const {
 }
 
 void AssistantPanel::markLeaving() {
-    // the turn being looked at falls away as the new one comes in
+    // the turn being looked at falls away as the new one comes in (an unrolled answer rolls up)
+    if (d->readOpen) setReading(d->readTurn, false);
     const QList<int> starts = turnStarts();
     if (starts.isEmpty() || d->listOpen) return;
     d->leavingStart = starts.at(qBound(0, int(starts.size()) - 1 - d->viewBack, int(starts.size()) - 1));
@@ -1513,11 +1537,25 @@ void AssistantPanel::markLeaving() {
 void AssistantPanel::showTurn(int back) {
     // a turn picked from the list of earlier ones (0: the latest)
     d->listOpen = false;
+    d->readTurn = -1;
     d->viewBack = qMax(0, back);
     d->flipAt = d->now();
     d->carousel->snapTo(0.0);
     d->scrollTarget = d->scroll = 0;
     animateFor(900);
+}
+
+void AssistantPanel::setReading(int turn, bool open) {
+    // from where it is now, if it was on its way the other way
+    const double from = turn == d->readTurn ? d->unroll() : 0;
+    double t = 0;
+    while (t < 1 && springAt(M3Motion::SpatialDefault, t) < (open ? from : 1 - from)) t += 0.005;
+    d->readTurn = turn;
+    d->readOpen = open;
+    d->readAt = d->now() - qint64(t * 1000);
+    d->readFollow = false;
+    d->readScrollTarget = 0;
+    animateFor(1600);
 }
 
 double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<int>& starts, double seesK, int only, bool leaving) {
@@ -1620,37 +1658,140 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
     }
 
     // An answer longer than about three lines: the line says its first
-    // sentence and the whole of it goes on a Read card
-    const double LinePx = 30;
+    // sentence, and the pill unrolls into a reading sheet with the whole of it
+    const double LinePx = 30, BodyPx = 17;
     QString line;
     QList<qint64> lineBorn;
     QHash<QString, double> lineFrom;
     bool long_ = false;
-    double lineGone = 0;
+    int restAt = 0; // where the rest starts in the first answer's text
     if (!answers.isEmpty()) {
         const Private::Item& first = d->items.at(answers.first());
         const QString plain = plainOf(parseAnswer(first.text).tokens, QStringLiteral("\n"));
         const QFontMetricsF metrics(flex(LinePx, 480));
-        long_ = answers.size() > 1 || metrics.boundingRect(QRectF(0, 0, W, 1e6), Qt::TextWordWrap, plain).height() > metrics.lineSpacing() * 3.2;
+        const bool flowed = std::any_of(cards.begin(), cards.end(), [this](int c) { return d->items.at(c).flowAt >= 0; }); // a code block mid-answer reads in the sheet
+        long_ = answers.size() > 1 || flowed || metrics.boundingRect(QRectF(0, 0, W, 1e6), Qt::TextWordWrap, plain).height() > metrics.lineSpacing() * 3.2;
         line = first.text;
         if (long_) {
             static const QRegularExpression sentence(QStringLiteral("^[^\\n]{8,}?[.!?](\\s|$)"));
             const QRegularExpressionMatch m = sentence.match(first.text);
-            line = m.hasMatch() ? m.captured(0).trimmed() : first.text.section('\n', 0, 0).left(140);
+            const int newline = int(first.text.indexOf('\n'));
+            restAt = m.hasMatch() ? int(m.capturedEnd(0)) : qMin(newline >= 0 ? newline : int(first.text.size()), 140);
+            line = first.text.left(restAt).trimmed();
         }
         lineBorn = first.wordBorn;
         lineFrom = first.countFrom;
-        // once it's all there the Read card says it all: the line folds away
-        // (unless there are other cards: then they lead and the line stays to say what they are)
-        bool otherCards = false;
-        for (int c : std::as_const(cards)) otherCards = otherCards || c != pendingAsk;
-        if (long_ && first.doneAt >= 0 && !otherCards) {
-            const qint64 from = qMax(first.doneAt, first.wordBorn.isEmpty() ? first.doneAt : first.wordBorn.last()) + LineGoesAfterMs;
-            lineGone = c01(springAt(M3Motion::SpatialDefault, (d->now() - from) / 1000.0));
+    }
+    // code blocks written into a long answer read in it; other cards stay in the carousel
+    QList<int> flow;
+    bool otherCards = false;
+    for (int c : std::as_const(cards)) {
+        if (long_ && d->items.at(c).flowAt >= 0) flow.append(c);
+        else otherCards = otherCards || c != pendingAsk;
+    }
+    const int start = starts.at(turn);
+    const qint64 lineLanded = lineBorn.value(qMax(0, int(parseAnswer(line).tokens.size()) - 1), d->now());
+    // the latest long answer unrolls by itself once its line has landed (with other cards it waits for the chip)
+    if (long_ && pendingAsk < 0 && !leaving && !d->sheet && d->viewBack == 0 && turn == starts.size() - 1 && d->readAutoTurn != start) {
+        d->readAutoTurn = start;
+        if (!otherCards) {
+            d->readTurn = start;
+            d->readOpen = d->readFollow = true;
+            d->readScrollTarget = 0;
+            d->readAt = qMax(d->now(), lineLanded + 350);
+            animateFor(int(d->readAt - d->now()) + 1600);
         }
     }
 
+    // The rest of a long answer as it reads: paragraphs and points in living type
+    // (a point's number lands in a shape), code blocks typing themselves out, with Copy
+    auto paintBody = [&](QPointF o, double w, const HitFn& bodyHit, double* reached) {
+        static const m3shapes::Morph landing(MaterialShapes::circle(), MaterialShapes::cookie9Sided());
+        static const QRegularExpression point(QStringLiteral("^\\s*(?:(\\d{1,2})[.)]|[-*•])\\s+"));
+        const Private::Item& first = d->items.at(answers.first());
+        const QString& all = first.text;
+        double by = 0;
+        *reached = 0;
+        int nextFlow = 0;
+        auto code = [&](int index) {
+            const Private::Item& item = d->items.at(index);
+            const QStringList& lines = item.card.lines;
+            const QRectF r(o.x(), o.y() + by, w, 28 + lines.size() * 23);
+            const double age = d->since(item.born);
+            p.save();
+            p.setOpacity(p.opacity() * c01(age / 0.15));
+            p.setPen(Qt::NoPen);
+            p.setBrush(s.surfaceContainerLowest);
+            p.drawRoundedRect(r, 16, 16);
+            QStringList plain;
+            for (int i = 0; i < lines.size(); i++) {
+                const QString l = lines.at(i).mid(1); // past the diff marker
+                plain.append(l);
+                const int typed = int(std::round(l.size() * c01((age - i * 0.07) / 0.28)));
+                text(p, QRectF(r.left() + 16, r.top() + 14 + i * 23, r.width() - 72, 23), l.left(typed), mono(14, 450), s.onSurface);
+            }
+            const QRectF copy(r.right() - 44, r.top() + 6, 36, 36);
+            const bool ticked = d->copied == item.card.id && d->since(d->copiedAt) < 1.5;
+            if (hovered(copy)) {
+                p.setPen(Qt::NoPen);
+                p.setBrush(alpha(s.onSurface, 0.08));
+                p.drawEllipse(copy);
+            }
+            icon(p, copy, ticked ? QStringLiteral("check") : QStringLiteral("content_copy"), ticked ? s.primary : s.onSurfaceVariant, 18);
+            p.restore();
+            const QString id = item.card.id, joined = plain.join('\n');
+            bodyHit(copy, [this, id, joined](QPointF) {
+                QGuiApplication::clipboard()->setText(joined);
+                d->copied = id;
+                d->copiedAt = d->now();
+                animateFor(1600);
+            });
+            if (age >= 0) *reached = by + r.height();
+            by += r.height() + 14;
+        };
+        for (int at = restAt; at < all.size();) {
+            const int end = all.indexOf('\n', at) < 0 ? int(all.size()) : int(all.indexOf('\n', at));
+            while (nextFlow < flow.size() && d->items.at(flow.at(nextFlow)).flowAt <= at) code(flow.at(nextFlow++));
+            const QRegularExpressionMatch m = point.match(all.mid(at, end - at));
+            if (!all.mid(at, end - at).trimmed().isEmpty()) {
+                const int from = at + (m.hasMatch() ? int(m.capturedEnd(0)) : 0);
+                // its words' arrival times: the ones after everything before it
+                const QList<qint64> born = first.wordBorn.mid(parseAnswer(all.left(from)).tokens.size());
+                const bool numbered = m.hasMatch() && !m.captured(1).isEmpty();
+                const double indent = !m.hasMatch() ? 0 : numbered ? 44 : 28;
+                const double h = qMax(m.hasMatch() ? 30.0 : 0.0, paintLiving(p, all.mid(from, end - from), born, o + QPointF(indent, by), w - indent, BodyPx, bodyHit, hovered, first.countFrom));
+                const double land = born.isEmpty() ? 0 : springAt(M3Motion::SpatialDefault, (d->now() - born.first()) / 1000.0);
+                if (m.hasMatch() && land > 0) {
+                    // the point's mark lands as a circle and turns into a cookie
+                    const double size = numbered ? 28 : 10;
+                    p.save();
+                    p.translate(o.x() + (numbered ? 14 : 8), o.y() + by + 13);
+                    p.scale(land, land);
+                    p.rotate(-30 * (1 - land));
+                    p.setPen(Qt::NoPen);
+                    p.setBrush(numbered ? s.primaryContainer : s.primary);
+                    p.drawPath(m3shapes::toPath(landing, float(c01(springAt(M3Motion::SpatialDefault, (d->now() - born.first()) / 1000.0 - 0.1))), QRectF(-size / 2, -size / 2, size, size)));
+                    if (numbered) text(p, QRectF(-14, -14, 28, 28), m.captured(1), flex(14, 700), s.onPrimaryContainer, Qt::AlignCenter);
+                    p.restore();
+                }
+                if (land > 0) *reached = by + h;
+                by += h + 10;
+            }
+            at = end + 1;
+        }
+        while (nextFlow < flow.size()) code(flow.at(nextFlow++));
+        for (int a = 1; a < answers.size(); a++) { // more said in the same turn
+            const Private::Item& more = d->items.at(answers.at(a));
+            const double h = paintLiving(p, more.text, more.wordBorn, o + QPointF(0, by), w, BodyPx, bodyHit, hovered, more.countFrom);
+            if (!more.wordBorn.isEmpty() && more.wordBorn.first() <= d->now()) *reached = by + h;
+            by += h + 10;
+        }
+        return by;
+    };
+
     double y = 0;
+    double sheetEnd = -1, below = 0; // where the reading sheet ends, on the stage; how tall what's under it wants to be
+    const bool reading = long_ && !d->sheet && pendingAsk < 0 && d->readTurn == start && (d->readK > 0.001 || (!d->readOpen && d->since(d->readAt) < 1.5));
     // The line: the answer; while it works, the question waiting faintly; an ask says what it wants
     if (pendingAsk >= 0) {
         const AssistantCard& ask = d->items.at(pendingAsk).card;
@@ -1663,14 +1804,109 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
         text(p, QRectF(0, y, W, r.height() + 4), wants, f, s.onSurface, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap);
         p.restore();
         y += r.height() + 24;
+    } else if (reading) {
+        // unrolled (or on its way): the line's words fly into the sheet as its title, the rest reads under it
+        const QTransform stage = p.transform();
+        const QRectF sheet = d->readRect, pill = pillRect();
+        const QRectF inner(sheet.left(), pill.bottom() + 6, sheet.width(), qMax(0.0, sheet.bottom() - 26 - pill.bottom() - 6));
+        const double inW = stageWidth() - 56, scroll = glide(QStringLiteral("readScroll"), d->readScrollTarget), since = d->since(d->readAt);
+        const QPointF titleAt(pill.center().x() - stageWidth() / 2 + 28, pill.bottom() + 24 - scroll);
+        const bool settled = d->readOpen && since > 0.9;
+        p.save();
+        p.setTransform(QTransform()); // the sheet hangs from the pill: window coordinates
+        auto inHit = [&](const QRectF& r, std::function<void(QPointF)> act) {
+            const QRectF mapped = p.transform().mapRect(r).intersected(inner);
+            if (!mapped.isEmpty()) d->hits.append({mapped, act});
+        };
+        Flight fly{titleAt, inW, 23};
+        const int n = int(parseAnswer(line).tokens.size());
+        for (int i = 0; i < n; i++) fly.k.append(d->readOpen ? springAt(M3Motion::SpatialDefault, since - i * 0.02) : 1 - springAt(M3Motion::SpatialDefault, since - (n - 1 - i) * 0.015));
+        const qsizetype titleHits = d->hits.size();
+        p.save();
+        if (settled) p.setClipRect(inner, Qt::IntersectClip);
+        const double h = paintLiving(p, line, lineBorn, stage.map(QPointF(0, y)), W, LinePx, inHit, hovered, lineFrom, true, &fly);
+        p.restore();
+        // clicking the title rolls it up too (chips in it answer first)
+        if (settled) d->hits.insert(titleHits, Private::Hit{QRectF(titleAt, QSizeF(inW, fly.height)).intersected(inner), [this](QPointF) { setReading(d->readTurn, false); }});
+        const double bodyK = d->readOpen ? springAt(M3Motion::EffectsDefault, since - 0.1) : 1 - springAt(M3Motion::EffectsFast, since);
+        double reached = 0;
+        p.save();
+        p.setClipRect(inner, Qt::IntersectClip);
+        p.setOpacity(p.opacity() * c01(bodyK));
+        const double bodyH = paintBody(QPointF(titleAt.x(), titleAt.y() + fly.height + 10), inW, inHit, &reached);
+        p.restore();
+        // the sheet follows the words down to its tallest (leaving room for what's under it), then they scroll in it
+        const double cap = qBound(240.0, this->height() - 24 - 20 - d->readBelow - pill.top(), 520.0);
+        d->readHeight = qMin(cap, pill.bottom() + 24 - pill.top() + fly.height + 10 + reached + 12 + 26);
+        const double visible = pill.top() + d->readHeight - 26 - (pill.bottom() + 24), contentH = fly.height + 10 + bodyH + 12;
+        d->readMax = qMax(0.0, contentH - visible);
+        if (d->readFollow) d->readScrollTarget = fly.height + 10 + reached + 12 - visible;
+        d->readScrollTarget = qBound(0.0, d->readScrollTarget, d->readMax);
+        // the edges fade under the field and over the handle; a scroll indicator; the handle
+        p.save();
+        p.setOpacity(p.opacity() * c01(bodyK));
+        QPainterPath round;
+        round.addRoundedRect(sheet, 28, 28);
+        p.setClipPath(round, Qt::IntersectClip);
+        QLinearGradient fadeTop(0, inner.top(), 0, inner.top() + 18), fadeBottom(0, inner.bottom() - 22, 0, inner.bottom());
+        fadeTop.setColorAt(0, s.surfaceContainerHigh);
+        fadeTop.setColorAt(1, alpha(s.surfaceContainerHigh, 0));
+        fadeBottom.setColorAt(0, alpha(s.surfaceContainerHigh, 0));
+        fadeBottom.setColorAt(1, s.surfaceContainerHigh);
+        p.fillRect(QRectF(inner.left(), inner.top(), inner.width(), 18), fadeTop);
+        p.fillRect(QRectF(inner.left(), inner.bottom() - 22, inner.width(), 22), fadeBottom);
+        p.setPen(Qt::NoPen);
+        if (d->readMax > 4) {
+            const double track = inner.height() - 24, thumb = qMax(28.0, track * visible / contentH);
+            p.setBrush(alpha(s.onSurfaceVariant, 0.45));
+            p.drawRoundedRect(QRectF(sheet.right() - 10, inner.top() + 12 + (track - thumb) * c01(scroll / d->readMax), 4, thumb), 2, 2);
+        }
+        const QRectF handle(sheet.center().x() - 40, sheet.bottom() - 26, 80, 26);
+        const double hover = glide(QStringLiteral("readHandle"), hovered(handle) ? 100 : 0, M3Motion::EffectsDefault) / 100, hw = lerp(32, 48, hover);
+        p.setBrush(mix(s.onSurfaceVariant, s.onSurface, hover));
+        p.drawRoundedRect(QRectF(handle.center().x() - hw / 2, sheet.bottom() - 13, hw, 4 + 2 * hover), 3, 3);
+        p.restore();
+        if (d->readOpen) d->hits.append({handle, [this](QPointF) { setReading(d->readTurn, false); }});
+        p.restore();
+        solid(QRectF(0, y, W, h));
+        // what comes after (cards, follow-ups) sits under the sheet
+        sheetEnd = stage.inverted().map(QPointF(0, sheet.bottom())).y() + 20;
+        y = lerp(y + h + 22 + 48, sheetEnd, c01(d->readK));
     } else if (!line.isEmpty()) {
-        if (lineGone < 1) {
-            p.save();
-            p.setOpacity(p.opacity() * (1 - c01(lineGone * 1.6)));
-            const double h = paintLiving(p, line, lineBorn, QPointF(0, y - 12 * lineGone), W, LinePx, hit, hovered, lineFrom, true);
-            p.restore();
-            solid(QRectF(0, y, W, h)); // clicking the words doesn't close it
-            y += (h + 22) * (1 - lineGone);
+        const double h = paintLiving(p, line, lineBorn, QPointF(0, y), W, LinePx, hit, hovered, lineFrom, true);
+        solid(QRectF(0, y, W, h)); // clicking the words doesn't close it
+        y += h + 22;
+        if (long_ && d->sheet) {
+            // circle to search's sheet: the rest reads right under the line
+            double reached = 0;
+            y += paintBody(QPointF(0, y), W, hit, &reached) + 8;
+        } else if (long_) {
+            // rolled up: a quiet way back in
+            const bool waiting = d->readTurn == start && d->readOpen; // about to unroll by itself
+            const qint64 chipAt = (d->readTurn == start ? d->readAt : lineLanded) + 300;
+            static const QRegularExpression numbered(QStringLiteral("(^|\\n)\\s*\\d{1,2}[.)]\\s"));
+            const int steps = int(d->items.at(answers.first()).text.mid(restAt).count(numbered));
+            const QString label = steps > 1 ? tr("Read the rest · %1 steps").arg(steps) : tr("Read the rest");
+            const QFont f = flex(14, 560);
+            const QRectF r((W - textWidth(label, f) - 46) / 2, y, textWidth(label, f) + 46, 32);
+            const double k = springAt(M3Motion::SpatialFast, (d->now() - chipAt) / 1000.0);
+            if (!waiting && k > 0) {
+                p.save();
+                p.setOpacity(p.opacity() * c01((d->now() - chipAt) / 150.0));
+                p.translate(r.center());
+                p.scale(k, k);
+                p.translate(-r.center());
+                p.setPen(QPen(s.outlineVariant, 1));
+                p.setBrush(hovered(r) ? mix(s.surfaceContainer, s.onSurface, 0.08) : QColor(Qt::transparent));
+                p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 8, 8);
+                p.setPen(Qt::NoPen);
+                icon(p, QRectF(r.left() + 8, r.top(), 20, 32), QStringLiteral("expand_more"), s.primary, 18);
+                text(p, r.adjusted(32, 0, 0, 0), label, f, s.onSurface);
+                p.restore();
+                solid(r);
+                hit(r, [this, start](QPointF) { setReading(start, true); });
+            }
+            if (!waiting) y += 32 + 16;
         }
     } else if (user >= 0 && d->busy && d->viewBack == 0 && !leaving) {
         // the question drops out of the pill to where the answer will land, and waits there
@@ -1685,18 +1921,16 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
         y += 30 + 22;
     }
 
-    // The carousel: an ask first, then the Read card, then the rest
+    // The carousel: an ask first, then the rest
     struct Slot {
-            int item = -1; // -1: the Read card
+            int item = -1;
             qint64 born = 0;
             int folder = -1; // a disk card's folders come as tiles of their own
     };
     QList<Slot> tiles;
     if (pendingAsk >= 0) tiles.append({pendingAsk, d->items.at(pendingAsk).born});
-    const bool readFirst = std::all_of(cards.begin(), cards.end(), [pendingAsk](int c) { return c == pendingAsk; });
-    if (long_ && readFirst) tiles.append({-1, d->items.at(answers.first()).born + 300});
     for (int i : std::as_const(cards)) {
-        if (i == pendingAsk) continue;
+        if (i == pendingAsk || flow.contains(i)) continue;
         const AssistantCard& c = d->items.at(i).card;
         if (c.kind == AssistantCard::Notifications || c.kind == AssistantCard::Files) { // one tile each, nothing around them
             for (int f = 0; f < c.lines.size(); f++) tiles.append({i, d->items.at(i).born + 70 * f, f});
@@ -1706,20 +1940,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
         if (c.kind == AssistantCard::Storage || c.kind == AssistantCard::Processes) // the whole first, then its parts
             for (int f = 0; f < c.lines.size(); f++) tiles.append({i, d->items.at(i).born + 90 * (f + 1), f});
     }
-
-    if (long_ && !readFirst) tiles.append({-1, d->items.at(answers.first()).born + 300}); // the cards lead, the words follow
-    const double readPx = 16;
-    auto readHeight = [&](double w) {
-        double h = 40;
-        for (int a : std::as_const(answers)) {
-            const QString plain = plainOf(parseAnswer(d->items.at(a).text).tokens, QStringLiteral("\n"));
-            const QFontMetricsF metrics(flex(readPx, 480));
-            h += metrics.boundingRect(QRectF(0, 0, w - 48, 1e6), Qt::TextWordWrap, plain).height() / metrics.lineSpacing() * metrics.height() * 1.3 * 1.08 + 12;
-        }
-        return h;
-    };
     auto heightOf = [&](const Slot& slot, double w) -> double {
-        if (slot.item < 0) return readHeight(w);
         const Private::Item& item = d->items.at(slot.item);
         const AssistantCard& card = item.card;
         switch (card.kind) {
@@ -2181,12 +2402,9 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
         p.setPen(Qt::NoPen);
         p.setBrush(hovered(r) ? mix(bg, ink, 0.08) : bg);
         p.drawRect(r);
-        QString ic = QStringLiteral("notes"), title = tr("Read");
-        if (slot.item >= 0) {
-            const AssistantCard& card = d->items.at(slot.item).card;
-            title = card.title;
-            ic = card.kind == AssistantCard::Ask ? QStringLiteral("shield_question") : card.kind == AssistantCard::Code ? QStringLiteral("code") : card.kind == AssistantCard::Image ? QStringLiteral("image") : card.kind == AssistantCard::Storage ? QStringLiteral("hard_drive") : card.kind == AssistantCard::Processes ? QStringLiteral("memory") : card.kind == AssistantCard::Battery ? QStringLiteral("battery_full") : card.kind == AssistantCard::Media ? QStringLiteral("music_note") : card.kind == AssistantCard::Timer ? QStringLiteral("alarm") : card.kind == AssistantCard::Weather ? QStringLiteral("partly_cloudy_day") : card.kind == AssistantCard::Level ? (card.icon.isEmpty() ? QStringLiteral("tune") : card.icon) : card.kind == AssistantCard::Switch ? (card.icon.isEmpty() ? QStringLiteral("toggle_on") : card.icon) : QStringLiteral("description");
-        }
+        const AssistantCard& card = d->items.at(slot.item).card;
+        const QString title = card.title;
+        const QString ic = card.kind == AssistantCard::Ask ? QStringLiteral("shield_question") : card.kind == AssistantCard::Code ? QStringLiteral("code") : card.kind == AssistantCard::Image ? QStringLiteral("image") : card.kind == AssistantCard::Storage ? QStringLiteral("hard_drive") : card.kind == AssistantCard::Processes ? QStringLiteral("memory") : card.kind == AssistantCard::Battery ? QStringLiteral("battery_full") : card.kind == AssistantCard::Media ? QStringLiteral("music_note") : card.kind == AssistantCard::Timer ? QStringLiteral("alarm") : card.kind == AssistantCard::Weather ? QStringLiteral("partly_cloudy_day") : card.kind == AssistantCard::Level ? (card.icon.isEmpty() ? QStringLiteral("tune") : card.icon) : card.kind == AssistantCard::Switch ? (card.icon.isEmpty() ? QStringLiteral("toggle_on") : card.icon) : QStringLiteral("description");
         if (r.width() < 110) {
             icon(p, QRectF(r.center().x() - 16, r.center().y() - 16, 32, 32), ic, ink, 26);
             return;
@@ -2212,7 +2430,9 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             return lerp(at(lo), at(lo + 1), off - lo);
         };
         const int lo = int(std::floor(pos)), hi = qMin(n - 1, lo + 1);
-        const double height = glide(key + QStringLiteral("carouselHeight"), qMax(n == 1 ? 0.0 : 120.0, lerp(heightOf(tiles.at(lo), large), heightOf(tiles.at(hi), large), pos - lo)));
+        const double wanted = qMax(n == 1 ? 0.0 : 120.0, lerp(heightOf(tiles.at(lo), large), heightOf(tiles.at(hi), large), pos - lo));
+        const double height = glide(key + QStringLiteral("carouselHeight"), wanted);
+        below += wanted + 20;
         y = glide(key + QStringLiteral("carouselTop"), y);
         double total = -gap;
         for (int i = 0; i < n; i++) {
@@ -2236,7 +2456,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             QPainterPath tile;
             tile.addRoundedRect(r, 28, 28);
             p.setClipPath(tile, Qt::IntersectClip);
-            const bool picture = slot.item >= 0 && d->items.at(slot.item).card.kind == AssistantCard::Image;
+            const bool picture = d->items.at(slot.item).card.kind == AssistantCard::Image;
             const double full = picture || slot.folder >= 0 ? 1 : c01((w - (large - 60)) / 50); // only the large one shows the whole card
             if (full < 1) {
                 p.save();
@@ -2248,7 +2468,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
                 p.save();
                 p.setOpacity(p.opacity() * full);
                 const int hitsBefore = int(d->hits.size());
-                const AssistantCard::Kind partOf = slot.item >= 0 ? d->items.at(slot.item).card.kind : AssistantCard::Level;
+                const AssistantCard::Kind partOf = d->items.at(slot.item).card.kind;
                 if (slot.folder >= 0 && partOf == AssistantCard::Notifications) {
                     // a notification: its app, when, what it said
                     const QStringList f = d->items.at(slot.item).card.lines.at(slot.folder).split('\t');
@@ -2381,17 +2601,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
                     hit(r, [path](QPointF) {
                         QDesktopServices::openUrl(QUrl::fromLocalFile(path));
                     });
-                } else if (slot.item >= 0) paintCard(slot.item, r);
-                else {
-                    p.setPen(Qt::NoPen);
-                    p.setBrush(s.surfaceContainerHigh);
-                    p.drawRect(r);
-                    double ty = r.top() + 20;
-                    for (int a : std::as_const(answers)) {
-                        const Private::Item& answer = d->items.at(a);
-                        ty += paintLiving(p, answer.text, answer.wordBorn, QPointF(r.left() + 24, ty), r.width() - 48, readPx, hit, hovered, answer.countFrom) + 12;
-                    }
-                }
+                } else paintCard(slot.item, r);
                 if (i != qRound(pos)) d->hits.resize(hitsBefore); // only the large one is live
                 p.restore();
             }
@@ -2454,6 +2664,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             x += widths.at(i) + 2;
         }
         y += 40 + 16;
+        below += 40 + 16;
     }
 
     // "N earlier": opens the questions asked before as a list
@@ -2476,12 +2687,15 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
                 return;
             }
             d->listOpen = true;
+            d->readTurn = -1;
             d->listAt = d->now();
             d->scrollTarget = d->scroll = 0;
             animateFor(900);
         });
         y += 36 + 16;
+        below += 36 + 16;
     }
+    if (sheetEnd >= 0) d->readBelow = below;
     return y;
 }
 
@@ -2536,16 +2750,13 @@ bool AssistantPanel::focusKey(QKeyEvent* event) {
     }
 }
 
-double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<qint64>& wordBorn, QPointF at, double W, double px, const HitFn& hit, const HoverFn& hovered, const QHash<QString, double>& countFrom, bool centred) {
+double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<qint64>& wordBorn, QPointF at, double W, double px, const HitFn& hit, const HoverFn& hovered, const QHash<QString, double>& countFrom, bool centred, Flight* fly) {
     // Living type: words arrive thin and narrow and spring to their weight.
     // Key words land heavy, wide and in primary (and stay); a key number
     // counts up; files, apps and links turn into chips; the tone shapes the
     // whole answer; <t …> spans are Pebble's own styling
     const M3::Scheme s = M3::currentScheme();
     const ParsedAnswer parsed = parseAnswer(raw);
-    const QFontMetricsF metrics(flex(px, 480));
-    const QFontMetricsF keyMetrics(flex(px, 700, 110));
-    const double space = metrics.horizontalAdvance(' '), lineHeight = metrics.height() * 1.3;
     const double toneAt = wordBorn.isEmpty() ? -1 : (wordBorn.last() + 350);
     static const QRegularExpression number(QStringLiteral("^(\\d+)(%?)([.,!?:;]?)$"));
 
@@ -2573,45 +2784,80 @@ double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<
             double x = 0, ww = 0;
             int line = 0;
     };
-    QList<Place> places(parsed.tokens.size());
-    QList<double> lineSize{1};
-    double x = 0;
-    for (int t = 0; t < parsed.tokens.size(); t++) {
-        const AnswerToken& token = parsed.tokens.at(t);
-        if (token.kind == 4) {
-            x = 0;
-            lineSize.append(1);
-            continue;
+    struct Laid {
+            QList<Place> places;
+            QList<double> lineTop;
+            double lineHeight = 0, ascent = 0;
+    };
+    auto layOut = [&](QPointF at, double W, double px, bool centred) {
+        const QFontMetricsF metrics(flex(px, 480)), keyMetrics(flex(px, 700, 110));
+        const double space = metrics.horizontalAdvance(' ');
+        Laid laid;
+        laid.lineHeight = metrics.height() * 1.3;
+        laid.ascent = metrics.ascent();
+        laid.places.resize(parsed.tokens.size());
+        QList<double> lineSize{1};
+        double x = 0;
+        for (int t = 0; t < parsed.tokens.size(); t++) {
+            const AnswerToken& token = parsed.tokens.at(t);
+            if (token.kind == 4) {
+                x = 0;
+                lineSize.append(1);
+                continue;
+            }
+            const double born = t < wordBorn.size() ? d->since(wordBorn.at(t)) : -1;
+            const double chipK = token.kind >= 2 ? c01(springAt(M3Motion::SpatialDefault, born - 0.55)) : 0;
+            const Look look = lookOf(token);
+            const double ww = (look.style ? QFontMetricsF(flex(px * look.size, look.wght, look.wdth)) : token.kind == 1 ? keyMetrics : metrics).horizontalAdvance(token.text) + 34 * chipK;
+            if (token.glued && x > 0) x -= space;
+            if (x > 0 && x + ww > W) {
+                x = 0;
+                lineSize.append(1);
+            }
+            laid.places[t] = {x, ww, int(lineSize.size()) - 1};
+            lineSize.last() = qMax(lineSize.last(), look.size);
+            x += ww + space;
         }
-        const double born = t < wordBorn.size() ? d->since(wordBorn.at(t)) : -1;
-        const double chipK = token.kind >= 2 ? c01(springAt(M3Motion::SpatialDefault, born - 0.55)) : 0;
-        const Look look = lookOf(token);
-        const double ww = (look.style ? QFontMetricsF(flex(px * look.size, look.wght, look.wdth)) : token.kind == 1 ? keyMetrics : metrics).horizontalAdvance(token.text) + 34 * chipK;
-        if (token.glued && x > 0) x -= space;
-        if (x > 0 && x + ww > W) {
-            x = 0;
-            lineSize.append(1);
+        laid.lineTop = {at.y()};
+        for (double size : std::as_const(lineSize)) laid.lineTop.append(laid.lineTop.last() + laid.lineHeight * qMax(1.0, size));
+        // centred: each line sits in the middle of the width
+        QList<double> lineShift(lineSize.size(), 0.0);
+        if (centred) {
+            QList<double> lineWidth(lineSize.size(), 0.0);
+            for (int t = 0; t < parsed.tokens.size(); t++)
+                if (parsed.tokens.at(t).kind != 4) lineWidth[laid.places.at(t).line] = qMax(lineWidth.at(laid.places.at(t).line), laid.places.at(t).x + laid.places.at(t).ww);
+            for (int l = 0; l < lineSize.size(); l++) lineShift[l] = qMax(0.0, (W - lineWidth.at(l)) / 2);
         }
-        places[t] = {x, ww, int(lineSize.size()) - 1};
-        lineSize.last() = qMax(lineSize.last(), look.size);
-        x += ww + space;
-    }
-    QList<double> lineTop{at.y()};
-    for (double size : std::as_const(lineSize)) lineTop.append(lineTop.last() + lineHeight * qMax(1.0, size));
-    // centred: each line sits in the middle of the width
-    QList<double> lineShift(lineSize.size(), 0.0);
-    if (centred) {
-        QList<double> lineWidth(lineSize.size(), 0.0);
-        for (int t = 0; t < parsed.tokens.size(); t++)
-            if (parsed.tokens.at(t).kind != 4) lineWidth[places.at(t).line] = qMax(lineWidth.at(places.at(t).line), places.at(t).x + places.at(t).ww);
-        for (int l = 0; l < lineSize.size(); l++) lineShift[l] = qMax(0.0, (W - lineWidth.at(l)) / 2);
+        for (Place& place : laid.places) place.x += at.x() + lineShift.at(place.line);
+        return laid;
+    };
+    const Laid laid = layOut(at, W, px, centred);
+    Laid there;
+    if (fly) {
+        there = layOut(fly->at, fly->width, fly->px, false);
+        fly->height = there.lineTop.last() - fly->at.y();
     }
 
     for (int t = 0; t < parsed.tokens.size(); t++) {
         const AnswerToken& token = parsed.tokens.at(t);
         if (token.kind == 4) continue;
-        Place place = places.at(t);
-        place.x += lineShift.at(place.line);
+        Place place = laid.places.at(t);
+        auto baselineIn = [&](const Laid& l, int line) { // a taller line (bigger words) puts its baseline lower
+            return l.lineTop.at(line + 1) - l.lineHeight + l.ascent;
+        };
+        double baselineOfLine = baselineIn(laid, place.line), top = baselineOfLine - laid.ascent, lineHeight = laid.lineHeight, size = px;
+        if (fly && fly->k.value(t) != 0) {
+            // on its way between the two layouts
+            const double f = fly->k.value(t);
+            const Place& to = there.places.at(t);
+            const double toBaseline = baselineIn(there, to.line);
+            place.x = lerp(place.x, to.x, f);
+            place.ww = lerp(place.ww, to.ww, f);
+            top = lerp(top, toBaseline - there.ascent, f);
+            baselineOfLine = lerp(baselineOfLine, toBaseline, f);
+            lineHeight = lerp(lineHeight, there.lineHeight, f);
+            size = lerp(px, fly->px, f);
+        }
         const double born = t < wordBorn.size() ? d->since(wordBorn.at(t)) : -1;
         const double chipK = token.kind >= 2 ? c01(springAt(M3Motion::SpatialDefault, born - 0.55)) : 0;
         const double k = born > 0 ? springAt(M3Motion::SpatialDefault, born) : 0;
@@ -2653,18 +2899,15 @@ double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<
                 else if (fx == "pop") scale *= 1 + 0.35 * std::sin(M_PI * c01((u - i * 0.06) / 0.45)) * (u - i * 0.06 > 0);
             }
         }
-        QFont font = flex(px * look.size, wght, wdth);
+        QFont font = flex(size * look.size, wght, wdth);
         font.setFeature(QFont::Tag("tnum"), 1);
         font.setVariableAxis(QFont::Tag("slnt"), float(std::round(slnt)));
-        const double lineH = lineTop.at(place.line + 1) - lineTop.at(place.line);
-        const double baselineOfLine = lineTop.at(place.line) + lineH - lineHeight + metrics.ascent();
-        const double top = baselineOfLine - metrics.ascent();
         const double baseline = baselineOfLine + 10 * (1 - k) + dy;
         const double ww = place.ww;
         p.save();
         if (token.kind >= 2) {
             if (chipK > 0.01) {
-                const QRectF pill(at.x() + place.x - 4, top + 1, ww + 8, lineHeight - 4);
+                const QRectF pill(place.x - 4, top + 1, ww + 8, lineHeight - 4);
                 p.setPen(Qt::NoPen);
                 p.setBrush(alpha(hovered(pill) ? mix(s.secondaryContainer, s.onSecondaryContainer, 0.08) : s.secondaryContainer, chipK));
                 p.drawRoundedRect(pill, 9, 9);
@@ -2697,10 +2940,10 @@ double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<
             }
             p.setFont(font);
             p.setPen(ink);
-            p.drawText(QPointF(at.x() + place.x + 30 * chipK, baseline), shown);
+            p.drawText(QPointF(place.x + 30 * chipK, baseline), shown);
         } else {
             const QFontMetricsF own(font);
-            const double cx = at.x() + place.x + ww / 2 + dx;
+            const double cx = place.x + ww / 2 + dx;
             p.setFont(font);
             p.setPen(ink);
             p.translate(cx, baseline - own.ascent() / 2.6);
@@ -2709,7 +2952,7 @@ double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<
         }
         p.restore();
     }
-    return lineTop.last() - at.y();
+    return laid.lineTop.last() - at.y();
 }
 
 void AssistantPanel::mousePressEvent(QMouseEvent* event) {
@@ -2750,6 +2993,12 @@ void AssistantPanel::wheelEvent(QWheelEvent* event) {
         animateFor(900);
         return;
     }
+    if (d->readK > 0.5 && d->readRect.contains(event->position())) { // in the reading sheet: its words scroll
+        d->readScrollTarget = qBound(0.0, d->readScrollTarget - event->angleDelta().y() / 2.0, d->readMax);
+        d->readFollow = false;
+        animateFor(600);
+        return;
+    }
     const double max = qMax(0.0, d->contentHeight - d->viewHeight);
     const double dy = event->angleDelta().y();
     d->scrollTarget = qBound(0.0, d->scrollTarget - dy / 2.0, max);
@@ -2773,7 +3022,14 @@ bool AssistantPanel::eventFilter(QObject* watched, QEvent* event) {
             if (d->listOpen) { // the list of earlier ones goes first
                 d->listOpen = false;
                 animateFor(600);
-            } else close();
+            } else if (d->readOpen && d->unroll() > 0.01) setReading(d->readTurn, false); // then the reading sheet rolls up
+            else close();
+            return true;
+        }
+        if ((key->key() == Qt::Key_PageUp || key->key() == Qt::Key_PageDown) && d->readK > 0.5) {
+            d->readScrollTarget += (key->key() == Qt::Key_PageUp ? -1 : 1) * qMax(60.0, d->readRect.height() - 160);
+            d->readFollow = false;
+            animateFor(600);
             return true;
         }
 
@@ -3114,6 +3370,9 @@ void AssistantPanel::keyPressEvent(QKeyEvent* event) {
         else if (event->key() == Qt::Key_Left || event->key() == Qt::Key_Backspace) introBack();
         return;
     }
-    // not QDialog's: its Escape rejects, past close() (and the bar while it works)
-    if (event->key() == Qt::Key_Escape) close();
+    // not QDialog's: its Escape rejects, past close() (and the bar while it works); an unrolled sheet rolls up first
+    if (event->key() == Qt::Key_Escape) {
+        if (d->readOpen && d->unroll() > 0.01) setReading(d->readTurn, false);
+        else close();
+    }
 }

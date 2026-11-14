@@ -4,7 +4,7 @@
 
 void DemoBrain::later(int ms, std::function<void()> what) {
     const int forTurn = turn;
-    QTimer::singleShot(ms, this, [this, forTurn, what] {
+    QTimer::singleShot(ms, Qt::PreciseTimer, this, [this, forTurn, what] { // precise: a long answer's parts land in order
         if (forTurn == turn) what(); // stopped turns say nothing more
     });
 }
@@ -64,8 +64,33 @@ void DemoBrain::send(QString text, QStringList context, bool harder) {
     } else if (t.contains("style")) {
         say(600, QStringLiteral("{done} Words can go <t wght=100-1000>thin to heavy</t>, <t wdth=151 fx=stretch>wide</t>, <t slnt=-10 color=tertiary>leaning</t>, <t size=1.8 wght=900 fx=pop>big</t> or <t fx=wave color=primary wght=700>do a little wave</t>."));
         later(1600, [this] { emit turnFinished(); });
+    } else if (t.contains("disk") || t.contains("space")) {
+        // a long answer: a list and a code block (as the real one sends it: the block as a card mid-text)
+        later(300, [this] { emit stepStarted("l", tr("Looking at your disk…")); });
+        later(1100, [this] {
+            emit stepFinished("l", tr("Looked at your disk"), false);
+            emit stepStarted("w", tr("Writing it up…"));
+        });
+        if (t.contains("full")) later(900, [this] { // "how full": with another card, it waits rolled up
+            emit cardAdded({"disk", AssistantCard::Storage, tr("Home"), tr("41 GB free of 238 GB"), 0.83, QStringLiteral("/home"), {}});
+        });
+        say(1500, QStringLiteral("{done} Most of it hides in **caches,** old **packages** and **logs,** so clear those first.\nFirst, see where the space went:\n"));
+        later(2300, [this] {
+            emit cardAdded({"cmds", AssistantCard::Code, "bash", {}, 0, "bash", {" du -sh ~/.cache ~/Downloads /var/log", " sudo journalctl --vacuum-size=200M"}});
+        });
+        say(2400, QStringLiteral("1. **Package cache:** your package manager keeps every download it ever made, and paccache -rk1 keeps only the newest one of each.\n"
+            "2. **Logs:** the system journal grows until you trim it; the second command above keeps it under **200** MB.\n"
+            "3. **~/.cache:** safe to empty, since browsers and apps rebuild only what they actually use.\n"
+            "4. **Orphans:** packages nothing depends on any more; list them first and remove the ones you don't need.\n"
+            "5. **Downloads and Trash:** often the biggest win of all, so sort by size and empty the Trash when you're done.\n"
+            "Then run df -h again: you should have a few **GB** back :)"));
+        later(6200, [this] {
+            emit stepFinished("w", tr("Wrote it up"), false);
+            emit chipsOffered({{"clean", tr("Clean the cache"), "cleaning_services"}, {"big", tr("Find big files"), {}}});
+            emit turnFinished();
+        });
     } else {
-        say(900, tr("I'm a stand-in for now, so I can only do the screen and dnd one, or the css one. The real me comes next."));
+        say(900, tr("I'm a stand-in for now, so I can only do the screen and dnd one, the css one or how to free up disk space. The real me comes next."));
         later(1500, [this] { emit turnFinished(); });
     }
 }

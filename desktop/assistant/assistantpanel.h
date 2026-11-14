@@ -76,9 +76,17 @@ class AssistantPanel : public QDialog {
         double glide(const QString& key, double target, M3Motion::Token token = M3Motion::SpatialDefault);
         void markLeaving();
         void sheetGone();
+        void setReading(int turn, bool open); // a long answer's reading sheet unrolls from the pill, or rolls back up
         using HitFn = std::function<void(const QRectF&, std::function<void(QPointF)>)>;
         using HoverFn = std::function<bool(const QRectF&)>;
-        double paintLiving(QPainter& p, const QString& raw, const QList<qint64>& wordBorn, QPointF at, double width, double px, const HitFn& hit, const HoverFn& hovered, const QHash<QString, double>& countFrom = {}, bool centred = false);
+        // the words flying to a second, left-aligned layout: each word [k] of the way there
+        struct Flight {
+                QPointF at;
+                double width = 0, px = 0;
+                QList<double> k;
+                double height = 0; // out: how tall the second layout is
+        };
+        double paintLiving(QPainter& p, const QString& raw, const QList<qint64>& wordBorn, QPointF at, double width, double px, const HitFn& hit, const HoverFn& hovered, const QHash<QString, double>& countFrom = {}, bool centred = false, Flight* fly = nullptr);
 };
 
 #endif // ASSISTANTPANEL_H
