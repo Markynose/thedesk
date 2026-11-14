@@ -21,6 +21,11 @@ class AssistantPanel : public QDialog {
         void openWithSelection();
         void openAndAsk(const QString& text); // opens and sends it, as if typed
         void openWithScreenshot(const QImage& image);
+        // circle to search: as a sheet rising from a pill at the bottom, asked about what was circled
+        void openForCircle(const QImage& image, const QString& question);
+
+    signals:
+        void sheetClosed();
 
     private slots:
         void batteryChanged();
@@ -70,6 +75,7 @@ class AssistantPanel : public QDialog {
         QImage imageOf(const QString& source);
         double glide(const QString& key, double target, M3Motion::Token token = M3Motion::SpatialDefault);
         void markLeaving();
+        void sheetGone();
         using HitFn = std::function<void(const QRectF&, std::function<void(QPointF)>)>;
         using HoverFn = std::function<bool(const QRectF&)>;
         double paintLiving(QPainter& p, const QString& raw, const QList<qint64>& wordBorn, QPointF at, double width, double px, const HitFn& hit, const HoverFn& hovered, const QHash<QString, double>& countFrom = {}, bool centred = false);

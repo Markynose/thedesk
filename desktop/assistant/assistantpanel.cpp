@@ -6,6 +6,7 @@
 #include "selectionbutton.h"
 #include "pebblenudges.h"
 #include "pebblelive.h"
+#include "circlesearch.h"
 #include "claudebrain.h"
 #include "demobrain.h"
 #include "pebblesettings.h"
@@ -502,6 +503,7 @@ struct AssistantPanel::Private {
         qint64 flipAt = -1;
         int flipDir = 0;
         bool listOpen = false;        // the earlier turns, as a list
+        bool sheet = false;           // circle to search: a sheet at the bottom instead of the pill at the top
         // layout on springs: where things go glides there instead of jumping
         struct Glide {
                 double value = 0, velocity = 0, target = 0;
@@ -567,6 +569,7 @@ void AssistantPanel::setUp() {
     PebbleLive::setUp([] {
         instance()->open();
     });
+    CircleSearch::setUp();
     // the screenshot editor's Ask Pebble
     connect(AssistantTools::instance(), &AssistantTools::askRequested, instance(), &AssistantPanel::openWithScreenshot);
     StateManager::statusCenterManager()->addPane(new PebbleSettings(), StatusCenterManager::SystemSettings);
@@ -632,6 +635,7 @@ AssistantPanel::AssistantPanel() :
         if (d->open) return;
         QDialog::hide();
         this->setWindowOpacity(1);
+        sheetGone();
     });
 
     d->chunk = new AssistantChunk();
@@ -756,7 +760,8 @@ AssistantPanel::AssistantPanel() :
 }
 
 QRectF AssistantPanel::sheetRect() const {
-    // all Pebble draws on: the pill and the stage under it
+    // all Pebble draws on: the pill and the stage under it (as a sheet: the bottom part of the screen)
+    if (d->sheet) return QRectF((this->width() - stageWidth()) / 2 - 24, this->height() * 0.4 - 60, stageWidth() + 48, this->height() * 0.6 + 60);
     const QRectF pill = pillRect();
     const double w = qMax(pill.width(), stageWidth());
     return QRectF((this->width() - w) / 2 - 24, pill.top() - 24, w + 48, this->height() - pill.top());
@@ -835,7 +840,7 @@ void AssistantPanel::open() {
     DesktopWm::setSystemWindow(this, DesktopWm::SystemWindowTypeMenu);
     d->brain->warm(); // starting takes a moment: do it while they type
     if (!tSettings().value(QStringLiteral("Assistant/introduced")).toBool()) startIntro();
-    else if (!fromBar) greet();
+    else if (!fromBar && !d->sheet) greet();
     animateFor(1000);
 }
 
@@ -962,7 +967,24 @@ void AssistantPanel::close() {
     d->open = false;
     d->closedAt = d->now();
     if (Compositor::isActive() && M3Motion::expressive()) d->leave->start();
-    else QDialog::hide();
+    else {
+        QDialog::hide();
+        sheetGone();
+    }
+}
+
+void AssistantPanel::sheetGone() {
+    // circle to search goes back to circling
+    if (!d->sheet) return;
+    d->sheet = false;
+    emit sheetClosed();
+}
+
+void AssistantPanel::openForCircle(const QImage& image, const QString& question) {
+    d->sheet = true;
+    openWithScreenshot(image);
+    d->field->setPlaceholderText(tr("Ask a follow-up"));
+    if (!d->busy) sendText(question);
 }
 
 void AssistantPanel::toBar() {
@@ -979,6 +1001,7 @@ void AssistantPanel::toBar() {
         d->toBarAt = -1;
         d->closedAt = d->now();
         QDialog::hide();
+        sheetGone();
     });
 }
 
@@ -1183,7 +1206,7 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
 
     if (Compositor::isActive()) {
         p.setCompositionMode(QPainter::CompositionMode_Source);
-        p.fillRect(this->rect(), alpha(s.scrim, ScrimOpacity * presence));
+        p.fillRect(this->rect(), alpha(s.scrim, (d->sheet ? 0 : ScrimOpacity) * presence)); // as a sheet, circle to search's screen shows through
         p.setCompositionMode(QPainter::CompositionMode_SourceOver);
     } else {
         // no compositor: no see-through, so the stage gets a plain backdrop
@@ -1201,6 +1224,16 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
         p.setOpacity(c01(d->since(d->openedAt) / 0.15));
     }
     pill = lerpRect(pill, bar, toward);
+    // as a sheet: the answer area grows up out of the pill as the words and cards come
+    double sheetInner = 0;
+    if (d->sheet && toward < 0.5) {
+        sheetInner = glide(QStringLiteral("sheetHeight"), qMin(d->contentHeight, this->height() * 0.55));
+        const QRectF sheet(this->width() / 2.0 - stageWidth() / 2 - 20, pill.top() - sheetInner - 28, stageWidth() + 40, sheetInner + 28 + pill.height() + 16);
+        p.setPen(Qt::NoPen);
+        p.setBrush(s.surfaceContainer);
+        p.drawRoundedRect(sheet, 28, 28);
+        d->solid.append(sheet);
+    }
     double content = 1 - c01(toward * 4);
     if (d->introToPanelAt >= 0) content *= c01((d->since(d->introToPanelAt) - 0.45) / 0.25); // after the tour, the insides fade in
     p.setPen(Qt::NoPen);
@@ -1309,7 +1342,7 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
     const QList<int> starts = turnStarts();
     bool talked = false;
     for (const Private::Item& item : std::as_const(d->items)) talked = talked || item.kind == Private::Item::User;
-    const bool wantSees = !d->busy && (!talked || !d->field->text().isEmpty());
+    const bool wantSees = !d->sheet && !d->busy && (!talked || !d->field->text().isEmpty());
     if (d->seesShown->endValue().toDouble() != (wantSees ? 1.0 : 0.0)) d->seesShown->animateTo(wantSees ? 1.0 : 0.0);
     const double seesK = c01(d->seesShown->currentValue().toDouble());
     const double top = pill.bottom() + 14;
@@ -1375,8 +1408,9 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
     }
 
     // The stage: the turn being looked at (the latest, or one flipped back to)
-    const QRectF view(this->width() / 2.0 - stageWidth() / 2, pill.bottom() + 64, stageWidth(), this->height() - pill.bottom() - 64 - 24);
-    d->viewHeight = view.height();
+    const QRectF view = d->sheet ? QRectF(this->width() / 2.0 - stageWidth() / 2, pill.top() - sheetInner - 10, stageWidth(), sheetInner)
+                                 : QRectF(this->width() / 2.0 - stageWidth() / 2, pill.bottom() + 64, stageWidth(), this->height() - pill.bottom() - 64 - 24);
+    d->viewHeight = d->sheet ? this->height() * 0.55 : view.height();
     d->echoFrom = view.top() - cy;
     p.save();
     p.setClipRect(view.adjusted(-24, -60, 24, 0), Qt::IntersectClip);
@@ -1394,7 +1428,7 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
     }
     d->contentHeight = paintStage(p, view, starts, seesK);
     p.restore();
-    if (d->items.isEmpty() && d->introToPanelAt < 0) {
+    if (d->items.isEmpty() && d->introToPanelAt < 0 && !d->sheet) {
         text(p, view.adjusted(0, 4, 0, 0), tr("Ask me to change a setting, explain what you copied, or find a file."), flex(17, 450), s.onSurfaceVariant, Qt::AlignHCenter | Qt::AlignTop);
     }
     paintFocus(p);
@@ -1450,6 +1484,7 @@ double AssistantPanel::glide(const QString& key, double target, M3Motion::Token 
 
 QRectF AssistantPanel::pillRect() const {
     const double w = qMin(PillWidth, this->width() - 80.0);
+    if (d->sheet) return QRectF((this->width() - w) / 2, this->height() - PillHeight - 40, w, PillHeight); // circle to search's spot
     return QRectF((this->width() - w) / 2, qMax(72.0, this->height() * 0.14), w, PillHeight);
 }
 

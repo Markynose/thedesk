@@ -35,6 +35,7 @@ set(SOURCES
     assistant/selectionbutton.cpp
     assistant/pebblenudges.cpp
     assistant/pebblelive.cpp
+    assistant/circlesearch.cpp
     assistant/docsearch.cpp
     gateway/gateway.cpp
     gateway/launcher.cpp
@@ -113,6 +114,7 @@ set(HEADERS
     assistant/selectionbutton.h
     assistant/pebblenudges.h
     assistant/pebblelive.h
+    assistant/circlesearch.h
     assistant/docsearch.h
     assistant/assistantface.h
     gateway/gateway.h
