@@ -13,6 +13,7 @@
 
 #include <Applications/application.h>
 #include <QDateTime>
+#include <QMap>
 #include <QObject>
 #include <QStringList>
 
@@ -30,13 +31,19 @@ struct LauncherFile {
         QDateTime when; // last opened (recents) or changed (found files)
 };
 
+struct LauncherCommand {
+        QString command;
+        QDateTime when; // last run
+};
+
 struct LauncherDataPrivate;
 
 /**
  * The installed apps (kept loaded, so the Gateway opens at once), which of
  * them are pinned and how often each is launched, the files opened lately
  * (the desktop's recently-used list) and an index of the names of the files
- * in the person's folders, for search.
+ * in the person's folders, for search; and for Run mode, the commands run
+ * lately and the programs on PATH.
  */
 class LauncherData : public QObject {
         Q_OBJECT
@@ -59,6 +66,13 @@ class LauncherData : public QObject {
         QList<LauncherFile> recentFiles(int count) const;
         QList<LauncherFile> findFiles(const QString& query, int count) const;
         void refresh(); // on opening: recents, and the index when it's old
+
+        // Run mode: the commands run from it (newest first) and what's on PATH
+        QList<LauncherCommand> history() const;
+        void ran(const QString& command);
+        void scanPath();                                  // on entering Run mode
+        const QMap<QString, QString>& commands() const;   // name -> its folder
+        QString terminal() const;                         // a terminal's program
 
         static QString fold(const QString& text); // lower case, no accents
 

@@ -43,7 +43,6 @@ SOURCES += \
     gateway/maingatewaywidget.cpp \
     gateway/searchresultswidget.cpp \
     main.cpp \
-    run/rundialog.cpp \
     session/endsession.cpp \
     session/endsessionbutton.cpp \
     statuscenter/leftpanedelegate.cpp \
@@ -81,7 +80,6 @@ HEADERS += \
     gateway/gatewaysearchmodeldelegate.h \
     gateway/maingatewaywidget.h \
     gateway/searchresultswidget.h \
-    run/rundialog.h \
     session/endsession.h \
     session/endsessionbutton.h \
     statuscenter/leftpanedelegate.h \
@@ -111,7 +109,6 @@ FORMS += \
     gateway/gateway.ui \
     gateway/maingatewaywidget.ui \
     gateway/searchresultswidget.ui \
-    run/rundialog.ui \
     session/endsession.ui \
     statuscenter/statuscenter.ui \
     statuscenter/statuscenterleftpane.ui \

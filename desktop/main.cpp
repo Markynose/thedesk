@@ -43,7 +43,7 @@
 #include "cli/commandline.h"
 #include "crash/crashhandling.h"
 #include "plugins/pluginmanager.h"
-#include "run/rundialog.h"
+#include "gateway/gateway.h"
 #include "shortcuts/customshortcuts.h"
 #include <horizon/focustide.h>
 #include <keygrab.h>
@@ -96,8 +96,10 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    // Prepare the run dialog
-    RunDialog::initialise();
+    // Alt+F2: the Gateway in Run mode
+    QObject::connect(new KeyGrab(QKeySequence(Qt::AltModifier | Qt::Key_F2), "run"), &KeyGrab::activated, [] {
+        Gateway::instance()->show(true);
+    });
 
     // User-defined global shortcuts ([CustomShortcuts] in theDesk.conf)
     CustomShortcuts::instance();

@@ -41,7 +41,6 @@ set(SOURCES
     gateway/launcher.cpp
     gateway/launcherdata.cpp
     main.cpp
-    run/rundialog.cpp
     shortcuts/customshortcuts.cpp
     session/endsession.cpp
     aroundyou/aroundyousheet.cpp
@@ -69,7 +68,6 @@ set(SOURCES
     bar/mainbarwidget.ui
     bar/taskbardesktopwidget.ui
     bar/taskbarwidget.ui
-    run/rundialog.ui
     session/endsession.ui
     statuscenter/statuscenter.ui
     statuscenter/statuscenterleftpane.ui
@@ -120,7 +118,6 @@ set(HEADERS
     gateway/gateway.h
     gateway/launcher.h
     gateway/launcherdata.h
-    run/rundialog.h
     shortcuts/customshortcuts.h
     session/endsession.h
     aroundyou/aroundyousheet.h

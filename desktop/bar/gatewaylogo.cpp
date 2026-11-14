@@ -35,10 +35,12 @@ struct GatewayLogoPrivate {
         GatewayLogo::Placement placement;
         int size;
         m3shapes::Morph morph{MaterialShapes::sunny(), MaterialShapes::circle()};
+        m3shapes::Morph runMorph{MaterialShapes::circle(), MaterialShapes::cookie4Sided()};
         M3SpringAnimation* spin;  // 0 -> 1: an eighth of a turn
         M3SpringAnimation* round; // 0 -> 1: Sunny -> circle
         M3SpringAnimation* weight; // 0 -> 1: thin -> heavy; dips on hover
         M3SpringAnimation* flip;   // 0 -> 1: d -> p (half a turn)
+        M3SpringAnimation* run;    // 0 -> 1: the Gateway's circle -> Run mode's Cookie4
         QTimer flipTimer;
         QTimer unflipTimer;
 };
@@ -70,7 +72,10 @@ GatewayLogo::GatewayLogo(QWidget* host, Placement placement, int size) :
     d->flip = new M3SpringAnimation(this);
     d->flip->setToken(M3Motion::SpatialSlow);
     d->flip->snapTo(0.0);
-    for (auto* spring : {d->spin, d->round, d->weight, d->flip}) connect(spring, &M3SpringAnimation::valueChanged, this, qOverload<>(&QWidget::update));
+    d->run = new M3SpringAnimation(this);
+    d->run->setToken(M3Motion::SpatialFast);
+    d->run->snapTo(0.0);
+    for (auto* spring : {d->spin, d->round, d->weight, d->flip, d->run}) connect(spring, &M3SpringAnimation::valueChanged, this, qOverload<>(&QWidget::update));
 
     // Linger on it and the d turns upside down into a p, like the turning
     // letters of the loading screen, then rights itself
@@ -98,6 +103,11 @@ GatewayLogo::GatewayLogo(QWidget* host, Placement placement, int size) :
 
 GatewayLogo::~GatewayLogo() {
     delete d;
+}
+
+void GatewayLogo::setRun(bool run, bool animate) {
+    if (animate) d->run->animateTo(run ? 1.0 : 0.0);
+    else d->run->snapTo(run ? 1.0 : 0.0);
 }
 
 void GatewayLogo::place() {
@@ -157,12 +167,30 @@ void GatewayLogo::paintEvent(QPaintEvent* event) {
     M3::Scheme scheme = M3::currentScheme();
     const QRectF r = QRectF(this->rect()).adjusted(0.5, 0.5, -0.5, -0.5);
 
+    const double run = d->run->currentValue().toDouble();
     painter.save();
     painter.translate(r.center());
-    painter.rotate(d->spin->currentValue().toDouble() * 45);
+    painter.rotate((d->spin->currentValue().toDouble() + run) * 45);
     painter.translate(-r.center());
-    painter.fillPath(m3shapes::toPath(d->morph, float(d->round->currentValue().toDouble()), r), scheme.tertiaryContainer);
+    if (run > 0.001) {
+        painter.fillPath(m3shapes::toPath(d->runMorph, float(qBound(0.0, run, 1.0)), r), M3::layer(scheme.tertiaryContainer, scheme.primary, qBound(0.0, run, 1.0)));
+    } else {
+        painter.fillPath(m3shapes::toPath(d->morph, float(d->round->currentValue().toDouble()), r), scheme.tertiaryContainer);
+    }
     painter.restore();
+
+    if (run > 0.001) {
+        // Run mode: a terminal where the d was
+        QFont symbols(QStringLiteral("Material Symbols Rounded"));
+        symbols.setPixelSize(qRound(r.height() * 0.56));
+        symbols.setVariableAxis(QFont::Tag("FILL"), 1);
+        painter.setFont(symbols);
+        QColor ink = scheme.onPrimary;
+        ink.setAlphaF(float(qBound(0.0, run, 1.0)));
+        painter.setPen(ink);
+        painter.drawText(r, Qt::AlignCenter, QStringLiteral("terminal"));
+        painter.setOpacity(1 - qBound(0.0, run, 1.0));
+    }
 
     // The "d": Roboto Flex at its heaviest and widest. Opening the Gateway
     // squeezes it narrow and tall as the shape rounds off

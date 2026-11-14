@@ -18,6 +18,7 @@
 #include <QFileInfo>
 #include <QHash>
 #include <QPointer>
+#include <QProcess>
 #include <QSet>
 #include <QStandardPaths>
 #include <QUrl>
@@ -30,6 +31,7 @@ namespace {
     constexpr int IndexDepth = 4;        // folders below Documents, Downloads...
     constexpr int IndexLimit = 40000;    // names kept
     constexpr int IndexFreshMs = 300000; // rebuilt on opening when older
+    constexpr int HistoryLimit = 12;     // commands remembered
 
     struct Indexed {
             QString folded, path;
@@ -45,6 +47,7 @@ struct LauncherDataPrivate {
         QList<Indexed> index;
         QElapsedTimer indexAge;
         bool indexing = false;
+        QMap<QString, QString> commands;
 };
 
 LauncherData* LauncherData::instance() {
@@ -299,4 +302,50 @@ QList<LauncherFile> LauncherData::findFiles(const QString& query, int count) con
 void LauncherData::refresh() {
     readRecents();
     if (!d->indexAge.isValid() || d->indexAge.elapsed() > IndexFreshMs) indexFiles();
+}
+
+QList<LauncherCommand> LauncherData::history() const {
+    // Kept as "<seconds since the epoch> <command>", newest first
+    QList<LauncherCommand> commands;
+    for (const QString& entry : d->settings.value(QStringLiteral("Run/history")).toStringList()) {
+        const int space = entry.indexOf(QLatin1Char(' '));
+        if (space <= 0) continue;
+        commands.append({entry.mid(space + 1), QDateTime::fromSecsSinceEpoch(entry.left(space).toLongLong())});
+    }
+    return commands;
+}
+
+void LauncherData::ran(const QString& command) {
+    QStringList entries = {QStringLiteral("%1 %2").arg(QDateTime::currentSecsSinceEpoch()).arg(command)};
+    for (const LauncherCommand& old : history()) {
+        if (old.command != command && entries.count() < HistoryLimit) entries.append(QStringLiteral("%1 %2").arg(old.when.toSecsSinceEpoch()).arg(old.command));
+    }
+    d->settings.setValue(QStringLiteral("Run/history"), entries);
+}
+
+void LauncherData::scanPath() {
+    // The first folder on PATH that has a name is where it runs from
+    d->commands.clear();
+    for (const QString& folder : qEnvironmentVariable("PATH").split(QLatin1Char(':'), Qt::SkipEmptyParts)) {
+        for (const QString& name : QDir(folder).entryList(QDir::Files | QDir::Executable)) {
+            if (!d->commands.contains(name)) d->commands.insert(name, folder);
+        }
+    }
+}
+
+const QMap<QString, QString>& LauncherData::commands() const {
+    return d->commands;
+}
+
+QString LauncherData::terminal() const {
+    // $TERMINAL, else what Super+Enter opens, else the terminal launched most
+    if (qEnvironmentVariableIsSet("TERMINAL")) return qEnvironmentVariable("TERMINAL");
+    const QString key = QProcess::splitCommand(d->settings.value(QStringLiteral("CustomShortcuts/Meta+Return")).toString()).value(0);
+    if (!key.isEmpty()) return key;
+    const LauncherApp* best = nullptr;
+    for (const LauncherApp& app : d->apps) {
+        if (app.categories.contains(QLatin1String("TerminalEmulator")) && (!best || launches(app.id) > launches(best->id))) best = &app;
+    }
+    if (!best) return QString();
+    return QProcess::splitCommand(best->app->getProperty("Exec").toString()).value(0);
 }

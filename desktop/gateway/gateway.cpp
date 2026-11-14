@@ -143,12 +143,12 @@ void Gateway::applyShape() {
     if (!shape.isEmpty()) this->setMask(shape);
 }
 
-void Gateway::show() {
+void Gateway::show(bool run) {
     d->open = true;
     d->leave->stop();
     this->setWindowOpacity(1);
     place();
-    d->launcher->opened();
+    d->launcher->opened(run);
     d->scrim->animateTo(1.0);
 
     QDialog::show();

@@ -15,7 +15,7 @@ class Gateway : public QDialog {
 
         static Gateway* instance();
 
-        void show();
+        void show(bool run = false); // run: in Run mode, for a command
         void close();
         bool isOpen() const; // shown and not on its way out
 

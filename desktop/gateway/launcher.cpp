@@ -27,6 +27,8 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QToolTip>
 #include <QUrl>
@@ -38,6 +40,7 @@
 #include <m3usercard.h>
 #include <powermanager.h>
 #include <shapes/materialshapes.h>
+#include <shapes/morph.h>
 #include <shapes/shapepath.h>
 #include <statemanager.h>
 #include <statuscentermanager.h>
@@ -109,6 +112,43 @@ namespace {
             return list;
         }();
         return *shapes.at(index % shapes.count());
+    }
+
+    // Under a command that isn't there, the way a spelling checker would
+    void wavyUnderline(QPainter& p, double from, double to, double y, const QColor& colour) {
+        QPainterPath path;
+        for (double x = from; x <= to + 0.01; x += 1) {
+            const QPointF point(x, y + 1.6 * std::sin((x - from) / 7.0 * 2 * M_PI));
+            if (x == from) path.moveTo(point);
+            else path.lineTo(point);
+        }
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(colour, 1.6, Qt::SolidLine, Qt::RoundCap));
+        p.drawPath(path);
+        p.setPen(Qt::NoPen);
+    }
+
+    // How many letters apart two names are (for "did you mean")
+    int distance(const QString& a, const QString& b) {
+        QList<int> row(b.size() + 1);
+        for (int j = 0; j <= b.size(); j++) row[j] = j;
+        for (int i = 1; i <= a.size(); i++) {
+            int diagonal = row[0];
+            row[0] = i;
+            for (int j = 1; j <= b.size(); j++) {
+                const int above = row[j];
+                row[j] = qMin(qMin(row[j] + 1, row[j - 1] + 1), diagonal + (a.at(i - 1) == b.at(j - 1) ? 0 : 1));
+                diagonal = above;
+            }
+        }
+        return row[b.size()];
+    }
+
+    void searchWeb(const QString& text) {
+        tSettings settings;
+        QString engine = settings.value(QStringLiteral("Gateway/webSearch")).toString();
+        if (!engine.contains(QLatin1String("%1"))) engine = QStringLiteral("https://duckduckgo.com/?q=%1");
+        QDesktopServices::openUrl(QUrl(engine.arg(QString::fromLatin1(QUrl::toPercentEncoding(text)))));
     }
 
     QString ago(const QDateTime& when) {
@@ -258,10 +298,56 @@ namespace {
             QImage picture;
     };
 
+    // Over the search bar in Run mode: the "Run" chip after the mark, and
+    // what Tab would add after the cursor
+    class RunBar : public QWidget {
+        public:
+            explicit RunBar(QLineEdit* edit) :
+                QWidget(edit), edit(edit) {
+                this->setAttribute(Qt::WA_TransparentForMouseEvents);
+            }
+            double chip = 0; // 0 -> 1: the chip's width, on a spring
+            QString ghost;
+
+        protected:
+            void paintEvent(QPaintEvent*) override {
+                const M3::Scheme s = M3::currentScheme();
+                QPainter p(this);
+                p.setRenderHint(QPainter::Antialiasing);
+                p.setRenderHint(QPainter::TextAntialiasing);
+                if (chip > 0.01) {
+                    const QRectF box(ChipLeft, this->height() / 2.0 - 16, ChipWidth * chip, 32);
+                    p.setPen(Qt::NoPen);
+                    p.setBrush(s.secondaryContainer);
+                    p.drawRoundedRect(box, 8, 8);
+                    p.setClipRect(box);
+                    p.setFont(symbols(18));
+                    p.setPen(s.onSecondaryContainer);
+                    p.drawText(QRectF(box.left() + 8, box.top(), 20, 32), Qt::AlignCenter, QStringLiteral("chevron_right"));
+                    p.setFont(flex(14, 560));
+                    p.drawText(QRectF(box.left() + 30, box.top(), ChipWidth - 30, 32), Qt::AlignLeft | Qt::AlignVCenter, Launcher::tr("Run"));
+                    p.setClipping(false);
+                }
+                if (!ghost.isEmpty() && edit->hasFocus() && edit->cursorPosition() == edit->text().size()) {
+                    const QRect cursor = edit->inputMethodQuery(Qt::ImCursorRectangle).toRect();
+                    p.setFont(edit->font());
+                    p.setPen(s.outline);
+                    p.drawText(QRectF(cursor.center().x() + 1, 0, this->width() - cursor.center().x() - 60, this->height()), Qt::AlignLeft | Qt::AlignVCenter, ghost);
+                }
+            }
+
+        private:
+            QLineEdit* edit;
+
+        public:
+            static constexpr double ChipLeft = 64, ChipWidth = 74;
+    };
+
     enum class Mode {
         Home,    // pinned, recent files
         AllApps, // every app, by category
-        Search
+        Search,
+        Run // a command: Alt+F2, or ">" typed
     };
 
     struct Action {
@@ -288,9 +374,10 @@ namespace {
             const LauncherApp* app = nullptr;
             QImage icon; // a settings page's own icon
             int index = 0;
+            int prefix = 0;                   // the title's first letters, as typed: drawn lighter
             bool first = false, last = false; // of its group
             bool checked = false;
-            bool destructive = false;
+            bool destructive = false; // a toolbar button that ends the session; a command that isn't there
             double score = 0;
             std::function<void()> run;
             QList<Action> actions;
@@ -305,6 +392,12 @@ namespace {
 struct Launcher::Private {
         QLineEdit* edit;
         Avatar* avatar;
+        GatewayLogo* logo;
+        RunBar* runBar;
+        M3SpringAnimation* runChip;
+        QString failed;          // Run mode: the command that wouldn't start
+        QStringList closest;     // and the names on PATH nearest to it
+        QElapsedTimer failedAt;
         Mode mode = Mode::Home;
         QString category;
 
@@ -341,18 +434,37 @@ Launcher::Launcher(QWidget* parent) :
     d->edit->setPlaceholderText(tr("Search apps, files and settings"));
     d->edit->setFont(flex(18, 420));
     d->edit->setClearButtonEnabled(false);
-    new GatewayLogo(d->edit, GatewayLogo::Placement::Leading, 36);
+    d->logo = new GatewayLogo(d->edit, GatewayLogo::Placement::Leading, 36);
     d->edit->setTextMargins(36 + 14, 0, 52, 0);
     d->edit->installEventFilter(this);
     d->avatar = new Avatar(d->edit);
+    d->runBar = new RunBar(d->edit);
     this->setFocusProxy(d->edit);
     connect(d->edit, &QLineEdit::textChanged, this, [this](const QString& text) {
+        // ">" first is the way into Run mode from a search
+        if (d->mode != Mode::Run && text.startsWith(QLatin1Char('>'))) {
+            enterRun();
+            d->edit->setText(text.mid(1));
+            return;
+        }
         const bool searching = !text.trimmed().isEmpty();
-        if (searching) d->mode = Mode::Search;
+        if (d->mode == Mode::Run) d->failed.clear();
+        else if (searching) d->mode = Mode::Search;
         else if (d->mode == Mode::Search) d->mode = Mode::Home;
         d->selected = searching ? 0 : -1;
         d->selectedAction = 0;
         this->relayout();
+    });
+    connect(d->edit, &QLineEdit::cursorPositionChanged, d->runBar, qOverload<>(&QWidget::update));
+
+    // The Run chip grows in after the mark, and the text moves over for it
+    d->runChip = new M3SpringAnimation(this);
+    d->runChip->setToken(M3Motion::SpatialFast);
+    d->runChip->snapTo(0.0);
+    connect(d->runChip, &M3SpringAnimation::valueChanged, this, [this](const QVariant& value) {
+        d->runBar->chip = qMax(0.0, value.toDouble());
+        d->edit->setTextMargins(36 + 14 + qRound((RunBar::ChipWidth + 10) * d->runBar->chip), 0, 52, 0);
+        d->runBar->update();
     });
 
     d->frames.setInterval(16);
@@ -377,8 +489,12 @@ int Launcher::columnWidth(int available) {
     return qMin(780, available - 32);
 }
 
-void Launcher::opened() {
+void Launcher::opened(bool run) {
     LauncherData::instance()->refresh();
+    d->runChip->snapTo(0.0);
+    d->logo->setRun(false, false);
+    d->edit->setPlaceholderText(tr("Search apps, files and settings"));
+    d->failed.clear();
     d->mode = Mode::Home;
     d->category.clear();
     d->scroll = 0;
@@ -389,8 +505,77 @@ void Launcher::opened() {
     d->edit->clear();
     d->edit->setFocus();
     d->openedAt.start();
+    if (run) enterRun();
     this->relayout();
     if (!d->frames.isActive()) d->frames.start();
+}
+
+void Launcher::enterRun() {
+    d->mode = Mode::Run;
+    d->failed.clear();
+    LauncherData::instance()->scanPath();
+    d->logo->setRun(true);
+    d->runChip->animateTo(1.0);
+    d->edit->setPlaceholderText(tr("Type a command"));
+}
+
+void Launcher::leaveRun() {
+    d->mode = Mode::Home;
+    d->failed.clear();
+    d->runBar->ghost.clear();
+    d->logo->setRun(false);
+    d->runChip->animateTo(0.0);
+    d->edit->setPlaceholderText(tr("Search apps, files and settings"));
+    this->relayout();
+}
+
+void Launcher::runCommand(const QString& command, bool inTerminal) {
+    // Split as a shell would split it (quotes), but not run by one
+    QStringList arguments = QProcess::splitCommand(command);
+    if (arguments.isEmpty()) return;
+    const QString program = arguments.takeFirst();
+    bool started = false;
+    if (!QStandardPaths::findExecutable(program).isEmpty()) {
+        const QString terminal = LauncherData::instance()->terminal();
+        if (!inTerminal) {
+            started = QProcess::startDetached(program, arguments, QDir::homePath());
+        } else if (!terminal.isEmpty()) {
+            // The terminal stays open on a shell when the command is done.
+            // Most run what follows -e; these two take it after their own flag
+            const QString name = QFileInfo(terminal).fileName();
+            const QString flag = name == QLatin1String("xfce4-terminal") ? QStringLiteral("-x") : name == QLatin1String("gnome-terminal") ? QStringLiteral("--") : QStringLiteral("-e");
+            started = QProcess::startDetached(terminal, {flag, QStringLiteral("sh"), QStringLiteral("-c"), command + QStringLiteral("; exec \"${SHELL:-sh}\"")}, QDir::homePath());
+        }
+    }
+    if (started) {
+        LauncherData::instance()->ran(command);
+        emit closeRequested();
+        return;
+    }
+
+    // It stays open, red, with what it might have been
+    d->failed = command;
+    d->closest.clear();
+    QList<QPair<int, QString>> near;
+    const QString name = QFileInfo(program).fileName();
+    const QMap<QString, QString>& commands = LauncherData::instance()->commands();
+    for (auto i = commands.constBegin(); i != commands.constEnd(); i++) {
+        if (qAbs(i.key().size() - name.size()) > 2) continue;
+        const int apart = distance(name, i.key());
+        if (apart > 0 && apart <= qMax(1, int(name.size()) / 3)) near.append({apart, i.key()});
+    }
+    std::stable_sort(near.begin(), near.end(), [](const QPair<int, QString>& a, const QPair<int, QString>& b) {
+        return a.first < b.first;
+    });
+    for (int i = 0; i < qMin(3, int(near.count())); i++) d->closest.append(near.at(i).second);
+    d->failedAt.start();
+    d->selected = 0;
+    d->selectedAction = 0;
+    this->relayout();
+    if (!d->frames.isActive()) {
+        d->lastFrame = d->clock.elapsed();
+        d->frames.start();
+    }
 }
 
 QRegion Launcher::shape() const {
@@ -406,6 +591,7 @@ void Launcher::resizeEvent(QResizeEvent* event) {
     Q_UNUSED(event)
     d->edit->setGeometry(0, 0, this->width(), BarHeight);
     d->avatar->setGeometry(this->width() - 10 - 44, 10, 44, 44);
+    d->runBar->setGeometry(0, 0, this->width(), BarHeight);
     this->relayout();
 }
 
@@ -435,11 +621,14 @@ void Launcher::relayout() {
         case Mode::Search:
             layoutSearch(y);
             break;
+        case Mode::Run:
+            layoutRun(y);
+            break;
     }
     d->panel = QRectF(0, BarHeight + Gap, this->width(), y - (BarHeight + Gap));
 
     // The same thing stays selected when the layout changes under it
-    if (d->mode == Mode::Search) {
+    if (d->mode == Mode::Search || (d->mode == Mode::Run && !d->edit->text().trimmed().isEmpty())) {
         d->selected = d->items.isEmpty() ? -1 : qBound(0, d->selected, int(d->items.count()) - 1);
     } else {
         d->selected = -1;
@@ -872,10 +1061,7 @@ void Launcher::layoutSearch(double& y) {
     web.symbol = QStringLiteral("travel_explore");
     web.rect = QRectF(Pad, y + 4, width - 2 * Pad, RowHeight - 4);
     web.run = [this, typed] {
-        tSettings settings;
-        QString engine = settings.value(QStringLiteral("Gateway/webSearch")).toString();
-        if (!engine.contains(QLatin1String("%1"))) engine = QStringLiteral("https://duckduckgo.com/?q=%1");
-        QDesktopServices::openUrl(QUrl(engine.arg(QString::fromLatin1(QUrl::toPercentEncoding(typed)))));
+        searchWeb(typed);
         emit closeRequested();
     };
     d->items.append(web);
@@ -883,6 +1069,167 @@ void Launcher::layoutSearch(double& y) {
 
     d->hints = QRectF(Pad + 6, y, width - 2 * Pad, 20);
     y += 20 + 12;
+}
+
+void Launcher::layoutRun(double& y) {
+    LauncherData* data = LauncherData::instance();
+    const QString typed = d->edit->text();
+    const QString trimmed = typed.trimmed();
+    const double width = this->width();
+    const QList<LauncherCommand> history = data->history();
+    const QMap<QString, QString>& commands = data->commands();
+
+    auto command = [this](const QString& line, const QString& subtitle, const QString& symbol, int prefix) {
+        Item item;
+        item.kind = Item::Row;
+        item.id = QStringLiteral("command:") + line;
+        item.title = line;
+        item.subtitle = subtitle;
+        item.symbol = symbol;
+        item.prefix = prefix;
+        item.run = [this, line] {
+            runCommand(line, false);
+        };
+        return item;
+    };
+    QList<QPair<QString, QList<Item>>> groups;
+    Item top;
+    top.kind = Item::Top;
+    d->runBar->ghost.clear();
+
+    if (trimmed.isEmpty()) {
+        QList<Item> recent;
+        for (const LauncherCommand& past : history) {
+            if (recent.count() < 5) recent.append(command(past.command, tr("ran %1").arg(ago(past.when)), QStringLiteral("history"), 0));
+        }
+        groups.append({tr("Recent commands"), recent});
+    } else if (!d->failed.isEmpty()) {
+        // What wouldn't start: in the error colours, with the nearest names
+        const QString program = QProcess::splitCommand(d->failed).value(0);
+        const QString rest = d->failed.trimmed().section(QLatin1Char(' '), 1);
+        auto fixed = [&](const QString& name) {
+            return rest.isEmpty() ? name : name + QLatin1Char(' ') + rest;
+        };
+        top = command(d->failed, QStandardPaths::findExecutable(program).isEmpty() ? tr("Not a command on this computer") : tr("Couldn't start it"), QStringLiteral("priority_high"), int(d->failed.size()));
+        top.kind = Item::Top;
+        top.id = QStringLiteral("failed:") + d->failed;
+        top.destructive = true;
+        if (!d->closest.isEmpty()) {
+            const QString fix = fixed(d->closest.first());
+            top.actions.append({tr("Run %1").arg(d->closest.first()), [this, fix] {
+                                    runCommand(fix, false);
+                                },
+                QRectF()});
+        }
+        const QString failed = d->failed;
+        top.actions.append({tr("Search the web"), [this, failed] {
+                                searchWeb(failed);
+                                emit closeRequested();
+                            },
+            QRectF()});
+        top.run = top.actions.first().run;
+        QList<Item> near;
+        for (const QString& name : std::as_const(d->closest)) near.append(command(fixed(name), commands.value(name), QStringLiteral("terminal"), 0));
+        groups.append({tr("Did you mean"), near});
+    } else {
+        // Completions: the history first, then the word being typed as a
+        // program on PATH (the first word, or the one after "-e")
+        QList<Item> found;
+        for (const LauncherCommand& past : history) {
+            if (past.command.startsWith(typed)) found.append(command(past.command, tr("ran %1").arg(ago(past.when)), QStringLiteral("history"), int(typed.size())));
+        }
+        const int space = typed.lastIndexOf(QLatin1Char(' '));
+        const QString word = typed.mid(space + 1), head = typed.left(space + 1);
+        if (!word.isEmpty() && (space < 0 || typed.left(space).endsWith(QLatin1String(" -e")))) {
+            QStringList names;
+            for (auto i = commands.lowerBound(word); i != commands.constEnd() && i.key().startsWith(word) && names.count() < 200; i++) names.append(i.key());
+            std::stable_sort(names.begin(), names.end(), [](const QString& a, const QString& b) {
+                return a.size() < b.size();
+            });
+            for (const QString& name : names.mid(0, 6)) {
+                const QString line = head + name;
+                if (std::none_of(found.begin(), found.end(), [&](const Item& item) { return item.title == line; })) found.append(command(line, commands.value(name), QStringLiteral("terminal"), int(typed.size())));
+            }
+        }
+        for (const Item& item : std::as_const(found)) {
+            if (item.title.size() > typed.size()) {
+                d->runBar->ghost = item.title.mid(typed.size());
+                break;
+            }
+        }
+
+        // The top hit, which Enter runs: what's typed when it's already a
+        // whole command, else the best completion of it
+        const bool whole = std::any_of(history.begin(), history.end(), [&](const LauncherCommand& past) { return past.command == trimmed; }) || (!trimmed.contains(QLatin1Char(' ')) && commands.contains(trimmed));
+        int from = -1;
+        for (int i = 0; i < found.count(); i++) {
+            if (whole ? found.at(i).title == trimmed : from < 0) from = i;
+        }
+        if (from >= 0) {
+            top = found.takeAt(from);
+            top.subtitle = tr("Command · %1").arg(top.subtitle);
+        } else {
+            const QString program = trimmed.section(QLatin1Char(' '), 0, 0);
+            top = command(trimmed, commands.contains(program) ? tr("Command · %1").arg(commands.value(program)) : tr("Command"), QString(), int(trimmed.size()));
+        }
+        top.kind = Item::Top;
+        top.symbol = QStringLiteral("terminal");
+        const QString line = top.title;
+        top.actions.append({tr("Run"), top.run, QRectF()});
+        top.actions.append({tr("In terminal"), [this, line] {
+                                runCommand(line, true);
+                            },
+            QRectF()});
+
+        QList<Item> past, programs;
+        for (const Item& item : std::as_const(found)) {
+            if (item.symbol == QLatin1String("history")) {
+                if (past.count() < 3) past.append(item);
+            } else if (programs.count() < 4) {
+                programs.append(item);
+            }
+        }
+        groups.append({tr("History"), past});
+        groups.append({tr("Commands"), programs});
+    }
+
+    if (top.run) {
+        top.rect = QRectF(Pad, y, width - 2 * Pad, TopHeight);
+        if (d->topId != top.id) {
+            d->topId = top.id;
+            d->topSince.start();
+        }
+        d->items.append(top);
+        y += TopHeight + 12;
+    } else {
+        d->topId.clear();
+    }
+
+    // Under it, as many rows as fit above the key hints
+    const double room = this->height() - y - 30 - 8;
+    double used = 0;
+    for (auto& [group, rows] : groups) {
+        while (!rows.isEmpty() && used + 30 + rows.count() * (RowHeight + 2) + 8 > room) rows.removeLast();
+        if (rows.isEmpty()) continue;
+        d->headers.append({QPointF(Pad + 8, y + 16), group});
+        y += 28;
+        used += 28;
+        for (int i = 0; i < rows.count(); i++) {
+            Item item = rows.at(i);
+            item.first = i == 0;
+            item.last = i == rows.count() - 1;
+            item.rect = QRectF(Pad, y, width - 2 * Pad, RowHeight);
+            d->items.append(item);
+            y += RowHeight + 2;
+            used += RowHeight + 2;
+        }
+        y += 8;
+        used += 8;
+    }
+    d->runBar->update();
+
+    d->hints = QRectF(Pad + 6, y + 4, width - 2 * Pad, 20);
+    y += 4 + 20 + 12;
 }
 
 void Launcher::frame() {
@@ -906,6 +1253,7 @@ void Launcher::frame() {
     }
     if (d->openedAt.isValid() && d->openedAt.elapsed() < 1400) moving = true;
     if (d->topSince.isValid() && d->topSince.elapsed() < 900) moving = true;
+    if (!d->failed.isEmpty() && d->failedAt.isValid() && d->failedAt.elapsed() < 900) moving = true;
     if (!moving) d->frames.stop();
     this->update();
 }
@@ -1062,6 +1410,19 @@ void Launcher::paintEvent(QPaintEvent* event) {
                     p.setFont(flex(14, 450));
                     p.setPen(selected ? content : s.onSurfaceVariant);
                     p.drawText(QRectF(textLeft, r.top(), textWidth, r.height()), Qt::AlignLeft | Qt::AlignVCenter, p.fontMetrics().elidedText(item.title, Qt::ElideRight, int(textWidth)));
+                } else if (item.prefix > 0) {
+                    // A completion: what's typed, then what it adds in a stronger weight
+                    const QString typed = item.title.left(item.prefix);
+                    p.setFont(flex(14.5, 420));
+                    p.setPen(selected ? content : s.onSurfaceVariant);
+                    p.drawText(QRectF(textLeft, r.top() + 8, textWidth, 20), Qt::AlignLeft | Qt::AlignVCenter, typed);
+                    const double after = p.fontMetrics().horizontalAdvance(typed);
+                    p.setFont(flex(14.5, 560));
+                    p.setPen(content);
+                    p.drawText(QRectF(textLeft + after, r.top() + 8, qMax(0.0, textWidth - after), 20), Qt::AlignLeft | Qt::AlignVCenter, p.fontMetrics().elidedText(item.title.mid(item.prefix), Qt::ElideRight, int(textWidth - after)));
+                    p.setFont(flex(12, 400));
+                    p.setPen(selected ? content : s.onSurfaceVariant);
+                    p.drawText(QRectF(textLeft, r.top() + 28, textWidth, 18), Qt::AlignLeft | Qt::AlignVCenter, p.fontMetrics().elidedText(item.subtitle, Qt::ElideMiddle, int(textWidth)));
                 } else {
                     p.setFont(flex(14.5, 520));
                     p.setPen(content);
@@ -1073,24 +1434,39 @@ void Launcher::paintEvent(QPaintEvent* event) {
                 break;
             }
             case Item::Top: {
-                p.setBrush(M3::layer(s.primaryContainer, s.onPrimaryContainer, 0.05 * hover));
+                // A command that wouldn't start turns the error colours (an
+                // effect: no overshoot) and is nudged sideways (a spatial kick)
+                double error = 0, nudge = 0;
+                if (item.destructive) {
+                    const double t = d->failedAt.isValid() ? d->failedAt.elapsed() / 1000.0 : 10;
+                    error = expressive ? 1 - std::exp(-40 * t) * (1 + 40 * t) : 1;
+                    if (expressive) nudge = -420 / 22.6 * std::exp(-0.6 * 28.3 * t) * std::sin(22.6 * t);
+                }
+                r.translate(nudge, 0);
+                const QColor container = M3::layer(s.primaryContainer, s.errorContainer, error);
+                const QColor on = M3::layer(s.onPrimaryContainer, s.onErrorContainer, error);
+                const QColor strong = M3::layer(s.primary, s.error, error), onStrong = M3::layer(s.onPrimary, s.onError, error);
+                p.setBrush(M3::layer(container, on, 0.05 * hover));
                 p.drawRoundedRect(r, 28, 28);
-                // Its shape turns into place each time the top hit changes
+                // Its shape turns into place each time the top hit changes,
+                // and bursts into a SoftBoom when it's an error
+                static const m3shapes::Morph burst(MaterialShapes::cookie9Sided(), MaterialShapes::softBoom());
                 const double settled = expressive && d->topSince.isValid() ? springAt(d->topSince.elapsed() / 1000.0, 0.6, 300) : 1;
                 const QPointF centre(r.left() + 24 + 36, r.center().y());
                 QTransform place;
                 place.translate(centre.x(), centre.y());
                 place.rotate((1 - settled) * -70);
                 place.scale(0.6 + 0.4 * settled, 0.6 + 0.4 * settled);
-                p.fillPath(place.map(m3shapes::toPath(MaterialShapes::cookie9Sided(), QRectF(-36, -36, 72, 72))), s.primary);
+                p.fillPath(place.map(m3shapes::toPath(burst, float(error), QRectF(-36, -36, 72, 72))), strong);
                 if (item.app) {
                     p.drawImage(QRectF(centre.x() - 20, centre.y() - 20, 40, 40), glyph(item.app, 40, s.primary, s.onPrimary));
                 } else {
-                    drawSymbol(QRectF(centre.x() - 36, centre.y() - 36, 72, 72), item.symbol, 36, s.onPrimary);
+                    drawSymbol(QRectF(centre.x() - 36, centre.y() - 36, 72, 72), item.symbol, 36, onStrong);
                 }
 
                 // Its actions, as buttons from the right: the one Enter
-                // takes is filled and round, the others wait squarer
+                // takes is filled and round (squarer while pressed), the
+                // others wait squarer
                 double right = r.right() - 20;
                 for (int a = item.actions.count() - 1; a >= 0; a--) {
                     const Action& action = item.actions.at(a);
@@ -1098,20 +1474,43 @@ void Launcher::paintEvent(QPaintEvent* event) {
                     p.setFont(flex(14, 600));
                     const double w = p.fontMetrics().horizontalAdvance(action.label) + 32;
                     const QRectF button(right - w, r.center().y() - 20, w, 40);
-                    d->items[i].actions[a].rect = button;
+                    d->items[i].actions[a].rect = button.translated(-nudge, 0);
                     right -= w + 8;
                     p.setPen(Qt::NoPen);
-                    p.setBrush(focused ? s.primary : M3::layer(s.primaryContainer, s.onPrimaryContainer, 0.14));
-                    const double corner = focused ? 20 : 12;
+                    p.setBrush(focused ? strong : M3::layer(container, on, 0.14));
+                    const double corner = focused ? 20 - 8 * qMin(1.0, press) : 12;
                     p.drawRoundedRect(button, corner, corner);
-                    p.setPen(focused ? s.onPrimary : s.onPrimaryContainer);
+                    p.setPen(focused ? onStrong : on);
                     p.drawText(button, Qt::AlignCenter, action.label);
                 }
                 const double textLeft = r.left() + 24 + 72 + 20;
                 const double textWidth = qMax(60.0, right - textLeft);
-                p.setFont(flex(30, 780, 118));
-                p.setPen(s.onPrimaryContainer);
-                p.drawText(QRectF(textLeft, r.center().y() - 34, textWidth, 40), Qt::AlignLeft | Qt::AlignVCenter, p.fontMetrics().elidedText(item.title, Qt::ElideRight, int(textWidth)));
+                const QRectF titleBox(textLeft, r.center().y() - 34, textWidth, 40);
+                p.setPen(on);
+                if (item.prefix > 0) {
+                    // What's typed, lighter; then what the top hit adds to it
+                    const QString typed = item.title.left(item.prefix);
+                    p.save();
+                    p.setClipRect(titleBox);
+                    p.setFont(flex(30, 520, 110));
+                    p.drawText(titleBox, Qt::AlignLeft | Qt::AlignVCenter, typed);
+                    const double after = p.fontMetrics().horizontalAdvance(typed);
+                    const double underline = p.fontMetrics().horizontalAdvance(item.title.section(QLatin1Char(' '), 0, 0));
+                    const double baseline = titleBox.center().y() + (p.fontMetrics().ascent() - p.fontMetrics().descent()) / 2.0;
+                    p.setFont(flex(30, 780, 118));
+                    p.drawText(titleBox.adjusted(after, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, item.title.mid(item.prefix));
+                    p.restore();
+                    if (error > 0.02) {
+                        p.save();
+                        p.setOpacity(p.opacity() * qMin(1.0, error));
+                        wavyUnderline(p, textLeft, textLeft + qMin(underline, textWidth), baseline + 7, s.error);
+                        p.restore();
+                    }
+                } else {
+                    p.setFont(flex(30, 780, 118));
+                    p.drawText(titleBox, Qt::AlignLeft | Qt::AlignVCenter, p.fontMetrics().elidedText(item.title, Qt::ElideRight, int(textWidth)));
+                }
+                p.setPen(on);
                 p.setFont(flex(13.5, 450));
                 p.drawText(QRectF(textLeft, r.center().y() + 8, textWidth, 20), Qt::AlignLeft | Qt::AlignVCenter, p.fontMetrics().elidedText(item.subtitle, Qt::ElideRight, int(textWidth)));
                 break;
@@ -1198,7 +1597,8 @@ void Launcher::paintEvent(QPaintEvent* event) {
     // Which keys do what, while searching
     if (!d->hints.isNull()) {
         double x = d->hints.left();
-        const QList<QPair<QString, QString>> keys = {{QStringLiteral("↑ ↓"), tr("move")}, {tr("Enter"), tr("open")}, {tr("Tab"), tr("actions")}, {tr("Esc"), tr("clear")}};
+        const QList<QPair<QString, QString>> keys = d->mode == Mode::Run ? QList<QPair<QString, QString>>{{tr("Enter"), tr("run")}, {tr("Tab"), tr("complete")}, {tr("Ctrl Enter"), tr("in a terminal")}, {tr("Esc"), tr("clear")}}
+                                                                         : QList<QPair<QString, QString>>{{QStringLiteral("↑ ↓"), tr("move")}, {tr("Enter"), tr("open")}, {tr("Tab"), tr("actions")}, {tr("Esc"), tr("clear")}};
         for (const auto& [key, what] : keys) {
             p.setFont(flex(11.5, 600));
             const double w = p.fontMetrics().horizontalAdvance(key) + 14;
@@ -1263,9 +1663,10 @@ void Launcher::select(int item) {
 void Launcher::moveSelection(int dx, int dy) {
     if (d->items.isEmpty()) return;
     // Results are a list: up and down walk it
-    if (d->mode == Mode::Search) {
+    if (d->mode == Mode::Search || d->mode == Mode::Run) {
         if (dy == 0) return;
-        select(int((qMax(0, d->selected) + dy + d->items.count()) % d->items.count()));
+        const int count = int(d->items.count());
+        select(d->selected < 0 ? (dy > 0 ? 0 : count - 1) : (d->selected + dy + count) % count);
         return;
     }
     // Everything else is laid out in two directions: go to what's nearest that way
@@ -1424,8 +1825,20 @@ bool Launcher::eventFilter(QObject* watched, QEvent* event) {
             if (!empty) return false;
             moveSelection(key->key() == Qt::Key_Right ? 1 : -1, 0);
             return true;
+        case Qt::Key_Backspace:
+            // The Run chip goes like an input chip: backspace at the start
+            if (d->mode == Mode::Run && empty) {
+                leaveRun();
+                return true;
+            }
+            return false;
         case Qt::Key_Tab:
         case Qt::Key_Backtab: {
+            // In Run mode Tab takes the completion
+            if (d->mode == Mode::Run && key->key() == Qt::Key_Tab && !d->runBar->ghost.isEmpty() && d->edit->cursorPosition() == d->edit->text().size()) {
+                d->edit->setText(d->edit->text() + d->runBar->ghost);
+                return true;
+            }
             // Through the selected result's actions; never out of the field
             if (d->selected >= 0 && d->selected < d->items.count()) {
                 const int count = int(d->items.at(d->selected).actions.count());
@@ -1438,6 +1851,10 @@ bool Launcher::eventFilter(QObject* watched, QEvent* event) {
         }
         case Qt::Key_Return:
         case Qt::Key_Enter:
+            if (d->mode == Mode::Run && key->modifiers() & Qt::ControlModifier) {
+                if (d->selected >= 0) runCommand(d->items.at(d->selected).title, true);
+                return true;
+            }
             if (d->selected >= 0) activate(d->selected, d->selectedAction);
             return true;
         case Qt::Key_PageDown:

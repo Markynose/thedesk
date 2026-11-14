@@ -35,6 +35,9 @@ class GatewayLogo : public QWidget {
         explicit GatewayLogo(QWidget* host, Placement placement = Placement::ButtonIcon, int size = 32);
         ~GatewayLogo() override;
 
+        // The Gateway's Run mode: the round shape turns into a Cookie4 with a terminal in it
+        void setRun(bool run, bool animate = true);
+
     protected:
         void paintEvent(QPaintEvent* event) override;
         bool eventFilter(QObject* watched, QEvent* event) override;

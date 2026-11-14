@@ -22,6 +22,8 @@
  * Center, power). "All apps" turns it into a grid with category chips.
  * Typing turns it into results: a top hit with its actions as buttons, then
  * apps, settings, power commands and files in groups, and a web search.
+ * Run mode (Alt+F2, or ">" typed) takes a command instead: the completed
+ * command is the top hit, the history and PATH come under it.
  *
  * Everything but the text field is painted here, so shapes, state layers
  * and springs are its own; the keyboard reaches all of it (arrows, Enter,
@@ -33,7 +35,7 @@ class Launcher : public QWidget {
         explicit Launcher(QWidget* parent = nullptr);
         ~Launcher() override;
 
-        void opened();         // back to rest, focused, and its entrance played
+        void opened(bool run = false); // back to rest (or Run mode), focused, and its entrance played
         QRegion shape() const; // the bar and the panel: what's solid
         static int columnWidth(int available);
 
@@ -62,6 +64,10 @@ class Launcher : public QWidget {
         void layoutAllApps(double& y);
         void layoutSearch(double& y);
         void layoutToolbar(double& y);
+        void layoutRun(double& y);
+        void enterRun();
+        void leaveRun();
+        void runCommand(const QString& command, bool inTerminal);
         void frame();
         int itemAt(const QPointF& point, int* action = nullptr) const;
         void activate(int item, int action = 0);
