@@ -53,6 +53,7 @@
 namespace {
     constexpr double PillWidth = 640, PillHeight = 64, StageWidth = 760;
     constexpr double ScrimOpacity = 0.45;
+    constexpr qint64 LineGoesAfterMs = 1500; // a long answer's first-sentence line, after the last word lands
     constexpr qint64 FreshThreadAfterMs = 10 * 60 * 1000; // a new thread after 10 idle minutes
     const QString Name = QStringLiteral("Pebble");
 
@@ -353,6 +354,7 @@ struct AssistantPanel::Private {
                 bool greeting = false;               // Answer: said on opening, not part of the talk yet
                 bool reacted = false;                // Answer: its face tag played
                 bool opens = false;                  // Answer: a greeting, which starts a turn of its own
+                qint64 doneAt = -1;                  // Answer: when its turn finished
                 qint64 pressedAt = -1;
         };
         struct Sees {
@@ -600,6 +602,12 @@ AssistantPanel::AssistantPanel() :
     connect(d->brain, &AssistantBrain::turnFinished, this, [this] {
         d->busy = false;
         if (d->turnSteps >= 0 && d->items[d->turnSteps].foldAt < 0) d->items[d->turnSteps].foldAt = d->now();
+        if (d->turnAnswer >= 0) {
+            Private::Item& answer = d->items[d->turnAnswer];
+            answer.doneAt = d->now();
+            // a long answer's line folds away once it's all there: keep drawing till then
+            if (!answer.wordBorn.isEmpty()) animateFor(int(qMax<qint64>(0, answer.wordBorn.last() - d->now())) + LineGoesAfterMs + 1500);
+        }
         if (d->turnAnswer >= 0) {
             static const QRegularExpression keyNumber(QStringLiteral("\\*\\*(\\d+)(%?)\\*\\*"));
             auto it = keyNumber.globalMatch(d->items[d->turnAnswer].text);
@@ -1353,6 +1361,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
     QList<qint64> lineBorn;
     QHash<QString, double> lineFrom;
     bool long_ = false;
+    double lineGone = 0;
     if (!answers.isEmpty()) {
         const Private::Item& first = d->items.at(answers.first());
         const QString plain = plainOf(parseAnswer(first.text).tokens, QStringLiteral("\n"));
@@ -1366,6 +1375,11 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
         }
         lineBorn = first.wordBorn;
         lineFrom = first.countFrom;
+        // once it's all there the Read card says it all: the line folds away
+        if (long_ && first.doneAt >= 0) {
+            const qint64 from = qMax(first.doneAt, first.wordBorn.isEmpty() ? first.doneAt : first.wordBorn.last()) + LineGoesAfterMs;
+            lineGone = c01(springAt(M3Motion::SpatialDefault, (d->now() - from) / 1000.0));
+        }
     }
 
     double y = 0;
@@ -1382,9 +1396,14 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
         p.restore();
         y += r.height() + 24;
     } else if (!line.isEmpty()) {
-        const double h = paintLiving(p, line, lineBorn, QPointF(0, y), W, LinePx, hit, hovered, lineFrom, true);
-        solid(QRectF(0, y, W, h)); // clicking the words doesn't close it
-        y += h + 22;
+        if (lineGone < 1) {
+            p.save();
+            p.setOpacity(p.opacity() * (1 - c01(lineGone * 1.6)));
+            const double h = paintLiving(p, line, lineBorn, QPointF(0, y - 12 * lineGone), W, LinePx, hit, hovered, lineFrom, true);
+            p.restore();
+            solid(QRectF(0, y, W, h)); // clicking the words doesn't close it
+            y += (h + 22) * (1 - lineGone);
+        }
     } else if (user >= 0 && d->busy && d->viewBack == 0) {
         const QFont f = flex(20, 450);
         const QRectF r = QFontMetricsF(f).boundingRect(QRectF(0, 0, W * 0.8, 1e6), Qt::AlignHCenter | Qt::TextWordWrap, d->items.at(user).text);
