@@ -54,6 +54,7 @@ class PowerManager : public QObject {
     signals:
         void powerOffConfirmationRequested(PowerOperation operation, QString message, QStringList flags, tPromiseFunctions<void>::SuccessFunction cb);
         void powerOffOperationCommencing(PowerOperation operation);
+        void lockedChanged(bool locked); // the lock screen came up or went away
 
     protected:
         friend EndSession;

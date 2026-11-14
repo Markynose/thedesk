@@ -171,6 +171,7 @@ void PowerManager::performPowerOperation(PowerManager::PowerOperation operation,
                 d->logindInterface->asyncCall("SetLockedHint", false);
 
                 d->lockScreenProcess->deleteLater();
+                emit lockedChanged(false);
             });
             connect(d->lockScreenProcess, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
                 if (error == QProcess::FailedToStart) {
@@ -184,6 +185,7 @@ void PowerManager::performPowerOperation(PowerManager::PowerOperation operation,
                     d->logindInterface->asyncCall("SetLockedHint", false);
 
                     d->lockScreenProcess->deleteLater();
+                    emit lockedChanged(false);
                 }
             });
 
@@ -192,6 +194,7 @@ void PowerManager::performPowerOperation(PowerManager::PowerOperation operation,
 
             // Tell logind that we're locked
             d->logindInterface->asyncCall("SetLockedHint", true);
+            emit lockedChanged(true);
             break;
         case PowerManager::SwitchUsers:
             {
