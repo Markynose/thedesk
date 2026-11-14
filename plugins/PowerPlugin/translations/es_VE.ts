@@ -94,32 +94,32 @@
 <context>
     <name>EventHandler</name>
     <message>
-        <location filename="../eventhandler.cpp" line="104"/>
+        <location filename="../eventhandler.cpp" line="105"/>
         <source>Unable to inhibit logind power management</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="127"/>
+        <location filename="../eventhandler.cpp" line="128"/>
         <source>Caffeinated</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="130"/>
+        <location filename="../eventhandler.cpp" line="131"/>
         <source>Caffeinate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="141"/>
+        <location filename="../eventhandler.cpp" line="142"/>
         <source>Decaffeinate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="159"/>
+        <location filename="../eventhandler.cpp" line="160"/>
         <source>Suspend</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../eventhandler.cpp" line="160"/>
+        <location filename="../eventhandler.cpp" line="161"/>
         <source>%n seconds</source>
         <translation type="unfinished">
             <numerusform></numerusform>
@@ -127,25 +127,25 @@
         </translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="247"/>
-        <location filename="../eventhandler.cpp" line="260"/>
+        <location filename="../eventhandler.cpp" line="257"/>
         <location filename="../eventhandler.cpp" line="270"/>
         <location filename="../eventhandler.cpp" line="280"/>
+        <location filename="../eventhandler.cpp" line="290"/>
         <source>Battery</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="261"/>
+        <location filename="../eventhandler.cpp" line="271"/>
         <source>Charging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="271"/>
+        <location filename="../eventhandler.cpp" line="281"/>
         <source>Full</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="281"/>
+        <location filename="../eventhandler.cpp" line="291"/>
         <source>Discharging</source>
         <translation type="unfinished"></translation>
     </message>
@@ -153,13 +153,63 @@
 <context>
     <name>Plugin</name>
     <message>
-        <location filename="../plugin.cpp" line="112"/>
+        <location filename="../plugin.cpp" line="92"/>
+        <source>%1 h %2 min</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../plugin.cpp" line="92"/>
+        <source>%1 min</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../plugin.cpp" line="97"/>
+        <source>Charging</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../plugin.cpp" line="97"/>
+        <source>Full</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../plugin.cpp" line="97"/>
+        <source>On battery</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../plugin.cpp" line="97"/>
+        <source>Plugged in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../plugin.cpp" line="98"/>
+        <source>Full in %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../plugin.cpp" line="98"/>
+        <source>%1 left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../plugin.cpp" line="124"/>
+        <source>Battery</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../plugin.cpp" line="124"/>
+        <source>Power settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../plugin.cpp" line="140"/>
+        <location filename="../plugin.cpp" line="152"/>
         <source>Power Stretch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../plugin.cpp" line="128"/>
+        <location filename="../plugin.cpp" line="156"/>
         <source>Disable Power Stretch</source>
         <translation type="unfinished"></translation>
     </message>
@@ -168,171 +218,207 @@
     <name>PowerSettings</name>
     <message>
         <location filename="../settings/powersettings.ui" line="35"/>
-        <location filename="../settings/powersettings.cpp" line="80"/>
+        <location filename="../settings/powersettings.cpp" line="110"/>
         <source>Power</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="83"/>
+        <location filename="../settings/powersettings.ui" line="90"/>
         <source>POWER PROFILE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="126"/>
+        <location filename="../settings/powersettings.ui" line="152"/>
         <source>Balanced</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="103"/>
+        <location filename="../settings/powersettings.ui" line="139"/>
         <source>Power Stretch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="116"/>
+        <location filename="../settings/powersettings.ui" line="181"/>
         <source>Reduce the performance of your device to save on power</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="149"/>
+        <location filename="../settings/powersettings.ui" line="165"/>
         <source>Performance</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="90"/>
+        <location filename="../settings/powersettings.ui" line="105"/>
         <source>A power profile tweaks the way your system runs in order to prioritise performance or reduce power consumption.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="139"/>
+        <location filename="../settings/powersettings.ui" line="194"/>
         <source>Performance and power consumption will be average</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="162"/>
+        <location filename="../settings/powersettings.ui" line="207"/>
         <source>Performance will be increased at the cost of power consumption</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="196"/>
+        <location filename="../settings/powersettings.ui" line="229"/>
         <source>TIMEOUTS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="209"/>
+        <location filename="../settings/powersettings.ui" line="251"/>
         <source>Switch off the screen after</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="226"/>
+        <location filename="../settings/powersettings.ui" line="241"/>
         <source>If you leave your device idle for a period of time, we can automatically turn off the screen or suspend it for you.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="237"/>
-        <location filename="../settings/powersettings.ui" line="278"/>
+        <location filename="../settings/powersettings.ui" line="264"/>
+        <location filename="../settings/powersettings.ui" line="321"/>
+        <source>Custom time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/powersettings.ui" line="285"/>
+        <location filename="../settings/powersettings.ui" line="342"/>
         <source>seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="242"/>
-        <location filename="../settings/powersettings.ui" line="283"/>
+        <location filename="../settings/powersettings.ui" line="290"/>
+        <location filename="../settings/powersettings.ui" line="347"/>
         <source>minutes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="247"/>
-        <location filename="../settings/powersettings.ui" line="288"/>
+        <location filename="../settings/powersettings.ui" line="295"/>
+        <location filename="../settings/powersettings.ui" line="352"/>
         <source>hours</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="252"/>
-        <location filename="../settings/powersettings.ui" line="293"/>
+        <location filename="../settings/powersettings.ui" line="300"/>
+        <location filename="../settings/powersettings.ui" line="357"/>
         <source>never</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="260"/>
+        <location filename="../settings/powersettings.ui" line="308"/>
         <source>Suspend after</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="326"/>
+        <location filename="../settings/powersettings.ui" line="386"/>
         <source>When pressing the Power button</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="346"/>
+        <location filename="../settings/powersettings.ui" line="403"/>
         <source>Ask</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="351"/>
+        <location filename="../settings/powersettings.ui" line="408"/>
         <source>Power Off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="356"/>
+        <location filename="../settings/powersettings.ui" line="413"/>
         <source>Reboot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="361"/>
+        <location filename="../settings/powersettings.ui" line="418"/>
         <source>Suspend</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="366"/>
+        <location filename="../settings/powersettings.ui" line="423"/>
         <source>Hibernate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="371"/>
+        <location filename="../settings/powersettings.ui" line="428"/>
         <source>Do Nothing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="379"/>
+        <location filename="../settings/powersettings.ui" line="436"/>
         <source>After suspending, lock the screen</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.ui" line="338"/>
+        <location filename="../settings/powersettings.ui" line="374"/>
         <source>BUTTONS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="147"/>
+        <location filename="../settings/powersettings.cpp" line="56"/>
+        <source>Never</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/powersettings.cpp" line="57"/>
+        <source>1 hour</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/powersettings.cpp" line="57"/>
+        <source>%1 hours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/powersettings.cpp" line="58"/>
+        <source>1 minute</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/powersettings.cpp" line="58"/>
+        <source>%1 minutes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/powersettings.cpp" line="60"/>
+        <source>Custom…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/powersettings.cpp" line="210"/>
         <source>Performance mode unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="148"/>
+        <location filename="../settings/powersettings.cpp" line="211"/>
         <source>unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="153"/>
+        <location filename="../settings/powersettings.cpp" line="216"/>
         <source>Performance mode temporarily unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="154"/>
+        <location filename="../settings/powersettings.cpp" line="217"/>
         <source>temporarily unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="165"/>
+        <location filename="../settings/powersettings.cpp" line="228"/>
         <source>Performance mode is %1 because the device is on your lap.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="166"/>
+        <location filename="../settings/powersettings.cpp" line="229"/>
         <source>Performance mode is %1 because your device is getting warm.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/powersettings.cpp" line="167"/>
+        <location filename="../settings/powersettings.cpp" line="230"/>
         <source>Performance mode is %1.</source>
         <translation type="unfinished"></translation>
     </message>

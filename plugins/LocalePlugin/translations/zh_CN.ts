@@ -10,62 +10,62 @@
         <translation>地区</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="107"/>
+        <location filename="../settings/localesettingspane.ui" line="108"/>
         <source>LANGUAGE</source>
         <translation>语言</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="114"/>
+        <location filename="../settings/localesettingspane.ui" line="115"/>
         <source>Prioritise the languages you&apos;d like to use on your device.</source>
         <translation>优先选择设备语言。</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="133"/>
+        <location filename="../settings/localesettingspane.ui" line="134"/>
         <source>Add Language</source>
         <translation>增加语言</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="277"/>
+        <location filename="../settings/localesettingspane.ui" line="266"/>
         <source>Currency</source>
         <translation>货币</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="221"/>
+        <location filename="../settings/localesettingspane.ui" line="210"/>
         <source>Time</source>
         <translation>时间</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="242"/>
+        <location filename="../settings/localesettingspane.ui" line="231"/>
         <source>Measurement</source>
         <translation>测量</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="263"/>
+        <location filename="../settings/localesettingspane.ui" line="252"/>
         <source>Country</source>
         <translation>国家</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="184"/>
+        <location filename="../settings/localesettingspane.ui" line="173"/>
         <source>Select your preferred regional formats</source>
         <translation>选择你的区域格式</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="177"/>
+        <location filename="../settings/localesettingspane.ui" line="166"/>
         <source>Numbers</source>
         <translation>数字</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="228"/>
+        <location filename="../settings/localesettingspane.ui" line="217"/>
         <source>First day of week</source>
         <translation>周的第一天</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="207"/>
+        <location filename="../settings/localesettingspane.ui" line="196"/>
         <source>REGION</source>
         <translation>地区</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="256"/>
+        <location filename="../settings/localesettingspane.ui" line="245"/>
         <source>Date</source>
         <translation>日期</translation>
     </message>

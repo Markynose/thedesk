@@ -10,62 +10,62 @@
         <translation>Limbă și regiune</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="107"/>
+        <location filename="../settings/localesettingspane.ui" line="108"/>
         <source>LANGUAGE</source>
         <translation>Limbă</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="114"/>
+        <location filename="../settings/localesettingspane.ui" line="115"/>
         <source>Prioritise the languages you&apos;d like to use on your device.</source>
         <translation>Ordonați limbile pe care le folosiți pe dispozitiv.</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="133"/>
+        <location filename="../settings/localesettingspane.ui" line="134"/>
         <source>Add Language</source>
         <translation>Adaugă o limbă</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="277"/>
+        <location filename="../settings/localesettingspane.ui" line="266"/>
         <source>Currency</source>
         <translation>Moneda</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="221"/>
+        <location filename="../settings/localesettingspane.ui" line="210"/>
         <source>Time</source>
         <translation>Ora</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="242"/>
+        <location filename="../settings/localesettingspane.ui" line="231"/>
         <source>Measurement</source>
         <translation>Sistemul de măsurători</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="263"/>
+        <location filename="../settings/localesettingspane.ui" line="252"/>
         <source>Country</source>
         <translation>Țară</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="184"/>
+        <location filename="../settings/localesettingspane.ui" line="173"/>
         <source>Select your preferred regional formats</source>
         <translation>Selectați formatele regionale pe care le folosiți</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="177"/>
+        <location filename="../settings/localesettingspane.ui" line="166"/>
         <source>Numbers</source>
         <translation>Numere</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="228"/>
+        <location filename="../settings/localesettingspane.ui" line="217"/>
         <source>First day of week</source>
         <translation>Prima zi din săptămână</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="207"/>
+        <location filename="../settings/localesettingspane.ui" line="196"/>
         <source>REGION</source>
         <translation>Regiune</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="256"/>
+        <location filename="../settings/localesettingspane.ui" line="245"/>
         <source>Date</source>
         <translation>Dată</translation>
     </message>

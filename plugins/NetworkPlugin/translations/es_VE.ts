@@ -840,26 +840,32 @@
 <context>
     <name>SwitchManager</name>
     <message>
-        <location filename="../switchmanager.cpp" line="63"/>
-        <location filename="../switchmanager.cpp" line="72"/>
-        <location filename="../switchmanager.cpp" line="122"/>
+        <location filename="../switchmanager.cpp" line="134"/>
+        <location filename="../switchmanager.cpp" line="143"/>
+        <location filename="../switchmanager.cpp" line="197"/>
         <source>Flight Mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../switchmanager.cpp" line="67"/>
+        <location filename="../switchmanager.cpp" line="138"/>
         <source>Switch off Flight Mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../switchmanager.cpp" line="78"/>
-        <location filename="../switchmanager.cpp" line="123"/>
+        <location filename="../switchmanager.cpp" line="57"/>
+        <location filename="../switchmanager.cpp" line="149"/>
+        <location filename="../switchmanager.cpp" line="198"/>
         <source>Wi-Fi</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../switchmanager.cpp" line="88"/>
-        <location filename="../switchmanager.cpp" line="124"/>
+        <location filename="../switchmanager.cpp" line="52"/>
+        <source>Internet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../switchmanager.cpp" line="162"/>
+        <location filename="../switchmanager.cpp" line="199"/>
         <source>Cellular</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1418,37 +1424,37 @@ You&apos;ll need to contact your carrier for a new SIM card.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="141"/>
+        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="145"/>
         <source>Unknown Security</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="142"/>
+        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="146"/>
         <source>Not sure how to connect to this network. Use manual setup to connect to it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="217"/>
+        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="221"/>
         <source>For network %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="218"/>
+        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="222"/>
         <source>Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="235"/>
+        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="239"/>
         <source>Forget Network</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="316"/>
+        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="320"/>
         <source>Wireless</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="319"/>
+        <location filename="../statusCenter/popovers/wirelessnetworkselectionpopover.cpp" line="323"/>
         <source>Connect</source>
         <translation type="unfinished"></translation>
     </message>

@@ -10,17 +10,17 @@
         <translation>Aplicații implicite</translation>
     </message>
     <message>
-        <location filename="../defaultspane.ui" line="54"/>
+        <location filename="../defaultspane.ui" line="56"/>
         <source>Web Browser</source>
         <translation>Browser web</translation>
     </message>
     <message>
-        <location filename="../defaultspane.ui" line="61"/>
+        <location filename="../defaultspane.ui" line="63"/>
         <source>Set your default apps below</source>
         <translation>Configurați aplicațiile implicite aici</translation>
     </message>
     <message>
-        <location filename="../defaultspane.ui" line="68"/>
+        <location filename="../defaultspane.ui" line="71"/>
         <source>Mail Client</source>
         <translation>Client de mail</translation>
     </message>

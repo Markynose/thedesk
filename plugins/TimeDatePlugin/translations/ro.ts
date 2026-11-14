@@ -10,27 +10,27 @@
         <translation>Ora și data</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="83"/>
+        <location filename="../settings/datetimepane.ui" line="84"/>
         <source>ACTIONS</source>
         <translation>ACȚIUNI</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="107"/>
+        <location filename="../settings/datetimepane.ui" line="108"/>
         <source>Change Date and Time</source>
         <translation>Schimbați ora și data</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="114"/>
+        <location filename="../settings/datetimepane.ui" line="115"/>
         <source>Change Timezone</source>
         <translation>Schimbați fusul orar</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="142"/>
+        <location filename="../settings/datetimepane.ui" line="132"/>
         <source>Synchronise clock with the Internet</source>
         <translation>Sincronizați ceasul cu internetul</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="161"/>
+        <location filename="../settings/datetimepane.ui" line="151"/>
         <source>TIME SYNCHRONISATION</source>
         <translation>SINCRONIZAREA CEASULUI</translation>
     </message>

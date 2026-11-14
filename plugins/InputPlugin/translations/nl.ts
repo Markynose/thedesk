@@ -38,7 +38,17 @@
 <context>
     <name>KeyboardLayoutChunk</name>
     <message>
-        <location filename="../chunks/keyboardlayoutchunk.cpp" line="127"/>
+        <location filename="../chunks/keyboardlayoutchunk.cpp" line="85"/>
+        <source>Caps Lock switches to the next layout. Shift + Caps Lock types in capitals.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../chunks/keyboardlayoutchunk.cpp" line="85"/>
+        <source>Layouts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../chunks/keyboardlayoutchunk.cpp" line="136"/>
         <source>Select Keyboard Layout</source>
         <translation>Toetsenbordindeling Selecteren</translation>
     </message>
@@ -51,17 +61,17 @@
         <translation>Toetsenbord</translation>
     </message>
     <message>
-        <location filename="../settings/keyboardsettings.ui" line="106"/>
+        <location filename="../settings/keyboardsettings.ui" line="107"/>
         <source>LAYOUTS</source>
         <translation>INDELINGEN</translation>
     </message>
     <message>
-        <location filename="../settings/keyboardsettings.ui" line="113"/>
+        <location filename="../settings/keyboardsettings.ui" line="114"/>
         <source>Prioritise the keyboard layouts you&apos;d like to use on your device. You can switch between keyboard layouts with SUPER+Space</source>
         <translation>Geef de toetsenbordindelingen die je op je apparaat wil gebruiken prioriteit. Je kunt tussen indelingen wisselen met SUPER+Spatie</translation>
     </message>
     <message>
-        <location filename="../settings/keyboardsettings.ui" line="135"/>
+        <location filename="../settings/keyboardsettings.ui" line="136"/>
         <source>Add Layout</source>
         <translation>Indeling Toevoegen</translation>
     </message>
@@ -94,52 +104,52 @@
         <translation>Muis en Touchpad</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="105"/>
+        <location filename="../settings/mousesettings.ui" line="106"/>
         <source>CLICKING</source>
         <translation>KLIKKEN</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="117"/>
+        <location filename="../settings/mousesettings.ui" line="118"/>
         <source>Left</source>
         <translation>Links</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="130"/>
+        <location filename="../settings/mousesettings.ui" line="131"/>
         <source>Right</source>
         <translation>Rechts</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="151"/>
+        <location filename="../settings/mousesettings.ui" line="153"/>
         <source>Primary Button</source>
         <translation>Primaire Knop</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="158"/>
+        <location filename="../settings/mousesettings.ui" line="161"/>
         <source>Tap to Click</source>
         <translation>Aanraken om te Klikken</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="204"/>
+        <location filename="../settings/mousesettings.ui" line="196"/>
         <source>Natural Scrolling</source>
         <translation>Natuurlijk Scrollen</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="216"/>
+        <location filename="../settings/mousesettings.ui" line="208"/>
         <source>SCROLLING</source>
         <translation>SCROLLEN</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="226"/>
+        <location filename="../settings/mousesettings.ui" line="218"/>
         <source>Reverse the direction that you scroll in so that the content moves in the same direction as your fingers.</source>
         <translation>Draai de richting waarin je scrolt om, zodat de inhoud dezelfde kant op beweegt als je vingers.</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="278"/>
+        <location filename="../settings/mousesettings.ui" line="270"/>
         <source>Settings Unavailable</source>
         <translation>Instellingen Niet Beschikbaar</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="288"/>
+        <location filename="../settings/mousesettings.ui" line="280"/>
         <source>Mouse settings can&apos;t be changed on this platform.</source>
         <translation>Muisinstellingen kunnen niet worden aangepast om dit platform.</translation>
     </message>

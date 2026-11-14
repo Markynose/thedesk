@@ -10,62 +10,62 @@
         <translation>Ngôn Ngữ và Lãnh Thổ</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="107"/>
+        <location filename="../settings/localesettingspane.ui" line="108"/>
         <source>LANGUAGE</source>
         <translation>NGÔN NGỮ</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="114"/>
+        <location filename="../settings/localesettingspane.ui" line="115"/>
         <source>Prioritise the languages you&apos;d like to use on your device.</source>
         <translation>Đặt ưu tiên cho ngôn ngữ bạn muốn sử dụng trên thiết bị này.</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="133"/>
+        <location filename="../settings/localesettingspane.ui" line="134"/>
         <source>Add Language</source>
         <translation>Thêm ngôn ngữ</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="277"/>
+        <location filename="../settings/localesettingspane.ui" line="266"/>
         <source>Currency</source>
         <translation>Tiền tệ</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="221"/>
+        <location filename="../settings/localesettingspane.ui" line="210"/>
         <source>Time</source>
         <translation>Thời gian</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="242"/>
+        <location filename="../settings/localesettingspane.ui" line="231"/>
         <source>Measurement</source>
         <translation>Hệ đo lường</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="263"/>
+        <location filename="../settings/localesettingspane.ui" line="252"/>
         <source>Country</source>
         <translation>Quốc gia</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="184"/>
+        <location filename="../settings/localesettingspane.ui" line="173"/>
         <source>Select your preferred regional formats</source>
         <translation>Chọn định dạng lãnh thổ của bạn</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="177"/>
+        <location filename="../settings/localesettingspane.ui" line="166"/>
         <source>Numbers</source>
         <translation>Cách ghi số</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="228"/>
+        <location filename="../settings/localesettingspane.ui" line="217"/>
         <source>First day of week</source>
         <translation>Ngày đầu tuần</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="207"/>
+        <location filename="../settings/localesettingspane.ui" line="196"/>
         <source>REGION</source>
         <translation>LÃNH THỔ</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="256"/>
+        <location filename="../settings/localesettingspane.ui" line="245"/>
         <source>Date</source>
         <translation>Ngày và tháng</translation>
     </message>

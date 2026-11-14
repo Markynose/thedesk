@@ -10,27 +10,27 @@
         <translation>Datum en Tijd</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="83"/>
+        <location filename="../settings/datetimepane.ui" line="84"/>
         <source>ACTIONS</source>
         <translation>ACTIES</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="107"/>
+        <location filename="../settings/datetimepane.ui" line="108"/>
         <source>Change Date and Time</source>
         <translation>Datum en Tijd Wijzigen</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="114"/>
+        <location filename="../settings/datetimepane.ui" line="115"/>
         <source>Change Timezone</source>
         <translation>Tijdzone Wijzigen</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="142"/>
+        <location filename="../settings/datetimepane.ui" line="132"/>
         <source>Synchronise clock with the Internet</source>
         <translation>Klok met het Internet synchroniseren</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="161"/>
+        <location filename="../settings/datetimepane.ui" line="151"/>
         <source>TIME SYNCHRONISATION</source>
         <translation>TIJDSYNCHRONISATIE</translation>
     </message>

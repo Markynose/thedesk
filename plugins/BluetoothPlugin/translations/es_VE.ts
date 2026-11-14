@@ -148,57 +148,57 @@
     <message>
         <location filename="../settings/bluetoothsettingspane.ui" line="35"/>
         <location filename="../settings/bluetoothsettingspane.cpp" line="87"/>
-        <location filename="../settings/bluetoothsettingspane.cpp" line="192"/>
+        <location filename="../settings/bluetoothsettingspane.cpp" line="193"/>
         <source>Bluetooth</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.ui" line="106"/>
+        <location filename="../settings/bluetoothsettingspane.ui" line="107"/>
         <source>ACTIONS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.ui" line="113"/>
+        <location filename="../settings/bluetoothsettingspane.ui" line="114"/>
         <source>Pair New Device</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.ui" line="139"/>
+        <location filename="../settings/bluetoothsettingspane.ui" line="129"/>
         <source>Visible to other devices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.ui" line="166"/>
+        <location filename="../settings/bluetoothsettingspane.ui" line="156"/>
         <source>DISCOVERABILITY</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.ui" line="213"/>
+        <location filename="../settings/bluetoothsettingspane.ui" line="191"/>
         <source>DEVICES</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.ui" line="272"/>
+        <location filename="../settings/bluetoothsettingspane.ui" line="250"/>
         <source>Bluetooth is unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.ui" line="295"/>
+        <location filename="../settings/bluetoothsettingspane.ui" line="273"/>
         <source>Install a Bluetooth card to use Bluetooth</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.ui" line="340"/>
+        <location filename="../settings/bluetoothsettingspane.ui" line="318"/>
         <source>Bluetooth is disabled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.ui" line="363"/>
+        <location filename="../settings/bluetoothsettingspane.ui" line="341"/>
         <source>Switch Bluetooth on to connect to Bluetooth devices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.ui" line="373"/>
+        <location filename="../settings/bluetoothsettingspane.ui" line="351"/>
         <source>Enable Bluetooth</source>
         <translation type="unfinished"></translation>
     </message>
@@ -208,7 +208,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../settings/bluetoothsettingspane.cpp" line="130"/>
+        <location filename="../settings/bluetoothsettingspane.cpp" line="131"/>
         <source>To pair with this device, look for %1 on the other device.</source>
         <translation type="unfinished"></translation>
     </message>

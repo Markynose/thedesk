@@ -143,15 +143,25 @@
 <context>
     <name>PenButton</name>
     <message>
-        <location filename="../dialogs/penbutton.cpp" line="54"/>
+        <location filename="../dialogs/penbutton.cpp" line="56"/>
         <source>Erase-o</source>
         <comment>This and the next translation span two lines. Be spiffy with these!</comment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/penbutton.cpp" line="55"/>
+        <location filename="../dialogs/penbutton.cpp" line="57"/>
         <source>matic 2000</source>
         <comment>This and the previous translation span two lines. Be spiffy with these!</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../dialogs/penbutton.cpp" line="76"/>
+        <source>Pen</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../dialogs/penbutton.cpp" line="76"/>
+        <source>Eraser</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -178,27 +188,32 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/screenshotwindow.cpp" line="77"/>
+        <location filename="../dialogs/screenshotwindow.cpp" line="99"/>
         <source>Record</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/screenshotwindow.cpp" line="258"/>
+        <location filename="../dialogs/screenshotwindow.cpp" line="102"/>
+        <source>Ask Pebble about it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../dialogs/screenshotwindow.cpp" line="321"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/screenshotwindow.cpp" line="259"/>
+        <location filename="../dialogs/screenshotwindow.cpp" line="322"/>
         <source>Share Screenshot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/screenshotwindow.cpp" line="269"/>
+        <location filename="../dialogs/screenshotwindow.cpp" line="332"/>
         <source>Discard</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/screenshotwindow.cpp" line="270"/>
+        <location filename="../dialogs/screenshotwindow.cpp" line="333"/>
         <source>Copy</source>
         <translation type="unfinished"></translation>
     </message>

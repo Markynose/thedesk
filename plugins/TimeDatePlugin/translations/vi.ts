@@ -10,27 +10,27 @@
         <translation>Ngày và giờ</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="83"/>
+        <location filename="../settings/datetimepane.ui" line="84"/>
         <source>ACTIONS</source>
         <translation>HOẠT ĐỘNG</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="107"/>
+        <location filename="../settings/datetimepane.ui" line="108"/>
         <source>Change Date and Time</source>
         <translation>Thay đổi ngày và giờ</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="114"/>
+        <location filename="../settings/datetimepane.ui" line="115"/>
         <source>Change Timezone</source>
         <translation>Thay đổi múi giờ</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="142"/>
+        <location filename="../settings/datetimepane.ui" line="132"/>
         <source>Synchronise clock with the Internet</source>
         <translation>Đồng bộ đồng hồ với Internet</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="161"/>
+        <location filename="../settings/datetimepane.ui" line="151"/>
         <source>TIME SYNCHRONISATION</source>
         <translation>ĐỒNG BỘ ĐỒNG HỒ</translation>
     </message>

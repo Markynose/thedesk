@@ -10,62 +10,62 @@
         <translation>Yerel</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="107"/>
+        <location filename="../settings/localesettingspane.ui" line="108"/>
         <source>LANGUAGE</source>
         <translation>DİL</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="114"/>
+        <location filename="../settings/localesettingspane.ui" line="115"/>
         <source>Prioritise the languages you&apos;d like to use on your device.</source>
         <translation>Cihazınızda kullanmak istediğiniz dillere öncelik verin.</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="133"/>
+        <location filename="../settings/localesettingspane.ui" line="134"/>
         <source>Add Language</source>
         <translation>Dil Ekle</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="277"/>
+        <location filename="../settings/localesettingspane.ui" line="266"/>
         <source>Currency</source>
         <translation>Para birimi</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="221"/>
+        <location filename="../settings/localesettingspane.ui" line="210"/>
         <source>Time</source>
         <translation>Zaman</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="242"/>
+        <location filename="../settings/localesettingspane.ui" line="231"/>
         <source>Measurement</source>
         <translation>Ölçüm</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="263"/>
+        <location filename="../settings/localesettingspane.ui" line="252"/>
         <source>Country</source>
         <translation>Ülke</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="184"/>
+        <location filename="../settings/localesettingspane.ui" line="173"/>
         <source>Select your preferred regional formats</source>
         <translation>Tercih ettiğiniz bölgesel biçimleri seçin</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="177"/>
+        <location filename="../settings/localesettingspane.ui" line="166"/>
         <source>Numbers</source>
         <translation>Sayılar</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="228"/>
+        <location filename="../settings/localesettingspane.ui" line="217"/>
         <source>First day of week</source>
         <translation>Haftanın ilk günü</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="207"/>
+        <location filename="../settings/localesettingspane.ui" line="196"/>
         <source>REGION</source>
         <translation>BÖLGE</translation>
     </message>
     <message>
-        <location filename="../settings/localesettingspane.ui" line="256"/>
+        <location filename="../settings/localesettingspane.ui" line="245"/>
         <source>Date</source>
         <translation>Tarih</translation>
     </message>

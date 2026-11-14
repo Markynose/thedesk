@@ -15,41 +15,74 @@
         <source>APPLICATIONS</source>
         <translation type="vanished">APLICAȚII</translation>
     </message>
+    <message>
+        <location filename="../audioquickwidget.cpp" line="108"/>
+        <source>Volume</source>
+        <translation type="unfinished">Volum</translation>
+    </message>
+    <message>
+        <location filename="../audioquickwidget.cpp" line="199"/>
+        <source>No Audio Devices</source>
+        <translation type="unfinished">Niciun dispozitiv audio conectat</translation>
+    </message>
+    <message>
+        <location filename="../audioquickwidget.cpp" line="205"/>
+        <source>Playing on %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>Common</name>
+    <message>
+        <location filename="../common.cpp" line="78"/>
+        <source>Speakers</source>
+        <translation type="unfinished">Boxe</translation>
+    </message>
+    <message>
+        <location filename="../common.cpp" line="80"/>
+        <source>Headphones</source>
+        <translation type="unfinished">Căști</translation>
+    </message>
+    <message>
+        <location filename="../common.cpp" line="82"/>
+        <source>Line Out</source>
+        <translation type="unfinished">Mufă căști/boxe</translation>
+    </message>
 </context>
 <context>
     <name>EventHandler</name>
     <message>
-        <location filename="../eventhandler.cpp" line="100"/>
+        <location filename="../eventhandler.cpp" line="101"/>
         <source>No Audio Devices</source>
         <translation>Niciun dispozitiv audio conectat</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="174"/>
+        <location filename="../eventhandler.cpp" line="179"/>
         <source>Speakers</source>
         <translation>Boxe</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="178"/>
+        <location filename="../eventhandler.cpp" line="183"/>
         <source>Headphones</source>
         <translation>Căști</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="190"/>
+        <location filename="../eventhandler.cpp" line="195"/>
         <source>Volume</source>
         <translation>Volum</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="157"/>
+        <location filename="../eventhandler.cpp" line="158"/>
         <source>Mute</source>
         <translation>Mut</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="158"/>
+        <location filename="../eventhandler.cpp" line="159"/>
         <source>Unmute Quiet Mode before changing the volume</source>
         <translation>Dezactivați modul silențios înainte de a schimba volumul</translation>
     </message>
     <message>
-        <location filename="../eventhandler.cpp" line="182"/>
+        <location filename="../eventhandler.cpp" line="187"/>
         <source>Line Out</source>
         <translation type="unfinished">Mufă căști/boxe</translation>
     </message>
@@ -69,12 +102,12 @@
 <context>
     <name>Plugin</name>
     <message>
-        <location filename="../plugin.cpp" line="85"/>
+        <location filename="../plugin.cpp" line="89"/>
         <source>Volume</source>
         <translation type="unfinished">Volum</translation>
     </message>
     <message>
-        <location filename="../plugin.cpp" line="113"/>
+        <location filename="../plugin.cpp" line="117"/>
         <source>Mute</source>
         <translation type="unfinished">Mut</translation>
     </message>
@@ -93,9 +126,22 @@
 <context>
     <name>QuickWidgetSinkInput</name>
     <message>
-        <location filename="../quickwidgetsinkinput.cpp" line="65"/>
+        <location filename="../quickwidgetsinkinput.cpp" line="68"/>
         <source>Play on</source>
         <translation>Redă pe</translation>
+    </message>
+    <message>
+        <location filename="../quickwidgetsinkinput.cpp" line="129"/>
+        <source>on %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>VolumeColumn</name>
+    <message>
+        <location filename="../volumecolumn.cpp" line="148"/>
+        <source>Muted</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

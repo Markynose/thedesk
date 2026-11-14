@@ -10,32 +10,32 @@
         <translation>Toegankelijkheid</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="84"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="86"/>
         <source>Sticky Keys</source>
         <translation>Plaktoetsen</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="104"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="106"/>
         <source>TYPING</source>
         <translation>TYPEN</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="114"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="116"/>
         <source>Allows you to press modifier keys sequentially</source>
         <translation>Laat je speciale toetsen achter elkaar indrukken</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="149"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="139"/>
         <source>POINTING</source>
         <translation>AANWIJZEN</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="163"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="154"/>
         <source>Mouse Keys</source>
         <translation>Muistoetsen</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="173"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="164"/>
         <source>Allows you to move the cursor using the number pad</source>
         <translation>Laat je de cursor bewegen met het nummerieke toetsenbord</translation>
     </message>

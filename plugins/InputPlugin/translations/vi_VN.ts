@@ -38,7 +38,17 @@
 <context>
     <name>KeyboardLayoutChunk</name>
     <message>
-        <location filename="../chunks/keyboardlayoutchunk.cpp" line="127"/>
+        <location filename="../chunks/keyboardlayoutchunk.cpp" line="85"/>
+        <source>Caps Lock switches to the next layout. Shift + Caps Lock types in capitals.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../chunks/keyboardlayoutchunk.cpp" line="85"/>
+        <source>Layouts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../chunks/keyboardlayoutchunk.cpp" line="136"/>
         <source>Select Keyboard Layout</source>
         <translation>Chọn bố cục bàn phím</translation>
     </message>
@@ -51,17 +61,17 @@
         <translation>Bàn phím</translation>
     </message>
     <message>
-        <location filename="../settings/keyboardsettings.ui" line="106"/>
+        <location filename="../settings/keyboardsettings.ui" line="107"/>
         <source>LAYOUTS</source>
         <translation>BỐ CỤC</translation>
     </message>
     <message>
-        <location filename="../settings/keyboardsettings.ui" line="113"/>
+        <location filename="../settings/keyboardsettings.ui" line="114"/>
         <source>Prioritise the keyboard layouts you&apos;d like to use on your device. You can switch between keyboard layouts with SUPER+Space</source>
         <translation>Ưu tiên các bố cục bàn phím bạn muốn sử dụng trên thiết bị này. Bạn có thể đổi sang các bố cục với SUPER+Dấu cách</translation>
     </message>
     <message>
-        <location filename="../settings/keyboardsettings.ui" line="135"/>
+        <location filename="../settings/keyboardsettings.ui" line="136"/>
         <source>Add Layout</source>
         <translation>Thêm bố cục</translation>
     </message>
@@ -94,52 +104,52 @@
         <translation>Chuột và bàn di chuột</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="105"/>
+        <location filename="../settings/mousesettings.ui" line="106"/>
         <source>CLICKING</source>
         <translation>NHẤP</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="117"/>
+        <location filename="../settings/mousesettings.ui" line="118"/>
         <source>Left</source>
         <translation>Bên phải</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="130"/>
+        <location filename="../settings/mousesettings.ui" line="131"/>
         <source>Right</source>
         <translation>Bên trái</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="151"/>
+        <location filename="../settings/mousesettings.ui" line="153"/>
         <source>Primary Button</source>
         <translation>Nút chính</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="158"/>
+        <location filename="../settings/mousesettings.ui" line="161"/>
         <source>Tap to Click</source>
         <translation>Chạm để nhấn</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="204"/>
+        <location filename="../settings/mousesettings.ui" line="196"/>
         <source>Natural Scrolling</source>
         <translation>Cuộn tự nhiên</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="216"/>
+        <location filename="../settings/mousesettings.ui" line="208"/>
         <source>SCROLLING</source>
         <translation>CUỘN</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="226"/>
+        <location filename="../settings/mousesettings.ui" line="218"/>
         <source>Reverse the direction that you scroll in so that the content moves in the same direction as your fingers.</source>
         <translation>Đảo ngược hướng cuộn để cho nội dung di chuyển theo hướng ngón tay của bạn.</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="278"/>
+        <location filename="../settings/mousesettings.ui" line="270"/>
         <source>Settings Unavailable</source>
         <translation>Cài đặt không có sẵn</translation>
     </message>
     <message>
-        <location filename="../settings/mousesettings.ui" line="288"/>
+        <location filename="../settings/mousesettings.ui" line="280"/>
         <source>Mouse settings can&apos;t be changed on this platform.</source>
         <translation>Cài đặt chuột không có thể bị đặt trên nền tảng này.</translation>
     </message>

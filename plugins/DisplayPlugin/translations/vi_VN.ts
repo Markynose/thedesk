@@ -116,98 +116,108 @@
     <name>DisplaySettings</name>
     <message>
         <location filename="../settings/displaysettings.ui" line="35"/>
-        <location filename="../settings/displaysettings.cpp" line="121"/>
+        <location filename="../settings/displaysettings.cpp" line="176"/>
         <source>Displays</source>
         <translation>Màn hình</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="229"/>
+        <location filename="../settings/displaysettings.ui" line="207"/>
         <source>REDSHIFT</source>
         <translation>REDSHIFT</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="236"/>
+        <location filename="../settings/displaysettings.ui" line="214"/>
         <source>Redshift blocks blue light so that you can sleep better at night</source>
         <translation>Redshift chặn ánh sáng màu lam để cho bạn ngủ ngon hơn vào ban đêm</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="216"/>
+        <location filename="../settings/displaysettings.ui" line="194"/>
         <source>Schedule Redshift</source>
         <translation>Lên lịch Redshift</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="252"/>
+        <location filename="../settings/displaysettings.ui" line="230"/>
         <source>Intensity</source>
         <translation>Cường độ</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="302"/>
+        <location filename="../settings/displaysettings.ui" line="280"/>
         <source>Follow Sunlight Cycle</source>
         <translation>Theo mặt trời</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="330"/>
+        <location filename="../settings/displaysettings.ui" line="308"/>
         <source>Start at</source>
         <translation>Bật</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="337"/>
+        <location filename="../settings/displaysettings.ui" line="315"/>
         <source>End at</source>
         <translation>Tắt</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="84"/>
+        <location filename="../settings/displaysettings.ui" line="85"/>
         <source>SCREENS</source>
         <translation>MÀN HÌNH</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="91"/>
+        <location filename="../settings/displaysettings.ui" line="92"/>
         <source>Change the resolution of your display and arrange your displays</source>
         <translation>Đổi độ phân giải và sắp xếp màn hình của bạn</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="101"/>
+        <location filename="../settings/displaysettings.ui" line="99"/>
         <source>Arrange and Resize Displays</source>
         <translation>Điều chỉnh màn hình</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="356"/>
+        <location filename="../settings/displaysettings.ui" line="334"/>
         <source>Your physical location will be sent to MET Norway to determine sunrise and sunset times.</source>
         <translation>Vị trí thực của bạn sẽ bị gửi đến MET Norway để xác định thời gian mặt trời mọc và lặn.</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="146"/>
+        <location filename="../settings/displaysettings.ui" line="135"/>
         <source>SCALING</source>
         <translation>TỶ LỆ PHÓNG TO</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="153"/>
+        <location filename="../settings/displaysettings.ui" line="142"/>
         <source>If items on the screen are too small, you can scale them up to make them easier to see.</source>
         <translation>Nếu mục trên màn hình quá nhỏ, bạn có thể phóng to các mục để cho bạn xem dễ hơn.</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="163"/>
+        <location filename="../settings/displaysettings.ui" line="152"/>
         <source>100% (96 DPI)</source>
         <translation>100% (96 DPI)</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="170"/>
+        <location filename="../settings/displaysettings.ui" line="159"/>
         <source>125% (120 DPI)</source>
         <translation>125% (120 DPI)</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="177"/>
+        <location filename="../settings/displaysettings.ui" line="166"/>
         <source>150% (144 DPI)</source>
         <translation>150% (144 DPI)</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.ui" line="184"/>
+        <location filename="../settings/displaysettings.ui" line="173"/>
         <source>200% (192 DPI)</source>
         <translation>200% (192 DPI)</translation>
     </message>
     <message>
-        <location filename="../settings/displaysettings.cpp" line="55"/>
+        <location filename="../settings/displaysettings.cpp" line="107"/>
         <source>Choose How to Use Displays</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/displaysettings.cpp" line="133"/>
+        <source>Redshift starts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../settings/displaysettings.cpp" line="134"/>
+        <source>Redshift ends</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -312,6 +322,14 @@
     <message>
         <location filename="../plugin.cpp" line="83"/>
         <source>No other display is connected</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>QObject</name>
+    <message>
+        <location filename="../settings/displaysettings.cpp" line="67"/>
+        <source>Done</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

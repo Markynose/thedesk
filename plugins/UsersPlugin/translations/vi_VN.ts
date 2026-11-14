@@ -575,32 +575,32 @@
         <translation>Chọn một người dùng để bắt đầu</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="288"/>
+        <location filename="../settings/userspane.ui" line="289"/>
         <source>ACTIONS</source>
         <translation>HOẠT ĐỘNG</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="298"/>
+        <location filename="../settings/userspane.ui" line="299"/>
         <source>Change Real Name</source>
         <translation>Đổi họ và tên</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="305"/>
+        <location filename="../settings/userspane.ui" line="306"/>
         <source>Change Password</source>
         <translation>Đổi mật khẩu</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="312"/>
+        <location filename="../settings/userspane.ui" line="313"/>
         <source>Change User Type</source>
         <translation>Đổi kiểu tài khoản</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="359"/>
+        <location filename="../settings/userspane.ui" line="348"/>
         <source>DANGER</source>
         <translation>NGUY HIỂM</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="376"/>
+        <location filename="../settings/userspane.ui" line="365"/>
         <source>Delete User</source>
         <translation>Xóa người dùng</translation>
     </message>

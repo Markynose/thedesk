@@ -10,27 +10,27 @@
         <translation>Tarih ve Saat</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="83"/>
+        <location filename="../settings/datetimepane.ui" line="84"/>
         <source>ACTIONS</source>
         <translation>HAREKETLER</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="107"/>
+        <location filename="../settings/datetimepane.ui" line="108"/>
         <source>Change Date and Time</source>
         <translation>Tarih ve saati değiştir</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="114"/>
+        <location filename="../settings/datetimepane.ui" line="115"/>
         <source>Change Timezone</source>
         <translation>Saat Dilimini Değiştir</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="142"/>
+        <location filename="../settings/datetimepane.ui" line="132"/>
         <source>Synchronise clock with the Internet</source>
         <translation>Saati İnternet ile senkronize etmeye başlayın</translation>
     </message>
     <message>
-        <location filename="../settings/datetimepane.ui" line="161"/>
+        <location filename="../settings/datetimepane.ui" line="151"/>
         <source>TIME SYNCHRONISATION</source>
         <translation>ZAMAN SENKRONİZASYONU</translation>
     </message>

@@ -10,32 +10,32 @@
         <translation>Khả năng</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="84"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="86"/>
         <source>Sticky Keys</source>
         <translation>Phím dính</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="104"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="106"/>
         <source>TYPING</source>
         <translation>ĐÁNH MÁY</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="114"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="116"/>
         <source>Allows you to press modifier keys sequentially</source>
         <translation>Cho phép bạn nhấn các phím bổ trợ liên tục thay vì song song</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="149"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="139"/>
         <source>POINTING</source>
         <translation>CHỈ TRỎ</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="163"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="154"/>
         <source>Mouse Keys</source>
         <translation>Phím chuột</translation>
     </message>
     <message>
-        <location filename="../settings/accessibilitysettingspane.ui" line="173"/>
+        <location filename="../settings/accessibilitysettingspane.ui" line="164"/>
         <source>Allows you to move the cursor using the number pad</source>
         <translation>Cho phép bạn di chuyển con trỏ bằng bàn phím số</translation>
     </message>

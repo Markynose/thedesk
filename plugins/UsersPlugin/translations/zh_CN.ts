@@ -575,32 +575,32 @@
         <translation>选择一个用户开始</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="288"/>
+        <location filename="../settings/userspane.ui" line="289"/>
         <source>ACTIONS</source>
         <translation>行动</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="298"/>
+        <location filename="../settings/userspane.ui" line="299"/>
         <source>Change Real Name</source>
         <translation>更改真实姓名</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="305"/>
+        <location filename="../settings/userspane.ui" line="306"/>
         <source>Change Password</source>
         <translation>更改密码</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="312"/>
+        <location filename="../settings/userspane.ui" line="313"/>
         <source>Change User Type</source>
         <translation>变更使用者类型</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="359"/>
+        <location filename="../settings/userspane.ui" line="348"/>
         <source>DANGER</source>
         <translation>危险</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="376"/>
+        <location filename="../settings/userspane.ui" line="365"/>
         <source>Delete User</source>
         <translation>删除用户</translation>
     </message>

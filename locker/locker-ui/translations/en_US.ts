@@ -4,17 +4,17 @@
 <context>
     <name>ClaudeLockChip</name>
     <message>
-        <location filename="../claudelockchip.cpp" line="114"/>
+        <location filename="../claudelockchip.cpp" line="115"/>
         <source>Claude needs you</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../claudelockchip.cpp" line="114"/>
+        <location filename="../claudelockchip.cpp" line="115"/>
         <source>Claude is working</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../claudelockchip.cpp" line="114"/>
+        <location filename="../claudelockchip.cpp" line="115"/>
         <source>Claude is done</source>
         <translation type="unfinished"></translation>
     </message>

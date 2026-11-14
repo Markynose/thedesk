@@ -575,32 +575,32 @@
         <translation>Kies een gebruiker om te beginnen</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="288"/>
+        <location filename="../settings/userspane.ui" line="289"/>
         <source>ACTIONS</source>
         <translation>ACTIES</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="298"/>
+        <location filename="../settings/userspane.ui" line="299"/>
         <source>Change Real Name</source>
         <translation>Echte Naam Wijzigen</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="305"/>
+        <location filename="../settings/userspane.ui" line="306"/>
         <source>Change Password</source>
         <translation>Wachtwoord Wijzigen</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="312"/>
+        <location filename="../settings/userspane.ui" line="313"/>
         <source>Change User Type</source>
         <translation>Gebruikerstype Wijzigen</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="359"/>
+        <location filename="../settings/userspane.ui" line="348"/>
         <source>DANGER</source>
         <translation>GEVAAR</translation>
     </message>
     <message>
-        <location filename="../settings/userspane.ui" line="376"/>
+        <location filename="../settings/userspane.ui" line="365"/>
         <source>Delete User</source>
         <translation>Gebruiker Verwijderen</translation>
     </message>
