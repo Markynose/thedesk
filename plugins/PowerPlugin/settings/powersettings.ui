@@ -72,15 +72,30 @@
        <item alignment="Qt::AlignHCenter">
         <widget class="QWidget" name="powerProfileWidget" native="true">
          <layout class="QVBoxLayout" name="verticalLayout_3">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>4</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>12</number>
+          </property>
           <item>
            <widget class="QLabel" name="label_7">
+            <property name="text">
+             <string>POWER PROFILE</string>
+            </property>
             <property name="font">
              <font>
               <bold>true</bold>
              </font>
             </property>
-            <property name="text">
-             <string>POWER PROFILE</string>
+            <property name="indent">
+             <number>16</number>
             </property>
            </widget>
           </item>
@@ -92,131 +107,131 @@
             <property name="wordWrap">
              <bool>true</bool>
             </property>
+            <property name="indent">
+             <number>16</number>
+            </property>
            </widget>
           </item>
           <item>
            <widget class="tStatusFrame" name="performanceInhibition"/>
           </item>
           <item>
-           <widget class="QRadioButton" name="powerStretchProfileButton">
-            <property name="text">
-             <string>Power Stretch</string>
+           <widget class="QWidget" name="profilesGroup" native="true">
+            <property name="m3ButtonGroup" stdset="0">
+             <string notr="true">connected</string>
             </property>
-            <attribute name="buttonGroup">
-             <string notr="true">powerProfilesGroup</string>
-            </attribute>
+            <layout class="QHBoxLayout" name="profilesLayout">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QPushButton" name="powerStretchProfileButton">
+               <property name="text">
+                <string>Power Stretch</string>
+               </property>
+               <property name="checkable">
+                <bool>true</bool>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">powerProfilesGroup</string>
+               </attribute>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="balancedProfileButton">
+               <property name="text">
+                <string>Balanced</string>
+               </property>
+               <property name="checkable">
+                <bool>true</bool>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">powerProfilesGroup</string>
+               </attribute>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="performanceProfileButton">
+               <property name="text">
+                <string>Performance</string>
+               </property>
+               <property name="checkable">
+                <bool>true</bool>
+               </property>
+               <attribute name="buttonGroup">
+                <string notr="true">powerProfilesGroup</string>
+               </attribute>
+              </widget>
+             </item>
+            </layout>
            </widget>
           </item>
           <item>
            <widget class="QLabel" name="label_10">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
             <property name="text">
              <string>Reduce the performance of your device to save on power</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
             </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QRadioButton" name="balancedProfileButton">
-            <property name="text">
-             <string>Balanced</string>
+            <property name="indent">
+             <number>16</number>
             </property>
-            <attribute name="buttonGroup">
-             <string notr="true">powerProfilesGroup</string>
-            </attribute>
            </widget>
           </item>
           <item>
            <widget class="QLabel" name="label_9">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
             <property name="text">
              <string>Performance and power consumption will be average</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
             </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QRadioButton" name="performanceProfileButton">
-            <property name="text">
-             <string>Performance</string>
+            <property name="indent">
+             <number>16</number>
             </property>
-            <attribute name="buttonGroup">
-             <string notr="true">powerProfilesGroup</string>
-            </attribute>
            </widget>
           </item>
           <item>
            <widget class="QLabel" name="performanceDescription">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
             <property name="text">
              <string>Performance will be increased at the cost of power consumption</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
             </property>
+            <property name="indent">
+             <number>16</number>
+            </property>
            </widget>
           </item>
          </layout>
         </widget>
        </item>
-       <item>
-        <widget class="Line" name="powerProfileLine">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>1</height>
-          </size>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
        <item alignment="Qt::AlignHCenter">
         <widget class="QWidget" name="timeoutsWidget" native="true">
+         <property name="m3SettingsGroup" stdset="0">
+          <bool>true</bool>
+         </property>
          <layout class="QGridLayout" name="gridLayout">
-          <item row="0" column="0">
+          <item row="0" column="0" colspan="3">
            <widget class="QLabel" name="label">
+            <property name="text">
+             <string>TIMEOUTS</string>
+            </property>
             <property name="font">
              <font>
               <bold>true</bold>
              </font>
-            </property>
-            <property name="text">
-             <string>TIMEOUTS</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_3">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Switch off the screen after</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QSpinBox" name="screenOffSpin">
-            <property name="minimum">
-             <number>1</number>
-            </property>
-            <property name="maximum">
-             <number>200</number>
             </property>
            </widget>
           </item>
@@ -230,7 +245,40 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="2">
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_3">
+            <property name="text">
+             <string>Switch off the screen after</string>
+            </property>
+            <property name="m3Icon" stdset="0">
+             <string notr="true">desktop_access_disabled</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1" colspan="2">
+           <widget class="QComboBox" name="screenOffPreset"/>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="screenOffCustomLabel">
+            <property name="text">
+             <string>Custom time</string>
+            </property>
+            <property name="m3Icon" stdset="0">
+             <string notr="true">timer</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QSpinBox" name="screenOffSpin">
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>200</number>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="2">
            <widget class="QComboBox" name="screenOffUnit">
             <item>
              <property name="text">
@@ -254,14 +302,30 @@
             </item>
            </widget>
           </item>
-          <item row="3" column="0">
+          <item row="4" column="0">
            <widget class="QLabel" name="label_4">
             <property name="text">
              <string>Suspend after</string>
             </property>
+            <property name="m3Icon" stdset="0">
+             <string notr="true">bedtime</string>
+            </property>
            </widget>
           </item>
-          <item row="3" column="1">
+          <item row="4" column="1" colspan="2">
+           <widget class="QComboBox" name="suspendPreset"/>
+          </item>
+          <item row="5" column="0">
+           <widget class="QLabel" name="suspendCustomLabel">
+            <property name="text">
+             <string>Custom time</string>
+            </property>
+            <property name="m3Icon" stdset="0">
+             <string notr="true">timer</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
            <widget class="QSpinBox" name="suspendSpin">
             <property name="minimum">
              <number>1</number>
@@ -271,7 +335,7 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="2">
+          <item row="5" column="2">
            <widget class="QComboBox" name="suspendUnit">
             <item>
              <property name="text">
@@ -298,44 +362,37 @@
          </layout>
         </widget>
        </item>
-       <item>
-        <widget class="Line" name="line">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>1</height>
-          </size>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
        <item alignment="Qt::AlignHCenter">
         <widget class="QWidget" name="buttonsWidget" native="true">
+         <property name="m3SettingsGroup" stdset="0">
+          <bool>true</bool>
+         </property>
          <layout class="QGridLayout" name="gridLayout_2">
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_6">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>When pressing the Power button</string>
-            </property>
-           </widget>
-          </item>
           <item row="0" column="0" colspan="2">
            <widget class="QLabel" name="label_5">
+            <property name="text">
+             <string>BUTTONS</string>
+            </property>
             <property name="font">
              <font>
               <bold>true</bold>
              </font>
             </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_6">
             <property name="text">
-             <string>BUTTONS</string>
+             <string>When pressing the Power button</string>
+            </property>
+            <property name="m3Icon" stdset="0">
+             <string notr="true">power_settings_new</string>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
             </property>
            </widget>
           </item>
@@ -377,6 +434,9 @@
            <widget class="QLabel" name="label_11">
             <property name="text">
              <string>After suspending, lock the screen</string>
+            </property>
+            <property name="m3Icon" stdset="0">
+             <string notr="true">lock</string>
             </property>
            </widget>
           </item>

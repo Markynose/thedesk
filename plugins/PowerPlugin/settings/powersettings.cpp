@@ -15,6 +15,14 @@ struct PowerSettingsPrivate {
 
         const static QStringList timeoutUnits;
         const static QStringList powerActions;
+
+        // Timeouts are presets plus Custom (the exact number and unit, in a row of its own)
+        struct Preset {
+                int value;
+                QString unit;
+        };
+        const QList<Preset> presets = {{1, "min"}, {2, "min"}, {5, "min"}, {10, "min"}, {15, "min"}, {30, "min"}, {1, "hr"}, {0, "never"}};
+        bool screenOffCustom = false, suspendCustom = false;
 };
 
 const QStringList PowerSettingsPrivate::timeoutUnits = {
@@ -43,6 +51,25 @@ PowerSettings::PowerSettings(DesktopPowerProfiles* powerProfiles) :
     ui->titleLabel->setBackButtonShown(StateManager::instance()->statusCenterManager()->isHamburgerMenuRequired());
     connect(StateManager::instance()->statusCenterManager(), &StatusCenterManager::isHamburgerMenuRequiredChanged, ui->titleLabel, &tTitleLabel::setBackButtonShown);
 
+    for (QComboBox* box : {ui->screenOffPreset, ui->suspendPreset}) {
+        for (const PowerSettingsPrivate::Preset& preset : d->presets) {
+            if (preset.unit == "never") box->addItem(tr("Never"));
+            else if (preset.unit == "hr") box->addItem(preset.value == 1 ? tr("1 hour") : tr("%1 hours").arg(preset.value));
+            else box->addItem(preset.value == 1 ? tr("1 minute") : tr("%1 minutes").arg(preset.value));
+        }
+        box->addItem(tr("Custom…"));
+    }
+    connect(ui->screenOffPreset, &QComboBox::activated, this, [this](int index) {
+        pickPreset(index, "screenoff", &d->screenOffCustom);
+    });
+    connect(ui->suspendPreset, &QComboBox::activated, this, [this](int index) {
+        pickPreset(index, "suspend", &d->suspendCustom);
+    });
+    for (QPushButton* button : {ui->powerStretchProfileButton, ui->balancedProfileButton, ui->performanceProfileButton}) button->setAutoExclusive(true);
+    ui->powerStretchProfileButton->setIcon(QIcon::fromTheme("eco-symbolic"));
+    ui->balancedProfileButton->setIcon(QIcon::fromTheme("balance-symbolic"));
+    ui->performanceProfileButton->setIcon(QIcon::fromTheme("speed-symbolic"));
+
     const int contentWidth = StateManager::instance()->statusCenterManager()->preferredContentWidth();
     ui->powerProfileWidget->setFixedWidth(contentWidth);
     ui->timeoutsWidget->setFixedWidth(contentWidth);
@@ -62,6 +89,9 @@ PowerSettings::PowerSettings(DesktopPowerProfiles* powerProfiles) :
              "Power/suspend.lockScreen"}) {
         settingChanged(setting, d->settings.value(setting));
     }
+    d->screenOffCustom = !matchPreset("screenoff");
+    d->suspendCustom = !matchPreset("suspend");
+    showPresets();
 
     connect(d->profiles, &DesktopPowerProfiles::powerProfileChanged, this, &PowerSettings::updatePowerProfiles);
     updatePowerProfiles();
@@ -113,21 +143,50 @@ void PowerSettings::settingChanged(QString key, QVariant value) {
         QString unit = value.toString();
         ui->suspendUnit->setCurrentIndex(d->timeoutUnits.indexOf(unit));
         ui->suspendSpin->setEnabled(unit != "never");
-    } else if (key == "Power/actions.powerbutton") {
+    }
+    if (key.startsWith("Power/timeouts.")) showPresets();
+    if (key == "Power/actions.powerbutton") {
         ui->powerButtonActionBox->setCurrentIndex(d->powerActions.indexOf(value.toString()));
     } else if (key == "Power/suspend.lockScreen") {
         ui->lockScreenAfterSuspendSwitch->setChecked(value.toBool());
     }
 }
 
+int PowerSettings::matchPreset(const QString& which) {
+    const QString unit = d->settings.value("Power/timeouts." + which + ".unit").toString();
+    const int value = d->settings.value("Power/timeouts." + which + ".value").toInt();
+    for (int i = 0; i < d->presets.size(); i++) {
+        if (d->presets.at(i).unit == unit && (unit == "never" || d->presets.at(i).value == value)) return i + 1;
+    }
+    return 0;
+}
+
+void PowerSettings::showPresets() {
+    // Index 0 means none matches: Custom, the last item
+    const int screenOff = matchPreset("screenoff"), suspend = matchPreset("suspend");
+    QSignalBlocker blocker1(ui->screenOffPreset);
+    QSignalBlocker blocker2(ui->suspendPreset);
+    ui->screenOffPreset->setCurrentIndex(d->screenOffCustom || !screenOff ? d->presets.size() : screenOff - 1);
+    ui->suspendPreset->setCurrentIndex(d->suspendCustom || !suspend ? d->presets.size() : suspend - 1);
+    for (QWidget* w : {static_cast<QWidget*>(ui->screenOffCustomLabel), static_cast<QWidget*>(ui->screenOffSpin), static_cast<QWidget*>(ui->screenOffUnit)}) w->setVisible(d->screenOffCustom || !screenOff);
+    for (QWidget* w : {static_cast<QWidget*>(ui->suspendCustomLabel), static_cast<QWidget*>(ui->suspendSpin), static_cast<QWidget*>(ui->suspendUnit)}) w->setVisible(d->suspendCustom || !suspend);
+}
+
+void PowerSettings::pickPreset(int index, const QString& which, bool* custom) {
+    *custom = index >= d->presets.size();
+    if (!*custom) {
+        d->settings.setValue("Power/timeouts." + which + ".value", qMax(1, d->presets.at(index).value));
+        d->settings.setValue("Power/timeouts." + which + ".unit", d->presets.at(index).unit);
+    }
+    showPresets();
+}
+
 void PowerSettings::updatePowerProfiles() {
     bool powerProfilesAvailable = d->profiles->powerProfilesAvailable();
     ui->powerProfileWidget->setVisible(powerProfilesAvailable);
-    ui->powerProfileLine->setVisible(powerProfilesAvailable);
 
     bool isPerformanceAvailable = d->profiles->isPerformanceAvailable();
     ui->performanceProfileButton->setVisible(isPerformanceAvailable);
-    ui->performanceDescription->setVisible(isPerformanceAvailable);
 
     switch (d->profiles->currentPowerProfile()) {
         case DesktopPowerProfiles::PowerStretch:
@@ -142,6 +201,10 @@ void PowerSettings::updatePowerProfiles() {
         case DesktopPowerProfiles::Unknown:
             break;
     }
+    // Only the chosen profile's line shows under the group
+    ui->label_10->setVisible(ui->powerStretchProfileButton->isChecked());
+    ui->label_9->setVisible(ui->balancedProfileButton->isChecked());
+    ui->performanceDescription->setVisible(ui->performanceProfileButton->isChecked());
 
     if (!d->profiles->performanceInhibited().isEmpty()) {
         ui->performanceInhibition->setTitle(tr("Performance mode unavailable"));

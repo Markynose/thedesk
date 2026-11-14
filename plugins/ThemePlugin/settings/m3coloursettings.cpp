@@ -22,6 +22,9 @@
 #include <QTime>
 #include <m3motion.h>
 #include <m3scheme.h>
+#include <shapes/materialshapes.h>
+#include <shapes/morph.h>
+#include <shapes/shapepath.h>
 #include <tsettings.h>
 
 namespace {
@@ -52,15 +55,15 @@ namespace {
         return i < 0 ? M3::Variant::TonalSpot : M3::Variant(i);
     }
 
-    // One swatch: a circle in three of its scheme's colours, a ring and a
-    // check when chosen, springs on hover and selection
+    // One swatch: a circle in three of its scheme's colours (Android's colour
+    // options); chosen, it morphs into a turning cookie inside a ring
     class Swatch : public QAbstractButton {
         public:
             Swatch(QString value, QWidget* parent) :
                 QAbstractButton(parent), value(std::move(value)) {
                 this->setCheckable(true);
                 this->setAutoExclusive(true);
-                this->setFixedSize(52, 52);
+                this->setFixedSize(60, 60);
                 this->setAttribute(Qt::WA_Hover);
                 this->setCursor(Qt::PointingHandCursor);
                 this->setProperty("m3HoverMerge", false);
@@ -93,52 +96,48 @@ namespace {
                 const M3::Scheme current = M3::currentScheme();
                 const QColor seed = value == QStringLiteral("horizon") ? M3::horizonSeed(QTime::currentTime()) : QColor::fromString(value);
                 const M3::Scheme s = M3::Scheme::generate(seed, dark, variant);
-                const double sel = qBound(0.0, select->currentValue().toDouble(), 1.2);
-                const QRectF r = QRectF(this->rect()).adjusted(2, 2, -2, -2);
+                const double k = select->currentValue().toDouble(); // the spring may overshoot: the morph follows
+                const float shapeK = float(qBound(0.0, k, 1.0));
+                static const m3shapes::Morph morph(MaterialShapes::circle(), MaterialShapes::cookie9Sided());
+                const QPointF c = QRectF(this->rect()).center();
 
-                // Container: a tonal square that rounds into a circle when chosen
-                QPainterPath box;
-                double corner = 14 + (r.height() / 2 - 14) * qMin(1.0, sel);
-                box.addRoundedRect(r, corner, corner);
-                p.fillPath(box, current.surfaceContainerHighest);
+                p.translate(c);
                 QColor layer = current.onSurface;
                 layer.setAlphaF(0.08 * hover->currentValue().toDouble());
-                p.fillPath(box, layer);
-
-                // The swatch: top half primary, bottom-left secondary, bottom-right tertiary
-                const QRectF c = r.adjusted(8, 8, -8, -8);
                 p.setPen(Qt::NoPen);
-                p.setBrush(s.primary);
-                p.drawPie(c, 0, 180 * 16);
-                p.setBrush(s.secondaryContainer);
-                p.drawPie(c, 180 * 16, 90 * 16);
-                p.setBrush(s.tertiaryContainer);
-                p.drawPie(c, 270 * 16, 90 * 16);
-
-                if (value == QStringLiteral("horizon")) {
-                    // The horizon's: a small sun on its rim
-                    QPainterPath sun;
-                    sun.addEllipse(QPointF(c.center().x(), c.center().y()), 5, 5);
-                    p.fillPath(sun, s.onPrimary);
+                p.setBrush(layer);
+                p.drawEllipse(QPointF(0, 0), 29, 29);
+                p.rotate(40 * k);
+                if (k > 0.01) {
+                    QColor ring = current.onSurface;
+                    ring.setAlphaF(qBound(0.0, k, 1.0));
+                    p.setPen(QPen(ring, 2));
+                    p.setBrush(Qt::NoBrush);
+                    p.drawPath(m3shapes::toPath(morph, shapeK, QRectF(-28, -28, 56, 56)));
+                    p.setPen(Qt::NoPen);
                 }
-                if (sel > 0.01) {
-                    // A check in a Primary dot springs in
-                    double rad = 9 * qMin(1.2, sel);
-                    QPainterPath dot;
-                    dot.addEllipse(c.center(), rad, rad);
-                    p.fillPath(dot, current.primary);
-                    p.setPen(QPen(current.onPrimary, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-                    QPointF o = c.center();
-                    QPainterPath check;
-                    check.moveTo(o + QPointF(-4, 0) * sel);
-                    check.lineTo(o + QPointF(-1, 3) * sel);
-                    check.lineTo(o + QPointF(4.5, -3) * sel);
-                    p.drawPath(check);
+                const double d = 46 + 2 * qBound(0.0, k, 1.2);
+                const QPainterPath shape = m3shapes::toPath(morph, shapeK, QRectF(-d / 2, -d / 2, d, d));
+                p.save();
+                p.setClipPath(shape);
+                p.fillRect(QRectF(-d / 2, -d / 2, d, d / 2), s.primary);
+                p.fillRect(QRectF(-d / 2, 0, d / 2, d / 2), s.secondaryContainer);
+                p.fillRect(QRectF(0, 0, d / 2, d / 2), s.tertiaryContainer);
+                p.restore();
+                p.rotate(-40 * k);
+                if (value == QStringLiteral("horizon")) {
+                    // The horizon's: a setting sun
+                    QFont f(QStringLiteral("Material Symbols Rounded"));
+                    f.setPixelSize(20);
+                    f.setVariableAxis(QFont::Tag("FILL"), 1);
+                    p.setFont(f);
+                    p.setPen(s.onPrimary);
+                    p.drawText(QRectF(-12, -16, 24, 24), Qt::AlignCenter, QStringLiteral("wb_twilight"));
                 }
                 if (this->hasFocus() && this->testAttribute(Qt::WA_KeyboardFocusChange)) {
-                    p.setPen(QPen(current.secondary, 2));
+                    p.setPen(QPen(current.secondary, 3));
                     p.setBrush(Qt::NoBrush);
-                    p.drawPath(box);
+                    p.drawEllipse(QPointF(0, 0), 29, 29);
                 }
             }
 
@@ -146,7 +145,79 @@ namespace {
             M3SpringAnimation* select;
             M3SpringAnimation* hover;
     };
+    // A live picture of the desktop in the chosen colours, like Android's
+    // wallpaper and style preview: the horizon's shapes, the bar, a window
+    class PreviewCard : public QWidget {
+        public:
+            explicit PreviewCard(QWidget* parent) :
+                QWidget(parent) {
+                this->setFixedHeight(200);
+            }
+
+        protected:
+            void paintEvent(QPaintEvent*) override {
+                QPainter p(this);
+                p.setRenderHint(QPainter::Antialiasing);
+                const M3::Scheme s = M3::currentScheme();
+                const QRectF r(this->rect());
+                QPainterPath clip;
+                clip.addRoundedRect(r, 28, 28);
+                p.setClipPath(clip);
+                p.fillRect(r, s.surfaceContainerLowest);
+                auto shape = [&](const m3shapes::RoundedPolygon& poly, QPointF at, double size, double turn, QColor colour) {
+                    p.save();
+                    p.translate(at);
+                    p.rotate(turn);
+                    colour.setAlphaF(0.7);
+                    p.fillPath(m3shapes::toPath(poly, QRectF(-size / 2, -size / 2, size, size)), colour);
+                    p.restore();
+                };
+                shape(MaterialShapes::cookie12Sided(), r.bottomLeft() + QPointF(40, -10), 220, 12, s.primaryContainer);
+                shape(MaterialShapes::sunny(), r.topRight() + QPointF(-30, 20), 180, -8, s.tertiaryContainer);
+                const QRectF bar(r.center().x() - 120, r.top() + 12, 240, 26);
+                p.setPen(Qt::NoPen);
+                p.setBrush(s.surfaceContainer);
+                p.drawRoundedRect(bar, 8, 8);
+                shape(MaterialShapes::sunny(), QPointF(bar.left() + 16, bar.center().y()), 14, 0, s.primary);
+                const QRectF window(r.center().x() - 170, r.top() + 54, 340, 130);
+                p.setBrush(s.surfaceContainerLow);
+                p.drawRoundedRect(window, 16, 16);
+                QFont f = this->font();
+                f.setPixelSize(22);
+                f.setWeight(QFont::Bold);
+                p.setFont(f);
+                p.setPen(s.onSurface);
+                p.drawText(QRectF(window.left() + 16, window.top() + 12, 200, 24), Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("Aa"));
+                p.setPen(Qt::NoPen);
+                p.setBrush(s.surfaceContainerHigh);
+                for (int i = 0; i < 3; i++) p.drawRoundedRect(QRectF(window.left() + 16, window.top() + 48 + i * 18, 180 - i * 40, 10), 5, 5);
+                p.setBrush(s.primaryContainer);
+                p.drawEllipse(QPointF(window.right() - 40, window.top() + 30), 16, 16);
+                const QRectF button(window.right() - 110, window.bottom() - 46, 94, 32);
+                p.setBrush(s.primary);
+                p.drawRoundedRect(button, 16, 16);
+                f.setPixelSize(13);
+                f.setWeight(QFont::DemiBold);
+                p.setFont(f);
+                p.setPen(s.onPrimary);
+                p.drawText(button, Qt::AlignCenter, M3ColourSettings::tr("Button"));
+                // A switch, on (SwitchTokens: 52 x 32, the thumb 24 with a check)
+                const QRectF track(window.right() - 176, window.bottom() - 46, 52, 32);
+                p.setPen(Qt::NoPen);
+                p.setBrush(s.primary);
+                p.drawRoundedRect(track, 16, 16);
+                p.setBrush(s.onPrimary);
+                p.drawEllipse(QPointF(track.right() - 16, track.center().y()), 12, 12);
+                p.setPen(QPen(s.onPrimaryContainer, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+                const QPointF o(track.right() - 16, track.center().y());
+                p.drawPolyline(QPolygonF({o + QPointF(-5, 0), o + QPointF(-1.5, 3.5), o + QPointF(5, -3.5)}));
+            }
+    };
 } // namespace
+
+QWidget* M3ColourSettings::previewCard(QWidget* parent) {
+    return new PreviewCard(parent);
+}
 
 struct M3ColourSettingsPrivate {
         tSettings* settings;
@@ -164,21 +235,22 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
     d->settings = settings;
 
     auto* swatchRow = new QWidget(parent);
+    swatchRow->setProperty("m3Tile", true); // one card of swatches
     auto* swatchLayout = new QHBoxLayout(swatchRow);
-    swatchLayout->setContentsMargins(0, 4, 0, 4);
-    swatchLayout->setSpacing(6);
+    swatchLayout->setContentsMargins(0, 10, 0, 10);
+    swatchLayout->setSpacing(0);
     QStringList values = {QStringLiteral("horizon")};
     for (const QColor& c : presetSeeds()) values.append(c.name());
     for (const QString& value : values) {
         auto* swatch = new Swatch(value, swatchRow);
         swatch->setToolTip(value == QStringLiteral("horizon") ? tr("Living horizon: follows the time of day") : value);
+        if (!d->swatches.isEmpty()) swatchLayout->addStretch();
         swatchLayout->addWidget(swatch);
         d->swatches.append(swatch);
         connect(swatch, &QAbstractButton::clicked, this, [this, value] {
             if (!d->loading) d->settings->setValue(QStringLiteral("Palette/m3.seed"), value);
         });
     }
-    swatchLayout->addStretch();
 
     d->style = new QComboBox(parent);
     for (const VariantName& v : variants()) d->style->addItem(tr(v.label), QString::fromLatin1(v.key));
@@ -195,8 +267,9 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
     d->density->addItem(tr("Compact"), -1);
     d->density->addItem(tr("Dense"), -2);
 
-    auto addRow = [&](int r, const QString& label, QWidget* w) {
+    auto addRow = [&](int r, const QString& label, const QString& icon, QWidget* w) {
         auto* l = new QLabel(label, parent);
+        l->setProperty("m3Icon", icon);
         grid->addWidget(l, r, 0);
         grid->addWidget(w, r, 1);
     };
@@ -222,7 +295,7 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
                 combo->setCurrentIndex(i);
             });
         }
-        layout->addStretch();
+        layout->insertStretch(0); // at the row's end
         auto sync = [combo, buttons] {
             if (QPushButton* b = buttons.value(combo->currentIndex())) b->setChecked(true);
         };
@@ -231,12 +304,15 @@ M3ColourSettings::M3ColourSettings(QGridLayout* grid, int row, tSettings* settin
         return group;
     };
 
-    addRow(row, tr("Colour"), swatchRow);
-    addRow(row + 1, tr("Style"), d->style);
-    addRow(row + 2, tr("Mode"), connectedGroup(d->mode, {tr("Dark"), tr("Light"), tr("Horizon")}, {QString(), QString(), tr("Follow the horizon: light by day, dark at night")}));
-    addRow(row + 3, tr("Contrast"), connectedGroup(d->contrast, {tr("Standard"), tr("Medium"), tr("High")}, {}));
+    grid->addWidget(swatchRow, row, 0, 1, grid->columnCount());
+    auto* appearance = new QLabel(tr("Appearance"), parent);
+    appearance->setProperty("m3Header", true);
+    grid->addWidget(appearance, row + 1, 0, 1, grid->columnCount());
+    addRow(row + 2, tr("Mode"), QStringLiteral("dark_mode"), connectedGroup(d->mode, {tr("Dark"), tr("Light"), tr("Horizon")}, {QString(), QString(), tr("Follow the horizon: light by day, dark at night")}));
+    addRow(row + 3, tr("Contrast"), QStringLiteral("contrast"), connectedGroup(d->contrast, {tr("Standard"), tr("Medium"), tr("High")}, {}));
+    addRow(row + 4, tr("Style"), QStringLiteral("style"), d->style);
     // M3 density for a mouse or touchpad: each step makes controls 4 px shorter (apps pick it up when they start)
-    addRow(row + 4, tr("Density"), connectedGroup(d->density, {tr("Default"), tr("Compact"), tr("Dense")}, {QString(), tr("4 px shorter controls, for a mouse or touchpad"), tr("8 px shorter controls, for a mouse or touchpad")}));
+    addRow(row + 5, tr("Density"), QStringLiteral("density_medium"), connectedGroup(d->density, {tr("Default"), tr("Compact"), tr("Dense")}, {QString(), tr("4 px shorter controls, for a mouse or touchpad"), tr("8 px shorter controls, for a mouse or touchpad")}));
 
     connect(d->style, &QComboBox::currentIndexChanged, this, [this] {
         if (!d->loading) d->settings->setValue(QStringLiteral("Palette/m3.variant"), d->style->currentData());

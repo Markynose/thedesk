@@ -82,6 +82,7 @@ PebbleSettings::PebbleSettings() :
     auto* centre = new QHBoxLayout(page);
     auto* column = new QWidget();
     column->setFixedWidth(StateManager::statusCenterManager()->preferredContentWidth());
+    column->setProperty("m3SettingsGroup", true); // its rows as Android's settings groups
     centre->addStretch();
     centre->addWidget(column);
     centre->addStretch();

@@ -71,6 +71,7 @@
        </property>
        <item alignment="Qt::AlignHCenter">
         <widget class="QWidget" name="actionsWidget" native="true">
+         <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
          <layout class="QVBoxLayout" name="verticalLayout_3">
           <item>
            <widget class="QLabel" name="label">
@@ -120,24 +121,13 @@
          </layout>
         </widget>
        </item>
-       <item>
-        <widget class="Line" name="line">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>1</height>
-          </size>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
        <item alignment="Qt::AlignHCenter">
         <widget class="QWidget" name="timeSyncWidget" native="true">
+         <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
          <layout class="QGridLayout" name="gridLayout">
           <item row="1" column="0">
            <widget class="QLabel" name="label_3">
+            <property name="m3Icon" stdset="0"><string notr="true">sync</string></property>
             <property name="text">
              <string>Synchronise clock with the Internet</string>
             </property>

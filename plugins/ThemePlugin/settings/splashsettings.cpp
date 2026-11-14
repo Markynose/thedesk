@@ -67,6 +67,7 @@ namespace {
 SplashSettings::SplashSettings(QWidget* parent) :
     QWidget(parent) {
     d = new SplashSettingsPrivate();
+    this->setProperty("m3SettingsGroup", true); // before anything polishes it
     auto* layout = new QGridLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setHorizontalSpacing(16);

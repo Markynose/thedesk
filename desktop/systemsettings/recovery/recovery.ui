@@ -71,6 +71,7 @@
        </property>
        <item alignment="Qt::AlignHCenter">
         <widget class="QWidget" name="resetDEContainer" native="true">
+         <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
          <layout class="QVBoxLayout" name="verticalLayout_2">
           <property name="spacing">
            <number>0</number>
@@ -146,21 +147,9 @@ Save your documents and close all apps before starting the reset. This won't tak
          </layout>
         </widget>
        </item>
-       <item>
-        <widget class="Line" name="resetDeviceLine">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>1</height>
-          </size>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
        <item alignment="Qt::AlignHCenter">
         <widget class="QWidget" name="resetDeviceContainer" native="true">
+         <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
          <layout class="QVBoxLayout" name="verticalLayout_5">
           <property name="spacing">
            <number>0</number>

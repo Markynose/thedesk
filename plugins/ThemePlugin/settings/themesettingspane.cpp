@@ -75,6 +75,9 @@ ThemeSettingsPane::ThemeSettingsPane() :
             }
         }
         new M3ColourSettings(ui->gridLayout, 4, d->themeSettings, ui->coloursWidget);
+        auto* preview = M3ColourSettings::previewCard(this);
+        preview->setFixedWidth(contentWidth);
+        ui->verticalLayout_3->insertWidget(0, preview, 0, Qt::AlignHCenter);
     }
 
     // The loading screen: a live preview, its exit, colours and messages

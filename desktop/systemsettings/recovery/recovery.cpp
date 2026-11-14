@@ -44,7 +44,6 @@ Recovery::Recovery() :
 
     if (libContemporaryCommon::searchInPath("scallop-reset-ui").isEmpty()) {
         ui->resetDeviceContainer->setVisible(false);
-        ui->resetDeviceLine->setVisible(false);
     }
 }
 

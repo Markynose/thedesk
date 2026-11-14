@@ -101,14 +101,12 @@ DisplaySettings::DisplaySettings() :
 
     const int contentWidth = StateManager::instance()->statusCenterManager()->preferredContentWidth();
     ui->arrangeWidget->setFixedWidth(contentWidth);
-    ui->arrangeButton->setFixedWidth(contentWidth);
 
     // The question asked when a display is connected, again (with more than
     // one display)
     auto* chooseButton = new QPushButton(QIcon::fromTheme(QStringLiteral("video-display")), tr("Choose How to Use Displays"), this);
-    chooseButton->setFixedWidth(contentWidth);
     if (auto* box = qobject_cast<QBoxLayout*>(ui->arrangeButton->parentWidget()->layout())) {
-        box->insertWidget(box->indexOf(ui->arrangeButton) + 1, chooseButton, 0, Qt::AlignHCenter);
+        box->insertWidget(box->indexOf(ui->arrangeButton) + 1, chooseButton);
     }
     connect(chooseButton, &QPushButton::clicked, this, [] {
         if (auto* controller = NewDisplayController::instance()) controller->askAgain();

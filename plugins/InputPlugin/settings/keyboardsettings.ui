@@ -71,6 +71,7 @@
        </property>
        <item alignment="Qt::AlignHCenter">
         <widget class="QWidget" name="layoutsWidget" native="true">
+         <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
          <layout class="QVBoxLayout" name="verticalLayout_3">
           <property name="leftMargin">
            <number>0</number>

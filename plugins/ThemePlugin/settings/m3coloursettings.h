@@ -31,6 +31,9 @@ class M3ColourSettings : public QObject {
         M3ColourSettings(QGridLayout* grid, int row, tSettings* settings, QWidget* parent);
         ~M3ColourSettings() override;
 
+        // A live picture of the desktop in the current colours
+        static QWidget* previewCard(QWidget* parent);
+
     private:
         M3ColourSettingsPrivate* d;
         void load();

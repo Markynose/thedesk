@@ -93,6 +93,7 @@
            </property>
            <item alignment="Qt::AlignHCenter">
             <widget class="QWidget" name="actionsWidget" native="true">
+             <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
              <layout class="QVBoxLayout" name="verticalLayout_3">
               <item>
                <widget class="QLabel" name="label">
@@ -117,24 +118,13 @@
              </layout>
             </widget>
            </item>
-           <item>
-            <widget class="Line" name="line">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>1</height>
-              </size>
-             </property>
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
            <item alignment="Qt::AlignHCenter">
             <widget class="QWidget" name="discoverabilityWidget" native="true">
+             <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
              <layout class="QGridLayout" name="gridLayout">
               <item row="2" column="0">
                <widget class="QLabel" name="label_5">
+                <property name="m3Icon" stdset="0"><string notr="true">visibility</string></property>
                 <property name="text">
                  <string>Visible to other devices</string>
                 </property>
@@ -171,20 +161,8 @@
             </widget>
            </item>
            <item>
-            <widget class="Line" name="line_2">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>1</height>
-              </size>
-             </property>
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QWidget" name="widget" native="true">
+             <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
              <layout class="QVBoxLayout" name="verticalLayout_6">
               <property name="spacing">
                <number>0</number>

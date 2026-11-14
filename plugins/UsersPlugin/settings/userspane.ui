@@ -260,6 +260,7 @@
            </property>
            <item alignment="Qt::AlignHCenter">
             <widget class="QWidget" name="userActionsWidget" native="true">
+             <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
              <layout class="QVBoxLayout" name="verticalLayout_5">
               <property name="spacing">
                <number>0</number>
@@ -316,21 +317,9 @@
              </layout>
             </widget>
            </item>
-           <item>
-            <widget class="Line" name="line_2">
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>1</height>
-              </size>
-             </property>
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-            </widget>
-           </item>
            <item alignment="Qt::AlignHCenter">
             <widget class="QWidget" name="userDangerActionsWidget" native="true">
+             <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
              <layout class="QVBoxLayout" name="verticalLayout_6">
               <property name="spacing">
                <number>0</number>

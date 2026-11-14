@@ -44,6 +44,9 @@ class PowerSettings : public StatusCenterPane {
         void settingChanged(QString key, QVariant value);
 
         void updatePowerProfiles();
+        int matchPreset(const QString& which);
+        void showPresets();
+        void pickPreset(int index, const QString& which, bool* custom);
         QString performanceInhibitionReason(QString reason);
 
         // StatusCenterPane interface

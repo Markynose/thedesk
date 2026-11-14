@@ -71,9 +71,11 @@
        </property>
        <item alignment="Qt::AlignHCenter">
         <widget class="QWidget" name="typingWidget" native="true">
+         <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
          <layout class="QGridLayout" name="gridLayout">
           <item row="1" column="0">
            <widget class="QLabel" name="label_2">
+            <property name="m3Icon" stdset="0"><string notr="true">keyboard</string></property>
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
               <horstretch>0</horstretch>
@@ -121,21 +123,9 @@
          </layout>
         </widget>
        </item>
-       <item>
-        <widget class="Line" name="line">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>1</height>
-          </size>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
        <item alignment="Qt::AlignHCenter">
         <widget class="QWidget" name="pointingWidget" native="true">
+         <property name="m3SettingsGroup" stdset="0"><bool>true</bool></property>
          <layout class="QGridLayout" name="gridLayout_2">
           <item row="0" column="0" colspan="2">
            <widget class="QLabel" name="label_4">
@@ -159,6 +149,7 @@
           </item>
           <item row="1" column="0">
            <widget class="QLabel" name="label_5">
+            <property name="m3Icon" stdset="0"><string notr="true">mouse</string></property>
             <property name="text">
              <string>Mouse Keys</string>
             </property>
