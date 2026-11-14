@@ -24,6 +24,9 @@
 #include <m3scheme.h>
 #include <pwd.h>
 #include <shapes/m3loadingindicator.h>
+#include <shapes/materialshapes.h>
+#include <shapes/morph.h>
+#include <shapes/shapepath.h>
 #include <tsettings.h>
 #include <unistd.h>
 #ifdef HAVE_X11
@@ -70,6 +73,7 @@ namespace {
                 font.setVariableAxis(QFont::Tag("opsz"), float(qBound(8, px, 144)));
                 Glyph g;
                 g.path.addText(0, 0, font, QString(ch));
+                g.path.setFillRule(Qt::WindingFill); // Roboto Flex's variable outlines overlap: odd-even punched holes in heavy and flat letters
                 g.advance = QFontMetricsF(font).horizontalAdvance(ch);
                 return *glyphs.insert(key, g);
             }
@@ -229,9 +233,6 @@ namespace {
             double halfX = 0; // half its extent across, at its current angle
             double halfY = 0; // half its extent up and down
     };
-
-    // How long the hole onto the desktop takes to open past the corners
-    constexpr qint64 irisMillis = 700;
 
     // M3 easing token "emphasized accelerate", for things leaving the screen
     // (https://m3.material.io/styles/motion/easing-and-duration)
@@ -404,13 +405,19 @@ struct LivingTypeViewPrivate {
         }
 
         Spring indicatorScale;
+        // The field's clear zone, a shape that holds the indicator: grows in,
+        // then morphs and breathes on every other indicator beat
+        m3shapes::Morph zone{MaterialShapes::cookie9Sided(), MaterialShapes::softBurst()};
+        Spring zoneMorph, zoneScale;
+        qint64 startedAt = 0;
         LivingTypeView::ExitStyle exitChoice = LivingTypeView::RandomExit;
         LivingTypeView::ExitStyle exitStyle = LivingTypeView::Cascade; // the one playing
-        Spring iris;         // 0..1: the hole onto the desktop
-        qint64 irisAt = -1;  // when the hole starts opening
+        Spring hole;          // the opening's side, in log space: it grows by orders of magnitude
+        double holeSide = 0;  // 0 until it opens
+        qint64 irisAt = -1;   // when the hole starts opening
         bool exiting = false;
         qint64 exitStarted = -1;
-        qint64 exitDuration = 0;
+        qint64 exitDuration = 0; // collage
 
         // stats (LIVINGTYPE_STATS=1)
         double paintTotal = 0;
@@ -471,6 +478,8 @@ QString LivingTypeView::exitStyleName(int style) {
             return QStringLiteral("sweep");
         case Cascade:
             return QStringLiteral("cascade");
+        case Shove:
+            return QStringLiteral("shove");
         default:
             return QStringLiteral("random");
     }
@@ -566,21 +575,24 @@ void LivingTypeView::restart() {
     d->exiting = false;
     d->exitStarted = -1;
     d->irisAt = -1;
-    d->iris.set(0);
+    d->hole.set(0);
+    d->holeSide = 0;
     d->previewHole = QPainterPath();
     d->composited = false;
     if (!d->preview && this->window()) this->window()->clearMask();
     d->t = 0;
-    build();
-    static bool handoffChecked = false; // only the first showing can follow the greeter
-    if (!handoffChecked) {
+    // Only the first showing can follow the greeter: earlier restarts (while
+    // the splash is set up hidden) must not use the hand-off up
+    static bool handoffChecked = false;
+    qint64 greeterMs = -1;
+    if (!handoffChecked && this->isVisible()) {
         handoffChecked = true;
-        const qint64 greeterMs = takeGreeterHandoff();
-        if (greeterMs >= 0) {
-            d->indicatorScale.set(1);
-            d->t = greeterMs;
-        }
+        greeterMs = takeGreeterHandoff();
+        if (greeterMs >= 0) d->t = greeterMs;
     }
+    build();
+    if (greeterMs >= 0) d->indicatorScale.set(1);
+    d->startedAt = d->t;
     if (this->isVisible()) {
         d->wallClock.start();
         d->lastWall = 0;
@@ -596,6 +608,8 @@ void LivingTypeView::build() {
     d->cache.clear();
     d->indicatorScale.set(0);
     d->indicatorScale.target = 1;
+    d->zoneMorph.set(0);
+    d->zoneScale.set(0);
     const QSizeF size = this->size();
     if (size.isEmpty()) return;
 
@@ -654,6 +668,7 @@ void LivingTypeView::build() {
         d->rowStarts.clear();
         d->separatorWidth = d->normalWidth(QStringLiteral("  ·  "));
         const double rowHeight = d->fieldPx * 1.45;
+        const qint64 now = d->t; // the greeter's hand-off starts the clock part way
         int row = 0;
         for (double baseline = rowHeight * 0.8; baseline < size.height() + rowHeight; baseline += rowHeight, row++) {
             double start = -40 - (row * 37) % 140;
@@ -672,12 +687,12 @@ void LivingTypeView::build() {
                 QString text = phrases.at(word.phrase);
                 word.slotWidth = d->slotWidth(text);
                 word.textWidth = d->normalWidth(text);
-                // Intro: cascade in from the top
-                word.letters = d->makeLetters(text, qint64(baseline / size.height() * 700) + k * 40, 15);
+                // Intro: cascade in from the top, once the zone has grown
+                word.letters = d->makeLetters(text, now + 350 + qint64(baseline / size.height() * 700) + k * 40, 15);
                 word.rotation.set(0);
-                word.nextLook = randomBetween(1500, 6000);
-                word.nextTurn = randomBetween(6000, 28000);
-                word.nextSwap = randomBetween(5000, 18000);
+                word.nextLook = now + randomBetween(1500, 6000);
+                word.nextTurn = now + randomBetween(6000, 28000);
+                word.nextSwap = now + randomBetween(5000, 18000);
                 x += word.textWidth + d->separatorWidth;
                 d->fieldWords.append(word);
                 k++;
@@ -743,7 +758,8 @@ void LivingTypeView::playExit() {
             }
         }
         // Every exit ends the same way: once the words are gone the indicator
-        // swells, then opens as a morphing M3E shape onto the desktop
+        // swells, then opens as a morphing M3E shape onto the desktop and
+        // shoves aside what's left (Shove: all of them)
         qint64 wordsGone = 700;
         double swell = 2.2;
         switch (d->exitStyle) {
@@ -764,6 +780,10 @@ void LivingTypeView::playExit() {
             case Sweep:
                 wordsGone = 760;
                 break;
+            case Shove:
+                wordsGone = 300;
+                swell = 2;
+                break;
             case Cascade:
             default:
                 wordsGone = 700;
@@ -771,7 +791,6 @@ void LivingTypeView::playExit() {
         }
         d->indicatorScale.target = swell;
         d->irisAt = d->t + wordsGone;
-        d->exitDuration = wordsGone + irisMillis + 40;
     }
 }
 
@@ -848,7 +867,12 @@ void LivingTypeView::tick() {
         }
     } else {
         const QPointF centre(this->width() / 2.0, this->height() / 2.0);
-        const double clearRadius = 150;
+        const double unit = d->preview ? this->height() / 768.0 : 1.0;
+        if (d->t - d->startedAt > 300) d->zoneScale.target = d->exiting ? 1.25 : 1;
+        d->zoneMorph.target = (d->t / 1300) % 2;
+        d->zoneScale.step(dt, M3Motion::SpatialDefault);
+        d->zoneMorph.step(dt, M3Motion::SpatialDefault);
+        const double clearRadius = 150 * unit * d->zoneScale.value * (1 + 0.04 * d->zoneMorph.value);
         for (FieldWord& word : d->fieldWords) {
             if (!d->exiting) {
                 // A new look for the whole word, letter after letter
@@ -931,10 +955,11 @@ void LivingTypeView::tick() {
                     letter.opacity.target = 1;
                     if (letter.look == Normal) letter.weight.target = 400 + 140 * wave;
 
-                    // Make room for the indicator: collapse to "_" and fade
-                    if (!d->exiting) {
+                    // Make room along the zone's edge: collapse to "_" and fade
+                    // (until the opening shoves them)
+                    if (d->irisAt < 0 || d->t < d->irisAt) {
                         QPointF at(word.x.value - word.textWidth / 2 + letter.offset, word.baseline);
-                        double room = qBound(0.0, (clearRadius + 90 - QLineF(at, centre).length()) / 90, 1.0);
+                        double room = qBound(0.0, (clearRadius + 70 * unit - QLineF(at, centre).length()) / (70 * unit), 1.0);
                         if (room > 0) {
                             letter.applyLook(Flat);
                             letter.scaleY.target = 0.2 * (1 - room);
@@ -952,15 +977,16 @@ void LivingTypeView::tick() {
     // morphing M3E shape that grows from the indicator (a window mask, so it
     // works without a compositor)
     const bool irisOpening = d->irisAt >= 0 && d->t >= d->irisAt;
+    const double diagonal = std::hypot(this->width(), this->height());
     if (irisOpening) {
-        // It starts as the swelled indicator and accelerates until even the
-        // shape's dips (about half its radius; the indicator fills 38/48 of
-        // its box) are past the corners, so the screen zooms away completely
-        const double progress = double(d->t - d->irisAt) / irisMillis;
-        d->iris.set(qBound(0.0, progress, 1.0));
-        const double start = 72 * qMax(0.0, d->indicatorScale.value) * (d->preview ? this->height() / 768.0 : 1.0);
-        const double reach = std::hypot(this->width(), this->height()) * 2.6;
-        double side = qMax(1.0, start + (reach - start) * emphasizedAccelerate(progress));
+        // It starts as the swelled indicator and springs open in two pushes
+        // until even the shape's dips (about half its radius; the indicator
+        // fills 38/48 of its box) are past the corners
+        const double unit = d->preview ? this->height() / 768.0 : 1.0;
+        if (d->holeSide == 0) d->hole.set(std::log(qMax(1.0, 72 * qMax(0.0, d->indicatorScale.value) * unit)));
+        d->hole.target = std::log(d->t - d->irisAt < 300 ? 700 * unit : diagonal * 2.6);
+        d->hole.step(dt, M3Motion::SpatialSlow);
+        const double side = d->holeSide = std::exp(d->hole.value);
         QRectF box(this->width() / 2.0 - side / 2, this->height() / 2.0 - side / 2, side, side);
         QPainterPath hole = M3LoadingIndicator::indeterminatePath(box, d->t);
         if (d->preview || d->composited) {
@@ -975,14 +1001,15 @@ void LivingTypeView::tick() {
         }
     }
 
-    if (d->exiting && d->t - d->exitStarted >= d->exitDuration) {
+    if (d->exiting && (d->mode == Collage ? d->t - d->exitStarted >= d->exitDuration : d->holeSide >= diagonal * 2.5)) {
         d->frameTimer.stop();
         emit exitFinished();
     }
     // While the hole opens, what's left of this screen is plain surface (the
     // words are gone and the indicator is inside the hole): no need to
-    // repaint it, which kept the last frames from keeping up
-    if (!irisOpening || d->preview || d->composited) this->update();
+    // repaint it, which kept the last frames from keeping up. Shove's words
+    // are still there, pushed by the hole
+    if (!irisOpening || d->preview || d->composited || d->exitStyle == Shove) this->update();
 }
 
 void LivingTypeView::paintEvent(QPaintEvent* event) {
@@ -1049,6 +1076,20 @@ void LivingTypeView::paintEvent(QPaintEvent* event) {
         const QColor base = d->scheme.onSurfaceVariant;
         const QColor crest = d->scheme.primary;
         const double lift = d->fieldPx * 0.36; // turn about the x-height, not the baseline
+        const QPointF centre(this->width() / 2.0, this->height() / 2.0);
+        const double unit = d->preview ? this->height() / 768.0 : 1.0;
+
+        // The zone around the indicator, turning slowly
+        if (d->zoneScale.value > 0.01) {
+            const double z = 300 * unit * d->zoneScale.value * (1 + 0.04 * d->zoneMorph.value);
+            painter.save();
+            painter.translate(centre);
+            painter.rotate(std::fmod(d->t / 1000.0 * 18, 360));
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(d->scheme.surfaceContainer);
+            painter.drawPath(m3shapes::toPath(d->zone, float(d->zoneMorph.value), QRectF(-z / 2, -z / 2, z, z)));
+            painter.restore();
+        }
         for (const FieldWord& word : d->fieldWords) {
             if (word.x.value + word.halfX < -80 || word.x.value - word.halfX > this->width() + 80) continue;
             double wave = std::sin(2 * M_PI * ((word.x.value * 0.9 + word.baseline * 1.3) / 1100.0 - d->t / 5200.0));
@@ -1093,7 +1134,6 @@ void LivingTypeView::paintEvent(QPaintEvent* event) {
                     }
                     painter.save();
                     if (exitProgress > 0) {
-                        const QPointF centre(this->width() / 2.0, this->height() / 2.0);
                         QPointF at = painter.worldTransform().map(QPointF(x + advances[i] / 2, -lift));
                         double spin = 0, scale = 1, fade = 1;
                         QPointF to = at;
@@ -1133,6 +1173,25 @@ void LivingTypeView::paintEvent(QPaintEvent* event) {
                         opacity *= fade;
                     } else {
                         painter.translate(x, 0);
+                    }
+                    if (d->holeSide > 0) {
+                        // The opening shoves letters outward: pushed ones pile
+                        // up, squash flat and fade against its edge
+                        const QPointF at = painter.worldTransform().map(QPointF(advances[i] / 2, -lift));
+                        const double distance = QLineF(centre, at).length();
+                        const double plough = d->holeSide * 0.31 + 26 * unit; // the opening's dips, and a margin to pile against
+                        if (distance < plough) {
+                            const double pushed = plough - distance;
+                            const QPointF direction = distance > 0.1 ? (at - centre) / distance : QPointF(1, 0);
+                            const QTransform kept = painter.worldTransform();
+                            painter.resetTransform();
+                            painter.translate(direction * pushed);
+                            painter.setWorldTransform(kept, true);
+                            painter.translate(advances[i] / 2, 0);
+                            painter.scale(1 + 0.5 * qMin(1.0, pushed / (120 * unit)), 0.2 + 0.8 * qBound(0.0, 1 - pushed / (90 * unit), 1.0));
+                            painter.translate(-advances[i] / 2, 0);
+                            opacity *= qBound(0.0, 1 - pushed / (260 * unit), 1.0);
+                        }
                     }
                     painter.setOpacity(opacity * alpha);
                     painter.scale(qMax(0.0, letter.scaleX.value), qMax(0.0, letter.scaleY.value));
@@ -1184,6 +1243,21 @@ void LivingTypeView::paintEvent(QPaintEvent* event) {
         painter.setClipping(false);
         painter.setCompositionMode(QPainter::CompositionMode_Clear);
         painter.fillPath(d->previewHole, Qt::transparent);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    }
+
+    // The opening's rim in primary: the indicator's shape grown huge. With a
+    // window mask its inner half is cut away, so it's drawn twice as wide
+    if (d->holeSide > 0) {
+        const double unit = d->preview ? this->height() / 768.0 : 1.0;
+        const QPainterPath hole = d->preview || d->composited ? d->previewHole : M3LoadingIndicator::indeterminatePath(QRectF(this->width() / 2.0 - d->holeSide / 2, this->height() / 2.0 - d->holeSide / 2, d->holeSide, d->holeSide), d->t);
+        QColor rim = d->scheme.primary;
+        rim.setAlphaF(0.8 * qBound(0.0, 2 - d->holeSide / (1500 * unit), 1.0));
+        painter.setClipping(false);
+        painter.setOpacity(1);
+        painter.setPen(QPen(rim, d->preview || d->composited ? 3 : 6));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawPath(hole);
     }
 
     if (qEnvironmentVariableIsSet("LIVINGTYPE_STATS")) {

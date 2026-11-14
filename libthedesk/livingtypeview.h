@@ -43,6 +43,7 @@ class LIBTHEDESK_EXPORT LivingTypeView : public QWidget {
             Drop,       // letters fall away
             Sweep,      // words squeeze thin and whoosh off to the side
             Cascade,    // rows collapse top to bottom
+            Shove,      // the indicator opens at once and shoves the words aside
             ExitStyleCount
         };
 

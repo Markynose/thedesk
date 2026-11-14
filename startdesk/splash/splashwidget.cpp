@@ -26,7 +26,7 @@ SplashWidget::SplashWidget(QWidget* parent) :
 
     // Splash/exit: one exit every time, or a different one each startup
     tSettings settings(QStringLiteral("theSuite"), QStringLiteral("theDesk"));
-    QString exit = settings.keysInGroup(QStringLiteral("Splash")).contains(QStringLiteral("exit")) ? settings.value(QStringLiteral("Splash/exit")).toString() : QStringLiteral("random");
+    QString exit = settings.keysInGroup(QStringLiteral("Splash")).contains(QStringLiteral("exit")) ? settings.value(QStringLiteral("Splash/exit")).toString() : QStringLiteral("shove");
     for (int style = LivingTypeView::RandomExit; style < LivingTypeView::ExitStyleCount; style++) {
         if (LivingTypeView::exitStyleName(style) == exit) view->setExitStyle(LivingTypeView::ExitStyle(style));
     }

@@ -139,7 +139,7 @@ SplashSettings::SplashSettings(QWidget* parent) :
     // The exit
     d->exits = new QButtonGroup(this);
     QList<QPair<QString, QString>> exits = {{QStringLiteral("random"), tr("Surprise me")}};
-    const QStringList exitLabels = {tr("Vortex"), tr("Bloom"), tr("Ripple"), tr("Drop"), tr("Sweep"), tr("Cascade")};
+    const QStringList exitLabels = {tr("Vortex"), tr("Bloom"), tr("Ripple"), tr("Drop"), tr("Sweep"), tr("Cascade"), tr("Shove")};
     for (int style = 0; style < LivingTypeView::ExitStyleCount; style++) exits.append({LivingTypeView::exitStyleName(style), exitLabels.value(style)});
     layout->addWidget(caption(tr("Exit"), this), 1, 0);
     layout->addWidget(connectedGroup(this, d->exits, exits), 1, 1);
@@ -195,7 +195,7 @@ SplashSettings::~SplashSettings() {
 void SplashSettings::load() {
     d->loading = true;
     const QStringList keys = d->settings.keysInGroup(QStringLiteral("Splash"));
-    const QString exit = keys.contains(QStringLiteral("exit")) ? d->settings.value(QStringLiteral("Splash/exit")).toString() : QStringLiteral("random");
+    const QString exit = keys.contains(QStringLiteral("exit")) ? d->settings.value(QStringLiteral("Splash/exit")).toString() : QStringLiteral("shove");
     const QString colours = keys.contains(QStringLiteral("colours")) ? d->settings.value(QStringLiteral("Splash/colours")).toString() : QStringLiteral("scheme");
     for (QAbstractButton* b : d->exits->buttons()) b->setChecked(b->property("value").toString() == exit);
     for (QAbstractButton* b : d->colours->buttons()) b->setChecked(b->property("value").toString() == colours);

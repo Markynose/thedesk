@@ -52,7 +52,7 @@ class Preview : public QWidget {
                     view->playExit();
                     break;
                 case Qt::Key_X:
-                    // Cycle: random, vortex, bloom, ripple, drop, sweep, cascade
+                    // Cycle: random, vortex, bloom, ripple, drop, sweep, cascade, shove
                     view->setExitStyle(LivingTypeView::ExitStyle((view->exitStyle() + 2) % (LivingTypeView::ExitStyleCount + 1) - 1));
                     break;
                 case Qt::Key_R:
