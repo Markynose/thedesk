@@ -12,8 +12,11 @@ struct LIBTHEDESK_EXPORT AssistantToolResult {
         QString text; // what the assistant reads back
 
         // An optional card in the panel: "level" (a slider, value 0..1),
-        // "switch" (value 0/1) or "image" (path is a file or a URL)
+        // "switch" (value 0/1), "image" (path is a file or a URL), "battery"
+        // (value 0..1), "media" (path: the player), "notifications" (lines),
+        // "timer" (value: when it's due, ms since the epoch; lines: when it was set)
         QString card, icon, title, subtitle, path;
+        QStringList lines;
         double value = 0;
         std::function<void(double)> setValue; // the card's control, moved by hand
         std::function<void()> undo;           // puts things back as they were

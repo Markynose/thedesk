@@ -28,6 +28,7 @@
 #include "notificationtracker.h"
 #include <QDBusConnection>
 #include <QDBusMessage>
+#include <QRegularExpression>
 #include "statuscenter/notificationsstatuscenterpane.h"
 #include <QApplication>
 #include <QDebug>
@@ -85,13 +86,17 @@ void Plugin::activate() {
         struct Recent {
                 QString app, summary, body;
                 QDateTime when;
+                QString icon;
         };
         auto recent = QSharedPointer<QList<Recent>>::create();
         connect(d->tracker, &NotificationTracker::newNotification, d->tracker, [recent](NotificationPtr notification) {
             if (!notification) return;
-            QString app;
-            if (notification->application()) app = notification->application()->getProperty(QStringLiteral("Name")).toString();
-            recent->prepend({app, notification->summary(), notification->body(), QDateTime::currentDateTime()});
+            QString app, icon;
+            if (notification->application()) {
+                app = notification->application()->getProperty(QStringLiteral("Name")).toString();
+                icon = notification->application()->getProperty(QStringLiteral("Icon")).toString();
+            }
+            recent->prepend({app, notification->summary(), notification->body(), QDateTime::currentDateTime(), icon});
             if (recent->size() > 20) recent->removeLast();
         });
         AssistantTools::instance()->add({QStringLiteral("recent_notifications"),
@@ -99,8 +104,16 @@ void Plugin::activate() {
             AssistantTools::schemaOf({}), false, [recent](QJsonObject) {
                 AssistantToolResult result;
                 QStringList lines;
-                for (const Recent& r : std::as_const(*recent)) lines.append(QStringLiteral("- %1 · %2 · %3: %4").arg(r.when.toString(QStringLiteral("HH:mm")), r.app, r.summary, QString(r.body).simplified().left(300)));
-                result.text = lines.isEmpty() ? QStringLiteral("No notifications since theDesk started.") : lines.join('\n');
+                for (const Recent& r : std::as_const(*recent)) {
+                    lines.append(QStringLiteral("- %1 · %2 · %3: %4").arg(r.when.toString(QStringLiteral("HH:mm")), r.app, r.summary, QString(r.body).simplified().left(300)));
+                    // each one a tile in the panel (tabs would split the fields)
+                    if (result.lines.size() < 8) result.lines.append(QStringList{r.app, r.icon, r.summary, QString(r.body).remove(QRegularExpression(QStringLiteral("<[^>]*>"))).simplified().left(200), r.when.toString(QStringLiteral("HH:mm"))}.replaceInStrings(QStringLiteral("\t"), QStringLiteral(" ")).join('\t'));
+                }
+                result.text = lines.isEmpty() ? QStringLiteral("No notifications since theDesk started.") : lines.join('\n') + QStringLiteral("\nThey're shown as tiles in the panel.");
+                if (!result.lines.isEmpty()) {
+                    result.card = QStringLiteral("notifications");
+                    result.title = QStringLiteral("Notifications");
+                }
                 return result;
             }});
     }

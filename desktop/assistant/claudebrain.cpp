@@ -4,6 +4,10 @@
 #include <QThread>
 #include <QDirIterator>
 #include <QElapsedTimer>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QTimeZone>
+#include <QUrlQuery>
 #include <QLocale>
 #include <QStorageInfo>
 
@@ -96,6 +100,7 @@ namespace {
             {"undo_last", "Undo what you changed in your last answer: desk settings, file edits, files moved or put in the trash.", AssistantTools::schemaOf({}), false},
             {"trash", "Put files or folders in the trash (never delete them for good). They can be restored with undo_last.", AssistantTools::schemaOf({{"paths", "array: full paths"}}), true},
             {"search_documents", "Find documents by what's inside them (PDFs, Word and LibreOffice files, text), newest first. words: what must appear, space separated. folder: optional, else Documents, Downloads and Desktop.", AssistantTools::schemaOf({{"words", "string"}, {"folder", "string: full path"}}, {"folder"}), false},
+            {"weather", "The weather now and for the next hours, shown as a card. place: optional, a city name; without it, where the user is.", AssistantTools::schemaOf({{"place", "string"}}, {"place"}), false},
             {"disk_space", "How full the disk is and which folders in the home folder take the most space, shown as cards. Use it for any question about disk space or storage instead of df or du.", AssistantTools::schemaOf({}), false},
             {"move", "Move or rename a file or folder. Won't replace an existing one. Can be undone with undo_last.", AssistantTools::schemaOf({{"from", "string: full path"}, {"to", "string: full path"}}), true},
         };
@@ -454,6 +459,7 @@ QString ClaudeBrain::stepText(const QString& tool, const QJsonObject& input, boo
             {"move", {QT_TR_NOOP("Moving it"), QT_TR_NOOP("Moved it")}},
             {"search_documents", {QT_TR_NOOP("Searching your documents"), QT_TR_NOOP("Searched your documents")}},
             {"disk_space", {QT_TR_NOOP("Measuring your disk"), QT_TR_NOOP("Measured your disk")}},
+            {"weather", {QT_TR_NOOP("Checking the weather"), QT_TR_NOOP("Checked the weather")}},
             {"clipboard_history", {QT_TR_NOOP("Looking through what you copied"), QT_TR_NOOP("Looked through what you copied")}},
             {"quick_switch", {QT_TR_NOOP("Flipping %1"), QT_TR_NOOP("Flipped %1")}},
             {"set_theme", {QT_TR_NOOP("Changing the theme"), QT_TR_NOOP("Changed the theme")}},
@@ -563,12 +569,117 @@ void ClaudeBrain::handleControl(const QJsonObject& message) {
             });
             connect(worker, &QThread::finished, this, [this, worker, found, mcp, requestId] {
                 const QJsonObject reply{{"jsonrpc", "2.0"}, {"id", mcp.value("id")}, {"result", QJsonObject{{"content", QJsonArray{QJsonObject{{"type", "text"}, {"text", *found}}}}}}};
-                d->mcpCards["search_documents"].append(false);
+                // what it found, as tiles with a look inside
+                QStringList paths;
+                for (const QString& line : found->split('\n')) {
+                    const QString path = line.section(QStringLiteral(" · "), 0, 0);
+                    if (path.startsWith('/') && QFileInfo::exists(path) && paths.size() < 6) paths.append(path);
+                }
+                if (!paths.isEmpty()) {
+                    takeText(QString(), true);
+                    emit cardAdded({QStringLiteral("files%1").arg(d->nextRequest++), AssistantCard::Files, tr("Documents"), {}, 0, {}, paths});
+                }
+                d->mcpCards["search_documents"].append(!paths.isEmpty());
                 write(QJsonObject{{"type", "control_response"}, {"response", QJsonObject{{"subtype", "success"}, {"request_id", requestId}, {"response", QJsonObject{{"mcp_response", reply}}}}}});
                 delete found;
                 worker->deleteLater();
             });
             worker->start();
+            return;
+        }
+        if (mcp.value("method") == "tools/call" && params.value("name") == "weather") {
+            // Open-Meteo (no key): where the user is comes from their time zone's city, unless a place is named
+            const QString place = params.value("arguments").toObject().value("place").toString().trimmed();
+            auto* network = new QNetworkAccessManager(this);
+            auto answer = [this, network, mcp, requestId](const QString& text) {
+                const QJsonObject reply{{"jsonrpc", "2.0"}, {"id", mcp.value("id")}, {"result", QJsonObject{{"content", QJsonArray{QJsonObject{{"type", "text"}, {"text", text}}}}}}};
+                d->mcpCards["weather"].append(text.startsWith(QStringLiteral("Now")));
+                write(QJsonObject{{"type", "control_response"}, {"response", QJsonObject{{"subtype", "success"}, {"request_id", requestId}, {"response", QJsonObject{{"mcp_response", reply}}}}}});
+                network->deleteLater();
+            };
+            auto get = [network](const QUrl& url) {
+                QNetworkRequest request(url);
+                request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("theDesk/3.0 (desktop assistant)"));
+                request.setTransferTimeout(8000);
+                return network->get(request);
+            };
+            auto forecast = [this, get, answer](double latitude, double longitude, const QString& name) {
+                QUrl url(QStringLiteral("https://api.open-meteo.com/v1/forecast"));
+                url.setQuery(QStringLiteral("latitude=%1&longitude=%2&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code,is_day&forecast_hours=7&timezone=auto").arg(latitude, 0, 'f', 2).arg(longitude, 0, 'f', 2));
+                QNetworkReply* reply = get(url);
+                connect(reply, &QNetworkReply::finished, this, [this, reply, answer, name] {
+                    reply->deleteLater();
+                    const QJsonObject json = QJsonDocument::fromJson(reply->readAll()).object();
+                    const QJsonObject now = json.value("current").toObject(), hourly = json.value("hourly").toObject();
+                    if (reply->error() != QNetworkReply::NoError || now.isEmpty()) {
+                        answer(QStringLiteral("Couldn't reach the weather service."));
+                        return;
+                    }
+                    // the WMO weather code as a kind of sky
+                    auto kindOf = [](int code, bool day) -> QString {
+                        if (code == 0) return day ? QStringLiteral("clear") : QStringLiteral("night");
+                        if (code <= 2) return day ? QStringLiteral("partly") : QStringLiteral("partlynight");
+                        if (code == 3) return QStringLiteral("cloudy");
+                        if (code == 45 || code == 48) return QStringLiteral("fog");
+                        if ((code >= 71 && code <= 77) || code == 85 || code == 86) return QStringLiteral("snow");
+                        if (code >= 95) return QStringLiteral("storm");
+                        if (code >= 51 && code <= 57) return QStringLiteral("drizzle");
+                        return QStringLiteral("rain");
+                    };
+                    static const QHash<QString, const char*> skies{{"clear", QT_TR_NOOP("Clear")}, {"night", QT_TR_NOOP("Clear night")}, {"partly", QT_TR_NOOP("Partly cloudy")}, {"partlynight", QT_TR_NOOP("Partly cloudy")}, {"cloudy", QT_TR_NOOP("Cloudy")}, {"fog", QT_TR_NOOP("Fog")}, {"drizzle", QT_TR_NOOP("Drizzle")}, {"rain", QT_TR_NOOP("Rain")}, {"snow", QT_TR_NOOP("Snow")}, {"storm", QT_TR_NOOP("Thunderstorm")}};
+                    const QString kind = kindOf(now.value("weather_code").toInt(), now.value("is_day").toInt() == 1);
+                    AssistantCard card;
+                    card.id = QStringLiteral("weather%1").arg(d->nextRequest++);
+                    card.kind = AssistantCard::Weather;
+                    card.title = name;
+                    card.subtitle = tr(skies.value(kind));
+                    card.value = now.value("temperature_2m").toDouble();
+                    card.icon = kind;
+                    const QJsonArray times = hourly.value("time").toArray(), temps = hourly.value("temperature_2m").toArray(), codes = hourly.value("weather_code").toArray(), days = hourly.value("is_day").toArray();
+                    QStringList told{QStringLiteral("Now in %1: %2 °C, %3.").arg(name).arg(qRound(card.value)).arg(skies.value(kind))};
+                    for (int i = 1; i < times.size() && i < 7; i++) {
+                        const QString hour = times.at(i).toString().mid(11, 2), hourKind = kindOf(codes.at(i).toInt(), days.at(i).toInt() == 1);
+                        card.lines.append(hour + '\t' + QString::number(qRound(temps.at(i).toDouble())) + '\t' + hourKind);
+                        told.append(QStringLiteral("%1:00 %2 °C %3").arg(hour).arg(qRound(temps.at(i).toDouble())).arg(skies.value(hourKind)));
+                    }
+                    told.append(QStringLiteral("The card shows this; say the gist in a sentence."));
+                    takeText(QString(), true);
+                    emit cardAdded(card);
+                    answer(told.join('\n'));
+                });
+            };
+            if (place.isEmpty()) {
+                // the time zone's main city (zone1970.tab: "+5026+03031" = 50°26' N, 30°31' E)
+                const QString zone = QString::fromUtf8(QTimeZone::systemTimeZoneId());
+                QFile table(QStringLiteral("/usr/share/zoneinfo/zone1970.tab"));
+                static const QRegularExpression at(QStringLiteral("^([+-])(\\d{2})(\\d{2})(\\d{2})?([+-])(\\d{3})(\\d{2})(\\d{2})?$"));
+                if (table.open(QFile::ReadOnly)) {
+                    for (const QByteArray& line : table.readAll().split('\n')) {
+                        const QList<QByteArray> fields = line.split('\t');
+                        if (fields.size() < 3 || QString::fromUtf8(fields.at(2)) != zone) continue;
+                        const QRegularExpressionMatch m = at.match(QString::fromUtf8(fields.at(1)));
+                        if (!m.hasMatch()) break;
+                        const double latitude = (m.captured(2).toDouble() + m.captured(3).toDouble() / 60) * (m.captured(1) == "-" ? -1 : 1);
+                        const double longitude = (m.captured(6).toDouble() + m.captured(7).toDouble() / 60) * (m.captured(5) == "-" ? -1 : 1);
+                        forecast(latitude, longitude, zone.section('/', -1).replace('_', ' '));
+                        return;
+                    }
+                }
+                answer(QStringLiteral("I don't know where the user is; ask which city."));
+                return;
+            }
+            QUrl search(QStringLiteral("https://geocoding-api.open-meteo.com/v1/search"));
+            QUrlQuery query;
+            query.addQueryItem(QStringLiteral("name"), place);
+            query.addQueryItem(QStringLiteral("count"), QStringLiteral("1"));
+            search.setQuery(query);
+            QNetworkReply* found = get(search);
+            connect(found, &QNetworkReply::finished, this, [found, forecast, answer, place] {
+                found->deleteLater();
+                const QJsonObject first = QJsonDocument::fromJson(found->readAll()).object().value("results").toArray().first().toObject();
+                if (first.isEmpty()) answer(QStringLiteral("No place called %1 found.").arg(place));
+                else forecast(first.value("latitude").toDouble(), first.value("longitude").toDouble(), first.value("name").toString());
+            });
             return;
         }
         if (mcp.value("method") == "tools/call" && params.value("name") == "disk_space") {
@@ -811,7 +922,9 @@ QJsonObject ClaudeBrain::handleMcp(const QJsonObject& message) {
             if (!done.card.isEmpty()) {
                 AssistantCard shown;
                 shown.id = QStringLiteral("desk%1").arg(d->nextRequest++);
-                shown.kind = done.card == "image" ? AssistantCard::Image : done.card == "switch" ? AssistantCard::Switch : AssistantCard::Level;
+                static const QHash<QString, AssistantCard::Kind> kinds{{"image", AssistantCard::Image}, {"switch", AssistantCard::Switch}, {"battery", AssistantCard::Battery}, {"media", AssistantCard::Media}, {"notifications", AssistantCard::Notifications}, {"timer", AssistantCard::Timer}};
+                shown.kind = kinds.value(done.card, AssistantCard::Level);
+                shown.lines = done.lines;
                 shown.title = done.title;
                 shown.subtitle = done.subtitle;
                 shown.value = done.value;

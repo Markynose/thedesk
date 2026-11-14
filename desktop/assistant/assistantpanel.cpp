@@ -49,6 +49,9 @@
 #include <tsettings.h>
 #include <shapes/materialshapes.h>
 #include <shapes/shapepath.h>
+#include <mpris/mprisengine.h>
+#include <mpris/mprisplayer.h>
+#include <QPointer>
 
 namespace {
     constexpr double PillWidth = 640, PillHeight = 64, StageWidth = 760;
@@ -322,6 +325,41 @@ namespace {
         return plain.trimmed();
     }
 
+    // the sky drawn in Material shapes, centred on the origin
+    void paintSky(QPainter& p, const QString& kind, double size, const M3::Scheme& s) {
+        p.setPen(Qt::NoPen);
+        auto shape = [&](const m3shapes::RoundedPolygon& polygon, const QRectF& r, const QColor& c) {
+            p.setBrush(c);
+            p.drawPath(m3shapes::toPath(polygon, r));
+        };
+        auto at = [size](double x, double y, double w) { return QRectF((x - w / 2) * size, (y - w / 2) * size, w * size, w * size); };
+        const bool wet = kind == "rain" || kind == "drizzle" || kind == "storm";
+        if (kind == "clear") shape(MaterialShapes::sunny(), at(0, 0, 1), s.tertiary);
+        else if (kind == "night" || kind == "partlynight") {
+            // a crescent: a circle with a bite out of it
+            const bool cloud = kind == "partlynight";
+            QPainterPath moon, bite;
+            moon.addEllipse(cloud ? at(0.18, -0.18, 0.6) : at(0, 0, 0.8));
+            bite.addEllipse(cloud ? at(0.36, -0.32, 0.52) : at(0.24, -0.18, 0.7));
+            p.setBrush(s.primary);
+            p.drawPath(moon.subtracted(bite));
+            if (cloud) shape(MaterialShapes::puffy(), at(-0.1, 0.12, 0.78), s.secondary);
+        } else if (kind == "partly") {
+            shape(MaterialShapes::sunny(), at(0.18, -0.18, 0.7), s.tertiary);
+            shape(MaterialShapes::puffy(), at(-0.1, 0.12, 0.78), s.secondary);
+        } else if (kind == "fog") {
+            for (int i = 0; i < 3; i++) shape(MaterialShapes::pill(), QRectF(-0.45 * size + i * 0.06 * size, (-0.32 + i * 0.26) * size, 0.84 * size, 0.18 * size), s.secondary);
+        } else if (kind == "snow") shape(MaterialShapes::flower(), at(0, 0, 0.9), s.onSurfaceVariant);
+        else shape(MaterialShapes::puffy(), wet ? at(0, -0.14, 0.86) : at(0, 0, 0.9), s.secondary);
+        if (wet) {
+            for (int i = 0; i < 3; i++) {
+                const QRectF drop(at(-0.24 + i * 0.24, 0.36, 0.12).adjusted(0, 0, 0, kind == "drizzle" ? 0 : 0.1 * size));
+                shape(MaterialShapes::pill(), drop, s.primary);
+            }
+        }
+        if (kind == "storm") shape(MaterialShapes::boom(), at(0.22, 0.26, 0.42), s.tertiary);
+    }
+
     void rise(QPainter& p, const QRectF& r, double since) {
         const double s = springAt(M3Motion::SpatialDefault, since);
         p.translate(r.center());
@@ -417,6 +455,7 @@ struct AssistantPanel::Private {
         qint64 listAt = -1;
         qint64 sendPressedAt = -1;
         QList<QRectF> solid;           // what's drawn; a click anywhere else closes
+        bool secondTick = false;       // a countdown asked for the next second's frame
         QVariantAnimation* leave;
 
         double scroll = 0, scrollVelocity = 0, scrollTarget = 0;
@@ -923,12 +962,13 @@ bool AssistantPanel::smallTalk(const QString& text) {
     said.remove(QRegularExpression(QStringLiteral("\\b%1\\b").arg(Name.toLower())));
     said = said.simplified();
     static const QList<std::tuple<QRegularExpression, QString, const char*>> talk{
-        {QRegularExpression(QStringLiteral("^(h+i+|he+y+|hel+o+|yo+|su+p+|hiya|howdy|hey there|hi there|wassup|whats up)$")), QStringLiteral("hi"), QT_TR_NOOP("hey")},
-        {QRegularExpression(QStringLiteral("^(thanks?( you| a lot| so much)?|thank u|thx|ty+|tysm|tyvm)$")), QStringLiteral("thanks"), QT_TR_NOOP("np")},
-        {QRegularExpression(QStringLiteral("^(i )?(love (you|u)|ily|ilysm|<3+)$")), QStringLiteral("love"), QT_TR_NOOP("<3")},
-        {QRegularExpression(QStringLiteral("^(gn+|good ?night|night|nighty? ?night|gnight)$")), QStringLiteral("gn"), QT_TR_NOOP("night")},
-        {QRegularExpression(QStringLiteral("^(l+o+l+|lmf?a+o+|(ha){2,}h?|ha+h+a+|he(he)+|xd+|rofl)$")), QStringLiteral("lol"), QT_TR_NOOP("hehe")},
-        {QRegularExpression(QStringLiteral("^(bye+( bye)?|cya|see (ya|you)|ttyl|goodbye)$")), QStringLiteral("bye"), QT_TR_NOOP("bye")},
+        // each reply a few ways, picked at random so it doesn't sound canned
+        {QRegularExpression(QStringLiteral("^(h+i+|he+y+|hel+o+|yo+|su+p+|hiya|howdy|hey there|hi there|wassup|whats up)$")), QStringLiteral("hi"), QT_TR_NOOP("hey :)|hiii ^^|yo o/|hey hey :D")},
+        {QRegularExpression(QStringLiteral("^(thanks?( you| a lot| so much)?|thank u|thx|ty+|tysm|tyvm)$")), QStringLiteral("thanks"), QT_TR_NOOP("np <3|anytime :)|np ^^|ofc :D")},
+        {QRegularExpression(QStringLiteral("^(i )?(love (you|u)|ily|ilysm|<3+)$")), QStringLiteral("love"), QT_TR_NOOP("<3|<333|aww <3|^_^ <3")},
+        {QRegularExpression(QStringLiteral("^(gn+|good ?night|night|nighty? ?night|gnight)$")), QStringLiteral("gn"), QT_TR_NOOP("night :)|gn ^^|sleep well <3|night night o/")},
+        {QRegularExpression(QStringLiteral("^(l+o+l+|lmf?a+o+|(ha){2,}h?|ha+h+a+|he(he)+|xd+|rofl)$")), QStringLiteral("lol"), QT_TR_NOOP("hehe :D|xD|haha :P|hehe ^^")},
+        {QRegularExpression(QStringLiteral("^(bye+( bye)?|cya|see (ya|you)|ttyl|goodbye)$")), QStringLiteral("bye"), QT_TR_NOOP("bye o/|cya :)|later ^^|bye bye <3")},
     };
     for (const auto& [words, kind, reply] : talk) {
         if (!words.match(said).hasMatch()) continue;
@@ -942,8 +982,10 @@ bool AssistantPanel::smallTalk(const QString& text) {
         d->listOpen = false;
         d->carousel->snapTo(0.0);
         react(kind);
-        QTimer::singleShot(M3Motion::expressive() ? 260 : 120, this, [this, reply] {
-            say(tr(reply), false);
+        const QStringList ways = tr(reply).split('|');
+        const QString said = ways.at(QRandomGenerator::global()->bounded(int(ways.size())));
+        QTimer::singleShot(M3Motion::expressive() ? 260 : 120, this, [this, said] {
+            say(said, false);
         });
         scrollToEnd();
         return true;
@@ -1289,6 +1331,41 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
     paintFocus(p);
 }
 
+QImage AssistantPanel::imageOf(const QString& source) {
+    // a picture by path or URL, loaded once (a null image until it's here); a PDF shows its first page
+    if (!d->images.contains(source)) {
+        d->images.insert(source, QImage());
+        if (source.startsWith(QStringLiteral("http"))) {
+            if (!d->network) d->network = new QNetworkAccessManager(this);
+            QNetworkRequest request{QUrl(source)};
+            // some sites (Wikimedia) refuse requests that don't say what they are
+            request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("theDesk/3.0 (desktop assistant)"));
+            QNetworkReply* reply = d->network->get(request);
+            connect(reply, &QNetworkReply::finished, this, [this, reply, source] {
+                QImage image = QImage::fromData(reply->readAll());
+                if (image.isNull()) image = QImage(1, 1, QImage::Format_ARGB32); // failed: a gap, not a spinner forever
+                d->images.insert(source, image);
+                reply->deleteLater();
+                animateFor(600);
+            });
+        } else if (source.endsWith(QStringLiteral(".pdf"), Qt::CaseInsensitive)) {
+            auto* render = new QProcess(this);
+            connect(render, &QProcess::finished, this, [this, render, source] {
+                QImage page;
+                page.loadFromData(render->readAllStandardOutput(), "PNG");
+                d->images.insert(source, page.isNull() ? QImage(1, 1, QImage::Format_ARGB32) : page);
+                render->deleteLater();
+                animateFor(600);
+            });
+            render->start(QStringLiteral("pdftoppm"), {QStringLiteral("-f"), QStringLiteral("1"), QStringLiteral("-l"), QStringLiteral("1"), QStringLiteral("-scale-to"), QStringLiteral("520"), QStringLiteral("-png"), source});
+        } else {
+            QImage image(source);
+            d->images.insert(source, image.isNull() ? QImage(1, 1, QImage::Format_ARGB32) : image.scaled(900, 900, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        }
+    }
+    return d->images.value(source);
+}
+
 double AssistantPanel::glide(const QString& key, double target, M3Motion::Token token) {
     // a layout value on a spring: the first time it's simply there, then it glides to each new place
     auto it = d->glides.find(key);
@@ -1512,6 +1589,11 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
     if (long_) tiles.append({-1, d->items.at(answers.first()).born + 300});
     for (int i : std::as_const(cards)) {
         if (i == pendingAsk) continue;
+        const AssistantCard& c = d->items.at(i).card;
+        if (c.kind == AssistantCard::Notifications || c.kind == AssistantCard::Files) { // one tile each, nothing around them
+            for (int f = 0; f < c.lines.size(); f++) tiles.append({i, d->items.at(i).born + 70 * f, f});
+            continue;
+        }
         tiles.append({i, d->items.at(i).born});
         if (d->items.at(i).card.kind == AssistantCard::Storage)
             for (int f = 0; f < d->items.at(i).card.lines.size(); f++) tiles.append({i, d->items.at(i).born + 90 * (f + 1), f});
@@ -1539,6 +1621,12 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             }
             case AssistantCard::Level: return 140;
             case AssistantCard::Storage: return 200;
+            case AssistantCard::Battery: return 170;
+            case AssistantCard::Media: return 160;
+            case AssistantCard::Timer: return 170;
+            case AssistantCard::Weather: return 230;
+            case AssistantCard::Notifications: return 160;
+            case AssistantCard::Files: return 210;
             case AssistantCard::Switch: return 96;
             case AssistantCard::Code: return 48 + card.lines.size() * 23 + 12;
             case AssistantCard::Image: {
@@ -1696,29 +1784,179 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             p.setBrush(s.onSecondaryContainer);
             p.drawEllipse(QPointF(bar.right() - 8, bar.center().y()), 2, 2);
             text(p, QRectF(bar.left(), bar.top() - 24, bar.width(), 20), tr("%1% used").arg(qRound(c01(card.value) * 100)), flex(13, 500), s.onSurfaceVariant, Qt::AlignRight | Qt::AlignVCenter);
+        } else if (card.kind == AssistantCard::Battery) {
+            // the charge as a ring (wavy while it charges), what it's doing, the time left
+            p.setPen(Qt::NoPen);
+            p.setBrush(s.surfaceContainerHigh);
+            p.drawRect(r);
+            const double age = (d->now() - item.born) / 1000.0;
+            const bool charging = card.icon == QStringLiteral("charging");
+            const double level = c01(card.value), shown = level * c01(springAt(M3Motion::SpatialSlow, age - 0.15));
+            const QPointF centre(r.left() + 24 + 62, r.center().y());
+            const double radius = 56;
+            p.setBrush(Qt::NoBrush);
+            p.setPen(QPen(s.secondaryContainer, 12, Qt::SolidLine, Qt::RoundCap));
+            p.drawEllipse(centre, radius, radius);
+            const QColor active = level < 0.2 && !charging ? s.error : s.primary;
+            QPainterPath arc;
+            const double t = d->now() / 1000.0;
+            for (int i = 0; i <= 240; i++) {
+                const double a = -M_PI / 2 + 2 * M_PI * shown * i / 240.0;
+                const double rr = radius + (charging ? 2.5 * std::sin(a * 10 - t * 5) : 0);
+                const QPointF pt = centre + QPointF(std::cos(a), std::sin(a)) * rr;
+                if (i == 0) arc.moveTo(pt);
+                else arc.lineTo(pt);
+            }
+            if (charging) d->animateUntil = qMax(d->animateUntil, d->now() + 40); // the wave keeps moving while it shows
+            p.setPen(QPen(active, 12, Qt::SolidLine, Qt::RoundCap));
+            if (shown > 0.005) p.drawPath(arc);
+            p.setPen(Qt::NoPen);
+            text(p, QRectF(centre.x() - radius, centre.y() - 24, radius * 2, 48), QStringLiteral("%1%").arg(qRound(shown * 100)), flex(30, 700, 110), s.onSurface, Qt::AlignCenter);
+            const double tx = centre.x() + radius + 28;
+            if (charging) icon(p, QRectF(tx, r.center().y() - 46, 28, 28), QStringLiteral("bolt"), s.primary, 24, true);
+            text(p, QRectF(tx + (charging ? 30 : 0), r.center().y() - 46, r.right() - tx - 20, 28), card.title, flex(20, 650), s.onSurface);
+            text(p, QRectF(tx, r.center().y() - 12, r.right() - tx - 20, 24), card.subtitle, flex(15, 450), s.onSurfaceVariant);
+        } else if (card.kind == AssistantCard::Media) {
+            // the player, read live: its art, what's on, and the controls right here
+            p.setPen(Qt::NoPen);
+            p.setBrush(s.surfaceContainerHigh);
+            p.drawRect(r);
+            MprisPlayerPtr player;
+            for (const MprisPlayerPtr& candidate : MprisEngine::players())
+                if (candidate->identity() == card.path) player = candidate;
+            const MetadataMap meta = player ? player->metadata() : MetadataMap();
+            const QString title = player ? meta.value(QStringLiteral("xesam:title")).toString() : card.title;
+            const QString artist = player ? meta.value(QStringLiteral("xesam:artist")).toStringList().join(QStringLiteral(", ")) : card.subtitle;
+            const bool playing = player && player->playbackStatus() == MprisPlayerInterface::Playing;
+            QString art = player ? meta.value(QStringLiteral("mpris:artUrl")).toString() : QString();
+            if (art.startsWith(QStringLiteral("file://"))) art = QUrl(art).toLocalFile();
+            const QRectF cover(r.left() + 16, r.top() + 16, r.height() - 32, r.height() - 32);
+            QPainterPath coverShape;
+            coverShape.addRoundedRect(cover, 20, 20);
+            const QImage image = art.isEmpty() ? QImage() : imageOf(art);
+            p.save();
+            p.setClipPath(coverShape, Qt::IntersectClip);
+            if (!image.isNull() && image.width() > 1) {
+                const QSizeF fit = QSizeF(image.size()).scaled(cover.size(), Qt::KeepAspectRatioByExpanding);
+                p.setRenderHint(QPainter::SmoothPixmapTransform);
+                p.drawImage(QRectF(cover.center().x() - fit.width() / 2, cover.center().y() - fit.height() / 2, fit.width(), fit.height()), image);
+            } else {
+                p.fillRect(cover, s.tertiaryContainer);
+                icon(p, cover, QStringLiteral("music_note"), s.onTertiaryContainer, 40, true);
+            }
+            p.restore();
+            const double tx = cover.right() + 20, tw = r.right() - tx - 20;
+            text(p, QRectF(tx, r.top() + 22, tw, 28), QFontMetricsF(flex(18, 650)).elidedText(title.isEmpty() ? tr("Nothing playing") : title, Qt::ElideRight, tw), flex(18, 650), s.onSurface);
+            text(p, QRectF(tx, r.top() + 50, tw, 22), QFontMetricsF(flex(14, 450)).elidedText(player ? artist : tr("The player closed"), Qt::ElideRight, tw), flex(14, 450), s.onSurfaceVariant);
+            if (player) {
+                // previous, play/pause (a circle that squares off while it plays, on a spring), next
+                const double cy = r.bottom() - 44;
+                const QRectF previous(tx, cy - 20, 40, 40), toggle(tx + 52, cy - 28, 56, 56), next(tx + 120, cy - 20, 40, 40);
+                const double corner = glide(key + card.path + QStringLiteral(".corner"), playing ? 16 : 28, M3Motion::SpatialFast);
+                for (const QRectF& b : {previous, next}) {
+                    p.setBrush(hovered(b) ? mix(s.secondaryContainer, s.onSecondaryContainer, 0.08) : s.secondaryContainer);
+                    p.drawEllipse(b);
+                }
+                icon(p, previous, QStringLiteral("skip_previous"), s.onSecondaryContainer, 22, true);
+                icon(p, next, QStringLiteral("skip_next"), s.onSecondaryContainer, 22, true);
+                p.setBrush(hovered(toggle) ? mix(s.primary, s.onPrimary, 0.08) : s.primary);
+                p.drawRoundedRect(toggle, corner, corner);
+                icon(p, toggle, playing ? QStringLiteral("pause") : QStringLiteral("play_arrow"), s.onPrimary, 28, true);
+                const QPointer<MprisPlayerInterface> target = player.data();
+                auto press = [this, target](void (MprisPlayerInterface::*what)()) {
+                    return [this, target, what](QPointF) {
+                        if (target) (target.data()->*what)();
+                        animateFor(1500);
+                    };
+                };
+                hit(previous, press(&MprisPlayerInterface::previous));
+                hit(toggle, press(&MprisPlayerInterface::playPause));
+                hit(next, press(&MprisPlayerInterface::next));
+            }
+        } else if (card.kind == AssistantCard::Timer) {
+            // counts down, once a second; Cancel stops the reminder
+            p.setPen(Qt::NoPen);
+            p.setBrush(s.surfaceContainerHigh);
+            p.drawRect(r);
+            const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+            const bool cancelled = card.value < 0;
+            const double due = card.value, set = card.lines.value(0).toDouble();
+            const qint64 left = qMax<qint64>(0, qint64(due) - nowMs);
+            const qint64 secs = (left + 999) / 1000;
+            const QString count = cancelled ? tr("Cancelled") : left == 0 ? tr("Now") : secs >= 3600 ? QStringLiteral("%1:%2:%3").arg(secs / 3600).arg(secs / 60 % 60, 2, 10, QChar('0')).arg(secs % 60, 2, 10, QChar('0')) : QStringLiteral("%1:%2").arg(secs / 60).arg(secs % 60, 2, 10, QChar('0'));
+            QFont big = flex(44, 700, 110);
+            big.setFeature(QFont::Tag("tnum"), 1);
+            icon(p, QRectF(r.left() + 22, r.top() + 22, 28, 28), QStringLiteral("alarm"), s.primary, 24, true);
+            text(p, QRectF(r.left() + 58, r.top() + 22, r.width() - 80, 28), QFontMetricsF(flex(16, 600)).elidedText(card.title, Qt::ElideRight, r.width() - 80), flex(16, 600), s.onSurface);
+            text(p, QRectF(r.left() + 22, r.top() + 58, r.width() - 44, 56), count, big, cancelled ? s.onSurfaceVariant : s.onSurface);
+            text(p, QRectF(r.left() + 22, r.top() + 112, r.width() - 160, 20), card.subtitle, flex(13, 450), s.onSurfaceVariant);
+            // what's left as a wavy line that drains; still waves once a second
+            const QRectF bar(r.left() + 22, r.bottom() - 30, r.width() - 44, 12);
+            const double fraction = cancelled ? 0 : due > set ? c01(left / (due - set)) : 0;
+            const double end = bar.left() + bar.width() * fraction;
+            QPainterPath wave;
+            for (double x = bar.left(); x <= end; x += 2) {
+                const QPointF pt(x, bar.center().y() + 3 * std::sin((x - bar.left()) / 40.0 * 2 * M_PI - secs));
+                if (x == bar.left()) wave.moveTo(pt);
+                else wave.lineTo(pt);
+            }
+            p.setBrush(Qt::NoBrush);
+            p.setPen(QPen(s.primary, 4, Qt::SolidLine, Qt::RoundCap));
+            if (fraction > 0.005) p.drawPath(wave);
+            p.setPen(QPen(s.secondaryContainer, 4, Qt::SolidLine, Qt::RoundCap));
+            if (end + 8 < bar.right()) p.drawLine(QPointF(qMax(bar.left(), end + 8), bar.center().y()), QPointF(bar.right(), bar.center().y()));
+            p.setPen(Qt::NoPen);
+            if (!cancelled && left > 0) {
+                button(QRectF(r.right() - 120, r.top() + 104, 100, 36), {}, tr("Cancel"), false, [this, index](QPointF) {
+                    Private::Item& it = d->items[index];
+                    d->brain->setCardValue(it.card.id, 0);
+                    it.card.value = -1;
+                    it.changedAt = d->now();
+                    animateFor(400);
+                });
+                // the next second
+                if (!d->secondTick) {
+                    d->secondTick = true;
+                    QTimer::singleShot(int(1000 - nowMs % 1000) + 5, this, [this] {
+                        d->secondTick = false;
+                        redraw();
+                    });
+                }
+            }
+        } else if (card.kind == AssistantCard::Weather) {
+            // the sky as a big shape, the temperature, the next hours
+            p.setPen(Qt::NoPen);
+            p.setBrush(s.surfaceContainerHigh);
+            p.drawRect(r);
+            const double age = (d->now() - item.born) / 1000.0;
+            const double in = springAt(M3Motion::SpatialDefault, age - 0.1);
+            const QRectF sky(r.right() - 150, r.top() + 18, 120, 120);
+            p.save();
+            p.translate(sky.center());
+            p.rotate(-40 * (1 - c01(in)));
+            p.scale(lerp(0.6, 1, in), lerp(0.6, 1, in));
+            paintSky(p, card.icon, 120, s);
+            p.restore();
+            QFont big = flex(56, 700, 110);
+            text(p, QRectF(r.left() + 24, r.top() + 18, r.width() - 200, 70), QStringLiteral("%1°").arg(qRound(card.value)), big, s.onSurface);
+            text(p, QRectF(r.left() + 26, r.top() + 88, r.width() - 200, 24), card.subtitle, flex(17, 600), s.onSurface);
+            text(p, QRectF(r.left() + 26, r.top() + 112, r.width() - 200, 20), card.title, flex(13, 450), s.onSurfaceVariant);
+            // the next hours
+            const double cw = (r.width() - 40) / qMax(1, int(card.lines.size()));
+            for (int i = 0; i < card.lines.size(); i++) {
+                const QStringList hour = card.lines.at(i).split('\t');
+                const QRectF col(r.left() + 20 + i * cw, r.bottom() - 82, cw, 72);
+                text(p, QRectF(col.left(), col.top(), col.width(), 18), hour.value(0), flex(12, 500), s.onSurfaceVariant, Qt::AlignCenter);
+                p.save();
+                p.translate(col.center().x(), col.top() + 34);
+                paintSky(p, hour.value(2), 22, s);
+                p.restore();
+                text(p, QRectF(col.left(), col.top() + 50, col.width(), 20), hour.value(1) + QStringLiteral("°"), flex(14, 600), s.onSurface, Qt::AlignCenter);
+            }
         } else if (card.kind == AssistantCard::Image) {
             // A picture: a file, or fetched from the web
             const QString source = card.path;
-            if (!d->images.contains(source)) {
-                d->images.insert(source, QImage());
-                if (source.startsWith(QStringLiteral("http"))) {
-                    if (!d->network) d->network = new QNetworkAccessManager(this);
-                    QNetworkRequest request{QUrl(source)};
-                    // some sites (Wikimedia) refuse requests that don't say what they are
-                    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("theDesk/3.0 (desktop assistant)"));
-                    QNetworkReply* reply = d->network->get(request);
-                    connect(reply, &QNetworkReply::finished, this, [this, reply, source] {
-                        QImage image = QImage::fromData(reply->readAll());
-                        if (image.isNull()) image = QImage(1, 1, QImage::Format_ARGB32); // failed: a gap, not a spinner forever
-                        d->images.insert(source, image);
-                        reply->deleteLater();
-                        animateFor(600);
-                    });
-                } else {
-                    d->images.insert(source, QImage(source));
-                }
-            }
-            const QImage image = d->images.value(source);
+            const QImage image = imageOf(source);
             p.setPen(Qt::NoPen);
             p.setBrush(s.surfaceContainerHigh);
             p.drawRect(r);
@@ -1806,7 +2044,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
         if (slot.item >= 0) {
             const AssistantCard& card = d->items.at(slot.item).card;
             title = card.title;
-            ic = card.kind == AssistantCard::Ask ? QStringLiteral("shield_question") : card.kind == AssistantCard::Code ? QStringLiteral("code") : card.kind == AssistantCard::Image ? QStringLiteral("image") : card.kind == AssistantCard::Storage ? QStringLiteral("hard_drive") : card.kind == AssistantCard::Level ? (card.icon.isEmpty() ? QStringLiteral("tune") : card.icon) : card.kind == AssistantCard::Switch ? (card.icon.isEmpty() ? QStringLiteral("toggle_on") : card.icon) : QStringLiteral("description");
+            ic = card.kind == AssistantCard::Ask ? QStringLiteral("shield_question") : card.kind == AssistantCard::Code ? QStringLiteral("code") : card.kind == AssistantCard::Image ? QStringLiteral("image") : card.kind == AssistantCard::Storage ? QStringLiteral("hard_drive") : card.kind == AssistantCard::Battery ? QStringLiteral("battery_full") : card.kind == AssistantCard::Media ? QStringLiteral("music_note") : card.kind == AssistantCard::Timer ? QStringLiteral("alarm") : card.kind == AssistantCard::Weather ? QStringLiteral("partly_cloudy_day") : card.kind == AssistantCard::Level ? (card.icon.isEmpty() ? QStringLiteral("tune") : card.icon) : card.kind == AssistantCard::Switch ? (card.icon.isEmpty() ? QStringLiteral("toggle_on") : card.icon) : QStringLiteral("description");
         }
         if (r.width() < 110) {
             icon(p, QRectF(r.center().x() - 16, r.center().y() - 16, 32, 32), ic, ink, 26);
@@ -1869,7 +2107,62 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
                 p.save();
                 p.setOpacity(p.opacity() * full);
                 const int hitsBefore = int(d->hits.size());
-                if (slot.folder >= 0) {
+                const AssistantCard::Kind partOf = slot.item >= 0 ? d->items.at(slot.item).card.kind : AssistantCard::Level;
+                if (slot.folder >= 0 && partOf == AssistantCard::Notifications) {
+                    // a notification: its app, when, what it said
+                    const QStringList f = d->items.at(slot.item).card.lines.at(slot.folder).split('\t');
+                    p.setPen(Qt::NoPen);
+                    p.setBrush(hovered(r) ? mix(s.surfaceContainerHigh, s.onSurface, 0.08) : s.surfaceContainerHigh);
+                    p.drawRect(r);
+                    const QIcon appIcon = QIcon::fromTheme(f.value(1), QIcon::fromTheme(QStringLiteral("dialog-information")));
+                    if (r.width() < 140) {
+                        p.drawPixmap(QRectF(r.center().x() - 16, r.top() + 20, 32, 32).toRect(), appIcon.pixmap(64));
+                    } else {
+                        p.drawPixmap(QRectF(r.left() + 20, r.top() + 18, 24, 24).toRect(), appIcon.pixmap(48));
+                        text(p, QRectF(r.left() + 52, r.top() + 18, r.width() - 130, 24), QFontMetricsF(flex(13, 600)).elidedText(f.value(0), Qt::ElideRight, r.width() - 130), flex(13, 600), s.onSurfaceVariant);
+                        text(p, QRectF(r.right() - 74, r.top() + 18, 54, 24), f.value(4), flex(12, 500), s.onSurfaceVariant, Qt::AlignRight | Qt::AlignVCenter);
+                        const QRectF summary(r.left() + 20, r.top() + 52, r.width() - 40, 26);
+                        text(p, summary, QFontMetricsF(flex(16, 650)).elidedText(f.value(2), Qt::ElideRight, summary.width()), flex(16, 650), s.onSurface);
+                        p.save();
+                        p.setClipRect(QRectF(r.left() + 20, r.top() + 80, r.width() - 40, r.height() - 96), Qt::IntersectClip);
+                        text(p, QRectF(r.left() + 20, r.top() + 80, r.width() - 40, r.height() - 96), f.value(3), flex(14, 450), s.onSurfaceVariant, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap);
+                        p.restore();
+                    }
+                    const QString app = f.value(0);
+                    hit(r, [app](QPointF) {
+                        if (AssistantTools::instance()->has(QStringLiteral("open_app"))) AssistantTools::instance()->tool(QStringLiteral("open_app")).run(QJsonObject{{"name", app}});
+                    });
+                } else if (slot.folder >= 0 && partOf == AssistantCard::Files) {
+                    // a file it found: a look inside (pictures, a PDF's first page), its name, where it is
+                    const QString path = d->items.at(slot.item).card.lines.at(slot.folder);
+                    const QString suffix = QFileInfo(path).suffix().toLower();
+                    const bool previewable = suffix == "pdf" || QStringList{"png", "jpg", "jpeg", "webp", "gif", "bmp"}.contains(suffix);
+                    const QImage preview = previewable ? imageOf(path) : QImage();
+                    p.setPen(Qt::NoPen);
+                    p.setBrush(s.surfaceContainerHighest);
+                    p.drawRect(r);
+                    const QRectF look(r.left(), r.top(), r.width(), r.height() - (r.width() < 140 ? 0 : 56));
+                    if (!preview.isNull() && preview.width() > 1) {
+                        // a page shows from its top, a picture from its middle
+                        const QSizeF fit = QSizeF(preview.size()).scaled(look.size(), Qt::KeepAspectRatioByExpanding);
+                        p.save();
+                        p.setClipRect(look, Qt::IntersectClip);
+                        p.setRenderHint(QPainter::SmoothPixmapTransform);
+                        p.drawImage(QRectF(look.center().x() - fit.width() / 2, suffix == "pdf" ? look.top() : look.center().y() - fit.height() / 2, fit.width(), fit.height()), preview);
+                        p.restore();
+                    } else {
+                        p.fillRect(look, slot.folder % 2 ? s.tertiaryContainer : s.secondaryContainer);
+                        icon(p, look, suffix == "pdf" ? QStringLiteral("picture_as_pdf") : QStringLiteral("description"), slot.folder % 2 ? s.onTertiaryContainer : s.onSecondaryContainer, 36, true);
+                    }
+                    if (r.width() >= 140) {
+                        text(p, QRectF(r.left() + 16, look.bottom() + 8, r.width() - 32, 22), QFontMetricsF(flex(14, 650)).elidedText(QFileInfo(path).fileName(), Qt::ElideMiddle, r.width() - 32), flex(14, 650), s.onSurface);
+                        const QString folder = QString(QFileInfo(path).absolutePath()).replace(QDir::homePath(), QStringLiteral("~"));
+                        text(p, QRectF(r.left() + 16, look.bottom() + 28, r.width() - 32, 20), QFontMetricsF(flex(12, 450)).elidedText(folder, Qt::ElideMiddle, r.width() - 32), flex(12, 450), s.onSurfaceVariant);
+                    }
+                    hit(r, [path](QPointF) {
+                        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+                    });
+                } else if (slot.folder >= 0) {
                     // one of the disk's biggest folders: its name, its size big
                     const QStringList parts = d->items.at(slot.item).card.lines.at(slot.folder).split('\t');
                     const bool tonal = slot.folder % 2 == 0;

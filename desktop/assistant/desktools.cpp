@@ -199,10 +199,23 @@ void DeskTools::setUp() {
                 return QStringLiteral("%1: %2 %3 by %4").arg(player->identity(), state, meta.value(QStringLiteral("xesam:title")).toString(), meta.value(QStringLiteral("xesam:artist")).toStringList().join(QStringLiteral(", ")));
             };
             const QString action = args.value("action").toString().toLower();
+            // a card for the player: the panel reads it live (art, title, play/pause)
+            auto card = [&result](const MprisPlayerPtr& player) {
+                const MetadataMap meta = player->metadata();
+                result.card = QStringLiteral("media");
+                result.path = player->identity();
+                result.title = meta.value(QStringLiteral("xesam:title")).toString();
+                result.subtitle = meta.value(QStringLiteral("xesam:artist")).toStringList().join(QStringLiteral(", "));
+            };
             if (action == "status") {
                 QStringList lines;
-                for (const MprisPlayerPtr& player : players) lines.append(describe(player));
+                MprisPlayerPtr shown = players.first();
+                for (const MprisPlayerPtr& player : players) {
+                    lines.append(describe(player));
+                    if (player->playbackStatus() == MprisPlayerInterface::Playing) shown = player;
+                }
                 result.text = lines.join('\n');
+                card(shown);
                 return result;
             }
             // the one asked for, else the one playing, else the first
@@ -222,6 +235,7 @@ void DeskTools::setUp() {
             else if (action == "previous") player->previous();
             else player->playPause();
             result.text = QStringLiteral("Done (%1). Before: %2").arg(action, describe(player));
+            card(player);
             if (action == "play" || action == "pause" || action == "toggle") {
                 const QPointer<MprisPlayerInterface> p = player.data();
                 result.undo = [p, wasPlaying] {
@@ -427,14 +441,15 @@ void DeskTools::setUp() {
             timer->start(int(qBound<qint64>(1000, QDateTime::currentDateTime().msecsTo(when), qint64(24) * 3600 * 1000)));
             const QPointer<QTimer> guard = timer;
             result.text = QStringLiteral("Reminder set for %1.").arg(when.toString(QStringLiteral("HH:mm")));
-            result.card = QStringLiteral("switch");
+            // a card that counts down; its Cancel stops the reminder
+            result.card = QStringLiteral("timer");
             result.icon = QStringLiteral("alarm");
-            result.title = tr("Reminder at %1").arg(QLocale().toString(when.time(), QLocale::ShortFormat));
-            result.subtitle = text;
-            result.value = 1;
+            result.title = text;
+            result.subtitle = tr("at %1").arg(QLocale().toString(when.time(), QLocale::ShortFormat));
+            result.value = double(when.toMSecsSinceEpoch());
+            result.lines = {QString::number(QDateTime::currentMSecsSinceEpoch())};
             result.setValue = [guard](double on) {
                 if (guard && on < 0.5) guard->stop();
-                else if (guard && !guard->isActive()) guard->start();
             };
             result.undo = [guard] {
                 if (guard) guard->deleteLater();

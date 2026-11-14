@@ -67,6 +67,7 @@ class AssistantPanel : public QDialog {
         QList<int> turnStarts() const;
         void showTurn(int back);
         double paintStage(QPainter& p, const QRectF& view, const QList<int>& starts, double seesK, int only = -1, bool leaving = false);
+        QImage imageOf(const QString& source);
         double glide(const QString& key, double target, M3Motion::Token token = M3Motion::SpatialDefault);
         void markLeaving();
         using HitFn = std::function<void(const QRectF&, std::function<void(QPointF)>)>;

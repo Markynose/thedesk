@@ -33,6 +33,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QDir>
+#include <QDBusInterface>
 #include <QIcon>
 #include <UPower/desktopupower.h>
 #include <actionquickwidget.h>
@@ -82,6 +83,20 @@ void Plugin::activate() {
             AssistantToolResult result;
             result.text = upower->overallStateDescription();
             if (result.text.isEmpty()) result.text = QStringLiteral("No battery.");
+            // a card: the charge as a ring, what it's doing, the time left
+            QDBusInterface device(QStringLiteral("org.freedesktop.UPower"), QStringLiteral("/org/freedesktop/UPower/devices/DisplayDevice"), QStringLiteral("org.freedesktop.UPower.Device"), QDBusConnection::systemBus());
+            if (device.property("IsPresent").toBool()) {
+                const uint state = device.property("State").toUInt(); // 1 charging, 2 on battery, 4 full
+                const qint64 toEmpty = device.property("TimeToEmpty").toLongLong(), toFull = device.property("TimeToFull").toLongLong();
+                auto span = [](qint64 secs) {
+                    return secs >= 3600 ? tr("%1 h %2 min").arg(secs / 3600).arg(secs % 3600 / 60) : tr("%1 min").arg(qMax<qint64>(1, secs / 60));
+                };
+                result.card = QStringLiteral("battery");
+                result.value = device.property("Percentage").toDouble() / 100;
+                result.icon = state == 1 ? QStringLiteral("charging") : QStringLiteral("battery");
+                result.title = state == 1 ? tr("Charging") : state == 4 ? tr("Full") : state == 2 ? tr("On battery") : tr("Plugged in");
+                result.subtitle = state == 1 && toFull > 0 ? tr("Full in %1").arg(span(toFull)) : state == 2 && toEmpty > 0 ? tr("%1 left").arg(span(toEmpty)) : QString();
+            }
             return result;
         }});
     d->powerChunk = new IconTextChunk("Power");
