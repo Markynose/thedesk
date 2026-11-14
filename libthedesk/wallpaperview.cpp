@@ -243,6 +243,7 @@ void WallpaperView::setLook(Look look, bool animate) {
 }
 
 void WallpaperView::setQuietRect(QRectF rect) {
+    if (d->quiet == rect) return; // the lock relays out on every frame of a shake: same rect, same picture
     d->quiet = rect;
     d->stillDirty = true;
     this->update();

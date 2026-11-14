@@ -51,7 +51,8 @@ namespace {
     // What Plymouth (and Limine) were drawn in: tools/boot-theme bakes them
     // from the aurora-night scene
     M3::Scheme bootScheme() {
-        return M3::Scheme::generate(QColor(0x203626), true, M3::Variant::Vibrant);
+        static const M3::Scheme scheme = M3::Scheme::generate(QColor(0x203626), true, M3::Variant::Vibrant); // drawn every frame of the boot opening
+        return scheme;
     }
 
     QColor bootSky() {
@@ -259,7 +260,7 @@ namespace {
                 const double squeeze = qBound(0.0, u / 0.45, 1.0);
                 if (squeeze < 1) {
                     p.setOpacity(handOver * (1 - squeeze));
-                    QPainterPath d = glyph(QStringLiteral("d"), mark.height() * 0.48, 1000, 151 - 126 * ease(squeeze));
+                    QPainterPath d = glyph(QStringLiteral("d"), mark.height() * 0.48, 1000, qRound((151 - 126 * ease(squeeze)) / 4) * 4); // in steps, like the Gateway's d: each new width is a new font instance
                     p.fillPath(d.translated(r.center() - d.boundingRect().center()), mix(boot.onTertiaryContainer, live.onPrimaryContainer, colour));
                 }
                 p.setOpacity(1);

@@ -84,6 +84,13 @@ namespace {
             M3::Variant variant = M3::Variant::TonalSpot;
             bool dark = true;
 
+        private:
+            // the swatch's scheme, made again only when what it's made from changes (it repaints on every hover frame)
+            M3::Scheme made;
+            QColor madeSeed;
+            M3::Variant madeVariant = M3::Variant::TonalSpot;
+            bool madeDark = true;
+
         protected:
             bool event(QEvent* e) override {
                 if (e->type() == QEvent::HoverEnter) hover->animateTo(1.0);
@@ -96,7 +103,13 @@ namespace {
                 p.setRenderHint(QPainter::Antialiasing);
                 const M3::Scheme current = M3::currentScheme();
                 const QColor seed = value == QStringLiteral("horizon") ? M3::horizonSeed(QTime::currentTime()) : QColor::fromString(value);
-                const M3::Scheme s = M3::Scheme::generate(seed, dark, variant);
+                if (!madeSeed.isValid() || seed != madeSeed || dark != madeDark || variant != madeVariant) {
+                    made = M3::Scheme::generate(seed, dark, variant);
+                    madeSeed = seed;
+                    madeDark = dark;
+                    madeVariant = variant;
+                }
+                const M3::Scheme& s = made;
                 const double k = select->currentValue().toDouble(); // the spring may overshoot: the morph follows
                 const float shapeK = float(qBound(0.0, k, 1.0));
                 static const m3shapes::Morph morph(MaterialShapes::circle(), MaterialShapes::cookie9Sided());

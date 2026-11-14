@@ -259,6 +259,7 @@ struct LivingTypeViewPrivate {
         LivingTypeView::Mode mode = LivingTypeView::Collage;
         double timeScale = 1;
         QTimer frameTimer;
+        bool offscreen = false; // a preview scrolled out of sight: frames stop until it's painted again
         QElapsedTimer wallClock;
         qint64 lastWall = 0;
         qint64 t = 0; // simulated ms
@@ -810,6 +811,11 @@ void LivingTypeView::resizeEvent(QResizeEvent* event) {
 }
 
 void LivingTypeView::tick() {
+    if (d->preview && this->visibleRegion().isEmpty()) {
+        d->frameTimer.stop();
+        d->offscreen = true;
+        return;
+    }
     qint64 wall = d->wallClock.elapsed();
     double dtMs = qMin<qint64>(wall - d->lastWall, 50) * d->timeScale; // a stalled frame doesn't jump
     d->lastWall = wall;
@@ -1014,6 +1020,11 @@ void LivingTypeView::tick() {
 
 void LivingTypeView::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event)
+    if (d->offscreen) {
+        d->offscreen = false;
+        d->lastWall = d->wallClock.elapsed();
+        d->frameTimer.start();
+    }
     QElapsedTimer paintTimer;
     paintTimer.start();
 
