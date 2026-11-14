@@ -38,13 +38,16 @@ namespace {
         return font;
     }
 
-    QFont symbolFont(int px) {
+    // A Material Symbol as a path centred on its own ink, not its font box
+    QPainterPath glyph(const QString& name, int px) {
         QFont font(QStringLiteral("Material Symbols Rounded"));
         font.setPixelSize(px);
         font.setVariableAxis(QFont::Tag("FILL"), 1);
         font.setVariableAxis(QFont::Tag("wght"), 500);
         font.setVariableAxis(QFont::Tag("opsz"), 20);
-        return font;
+        QPainterPath path;
+        path.addText(0, 0, font, name);
+        return path.translated(-path.boundingRect().center());
     }
 
     double clamp01(double t) {
@@ -57,26 +60,31 @@ namespace {
             float(a.blueF() + (b.blueF() - a.blueF()) * t), float(a.alphaF() + (b.alphaF() - a.alphaF()) * t));
     }
 
-    // Wavy circular progress, clockwise from the top: the wavy level, then the track after a gap
-    void wavyRing(QPainter& p, QPointF c, double r, double level, double phase, const QColor& active, const QColor& track) {
-        constexpr double stroke = 2.4, amplitude = 0.9;
-        const double filled = 360 * clamp01(level), gap = qRadiansToDegrees((stroke + 3) / r);
+    // Compose's CircularProgressIndicator / CircularWavyProgressIndicator (determinate), at bar size:
+    // the active arc clockwise from the top with round caps, the track after a gap (gap + stroke) at
+    // both ends; wavy, the arc's radius waves (Compose flattens it at 10% and under, 95% and over)
+    constexpr double Stroke = 3, TrackGap = 2.5, Amplitude = 0.8, Waves = 10;
+    void ring(QPainter& p, QPointF c, double r, double level, double amplitude, double phase, const QColor& active, const QColor& track) {
+        level = clamp01(level);
+        const double sweep = 360 * level, gap = qMin(sweep, qRadiansToDegrees((TrackGap + Stroke) / r));
+        const QRectF box(c.x() - r, c.y() - r, 2 * r, 2 * r);
         p.setBrush(Qt::NoBrush);
-        if (filled + 2 * gap < 360) {
-            p.setPen(QPen(track, stroke, Qt::SolidLine, Qt::RoundCap));
-            p.drawArc(QRectF(c.x() - r, c.y() - r, 2 * r, 2 * r), int((90 - filled - gap) * 16), int(-(360 - filled - 2 * gap) * 16));
+        if (sweep + 2 * gap < 360) {
+            p.setPen(QPen(track, Stroke, Qt::SolidLine, Qt::RoundCap));
+            p.drawArc(box, int((90 - sweep - gap) * 16), int(-(360 - sweep - 2 * gap) * 16));
         }
-        if (filled > 1) {
+        p.setPen(QPen(active, Stroke, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        if (amplitude <= 0) {
+            p.drawArc(box, 90 * 16, int(-qMax(sweep, 0.1) * 16));
+        } else {
             QPainterPath path;
-            const double waves = qMax(3.0, std::round(2 * M_PI * r / 14));
-            const int steps = qMax(8, int(filled / 2));
+            const int steps = qMax(4, int(std::ceil(sweep / 3)));
             for (int i = 0; i <= steps; i++) {
-                const double degrees = filled * i / steps, a = qDegreesToRadians(degrees - 90);
-                const QPointF point = c + QPointF(std::cos(a), std::sin(a)) * (r + amplitude * std::sin(waves * qDegreesToRadians(degrees) + phase));
+                const double a = qDegreesToRadians(sweep * i / steps);
+                const QPointF point = c + QPointF(std::sin(a), -std::cos(a)) * (r + amplitude * std::sin(Waves * a + phase));
                 if (i == 0) path.moveTo(point);
                 else path.lineTo(point);
             }
-            p.setPen(QPen(active, stroke, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
             p.drawPath(path);
         }
         p.setPen(Qt::NoPen);
@@ -93,7 +101,8 @@ namespace {
 struct BatteryChunk::Private {
         M3RollingLabel* label;
         const QFont closedFont = labelFont(13), openFont = labelFont(14);
-        const QFont closedSymbol = symbolFont(11), openSymbol = symbolFont(13);
+        const QPainterPath closedBolt = glyph(QStringLiteral("bolt"), 13), openBolt = glyph(QStringLiteral("bolt"), 15);
+        const QPainterPath closedPlug = glyph(QStringLiteral("power"), 13), openPlug = glyph(QStringLiteral("power"), 15);
         M3::Scheme scheme;
         double open = 0; // the bar: 0 closed, 1 open
 
@@ -231,7 +240,8 @@ void BatteryChunk::updateCovered() {
 
 void BatteryChunk::updateDrift() {
     // The wave drifts while low and seen; calmer motion leaves it still
-    const bool run = d->onBattery && d->percentage <= 20 && M3Motion::expressive() && !d->locked && !d->screenOff && !d->covered;
+    const bool moving = d->percentage <= 5 || (d->percentage > 10 && d->percentage <= 20); // the wave (flat at 10% and under) or the burst
+    const bool run = d->onBattery && moving && M3Motion::expressive() && !d->locked && !d->screenOff && !d->covered;
     if (run == d->drift.isActive()) return;
     if (run) {
         d->clock.start();
@@ -310,12 +320,13 @@ void BatteryChunk::paintEvent(QPaintEvent* event) {
     p.drawRoundedRect(pill, h / 2, h / 2);
 
     const double t = (d->clockAt + (d->drift.isActive() ? d->clock.elapsed() : 0)) / 1000.0;
-    const QPointF lead(pill.left() + h / 2, cy);
-    const double r = 7 + 2 * e;
-    QColor track = ink;
-    track.setAlphaF(0.28f);
-    // the wave drifts back toward the start
-    wavyRing(p, lead, r, d->percentage / 100.0, -t * 5, mix(mix(s.primary, s.error, low), s.primary, plugged), track);
+    // whole pixels: with the 3 px stroke the ring's edges land on pixel edges
+    const QPointF lead(std::round(pill.left() + h / 2), std::round(cy));
+    const double r = 8.5 + 2 * e;
+    const QColor track = mix(mix(s.secondaryContainer, mix(s.errorContainer, s.onErrorContainer, 0.3), low), mix(s.primaryContainer, s.onPrimaryContainer, 0.3), plugged);
+    const bool wavy = d->onBattery && d->percentage > 10 && d->percentage <= 20;
+    // the wave drifts back toward the start, a wavelength a second
+    ring(p, lead, r, d->percentage / 100.0, wavy ? Amplitude : 0, t * 2 * M_PI, mix(mix(s.primary, s.error, low), s.primary, plugged), track);
 
     // Critical: a turning SoftBurst grows out of the ring, beating, the plug in it
     const double critical = qMax(0.0, d->critical->currentValue().toDouble());
@@ -328,7 +339,7 @@ void BatteryChunk::paintEvent(QPaintEvent* event) {
         }
         const double since = std::fmod(t, 1.1);
         const double beat = since < 0.3 ? std::sin(M_PI * since / 0.3) : 0;
-        const double size = (2 * r + 6) * critical * (1 + 0.14 * beat);
+        const double size = (2 * r + Stroke + 1) * critical * (1 + 0.14 * beat);
         p.save();
         p.translate(lead);
         p.rotate(t * 40);
@@ -337,9 +348,8 @@ void BatteryChunk::paintEvent(QPaintEvent* event) {
         p.drawPath(d->burst);
         p.restore();
         p.setOpacity(clamp01(critical));
-        p.setFont(e >= 0.5 ? d->openSymbol : d->closedSymbol);
-        p.setPen(s.onError);
-        p.drawText(QRectF(lead.x() - h / 2, cy - h / 2, h, h), Qt::AlignCenter, QStringLiteral("power"));
+        p.setBrush(s.onError);
+        p.drawPath((e >= 0.5 ? d->openPlug : d->closedPlug).translated(lead));
         p.setOpacity(1);
     }
 
@@ -347,9 +357,8 @@ void BatteryChunk::paintEvent(QPaintEvent* event) {
     const double bolt = clamp01(d->bolt->currentValue().toDouble());
     if (bolt > 0.01) {
         p.setOpacity(bolt);
-        p.setFont(e >= 0.5 ? d->openSymbol : d->closedSymbol);
-        p.setPen(s.primary);
-        p.drawText(QRectF(lead.x() - h / 2, cy - h / 2, h, h), Qt::AlignCenter, QStringLiteral("bolt"));
+        p.setBrush(s.primary);
+        p.drawPath((e >= 0.5 ? d->openBolt : d->closedBolt).translated(lead));
         p.setOpacity(1);
     }
 }
