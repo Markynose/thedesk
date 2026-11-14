@@ -57,6 +57,7 @@ set(SOURCES
     systemsettings/pluginmanagement/pluginmanagement.cpp
     systemsettings/pluginmanagement/pluginmodel.cpp
     systemsettings/recovery/recovery.cpp
+    systemsettings/settingssearch.cpp
     systemsettings/systemsettings.cpp
     systemsettings/systemsettingsleftpane.cpp
 
@@ -135,6 +136,7 @@ set(HEADERS
     systemsettings/pluginmanagement/pluginmanagement.h
     systemsettings/pluginmanagement/pluginmodel.h
     systemsettings/recovery/recovery.h
+    systemsettings/settingssearch.h
     systemsettings/systemsettings.h
     systemsettings/systemsettingsleftpane.h
 )

@@ -26,6 +26,10 @@
 #include <statuscentermanager.h>
 #include "common/common.h"
 #include "systemsettingsleftpane.h"
+#include "settingssearch.h"
+#include <QPointer>
+#include <QScrollArea>
+#include <QTimer>
 #include "statuscenter/statuscenterleftpane.h"
 #include <tsettings.h>
 
@@ -42,6 +46,7 @@ struct SystemSettingsPrivate {
     QStringList preferredPaneOrder;
 
     tSettings settings;
+    SettingsSearch* search = nullptr;
 };
 
 SystemSettings::SystemSettings(StatusCenterLeftPane* leftPane) :
@@ -70,6 +75,37 @@ SystemSettings::SystemSettings(StatusCenterLeftPane* leftPane) :
 
     connect(d->leftPane, &SystemSettingsLeftPane::indexChanged, this, QOverload<int>::of(&SystemSettings::selectPane));
     connect(d->leftPane, &SystemSettingsLeftPane::enterMenu, this, &SystemSettings::enterMenu);
+    connect(d->leftPane, &SystemSettingsLeftPane::searchRequested, this, [this](QWidget* from) {
+        if (!d->search) {
+            d->search = new SettingsSearch(from->window(), [this] {
+                QList<StatusCenterPane*> panes;
+                for (const auto& pane : std::as_const(d->loadedPanes)) panes.append(pane.second);
+                return panes;
+            });
+            connect(d->search, &SettingsSearch::chosen, this, [this](StatusCenterPane* pane, QWidget* target) {
+                selectPane(pane);
+                // Then, once the pane is in, where the setting is: scrolled to and pulsing
+                QPointer<QWidget> row = target;
+                QTimer::singleShot(300, this, [row] {
+                    if (!row) return;
+                    for (QWidget* w = row->parentWidget(); w; w = w->parentWidget()) {
+                        if (auto* area = qobject_cast<QScrollArea*>(w)) {
+                            area->ensureWidgetVisible(row, 0, 160);
+                            break;
+                        }
+                    }
+                    for (QWidget* w = row; w; w = w->parentWidget()) {
+                        if (w->property("m3SettingsGroup").toBool()) {
+                            w->setProperty("m3Flash", QVariant());
+                            w->setProperty("m3Flash", QVariant::fromValue<QObject*>(row.data()));
+                            break;
+                        }
+                    }
+                });
+            });
+        }
+        d->search->open(from);
+    });
 
     connect(StateManager::statusCenterManager(), QOverload<QString>::of(&StatusCenterManager::paneRequest), this, [ = ](QString paneName) {
         for (StatusCenterPane* pane : StateManager::statusCenterManager()->panes()) {

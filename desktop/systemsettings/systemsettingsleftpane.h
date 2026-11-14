@@ -42,6 +42,7 @@ class SystemSettingsLeftPane : public QWidget {
     signals:
         void indexChanged(int index);
         void enterMenu(int index);
+        void searchRequested(QWidget* from);
 
     private slots:
         void on_titleLabel_backButtonClicked();
@@ -57,6 +58,7 @@ class SystemSettingsLeftPane : public QWidget {
         SystemSettingsLeftPanePrivate* d;
 
         void changeEvent(QEvent* event);
+        void resizeEvent(QResizeEvent* event) override;
 };
 
 #endif // SYSTEMSETTINGSLEFTPANE_H
