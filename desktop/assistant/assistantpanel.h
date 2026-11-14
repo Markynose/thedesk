@@ -44,6 +44,8 @@ class AssistantPanel : public QDialog {
         void send();
         void say(const QString& raw, bool isGreeting);
         void greet();
+        bool smallTalk(const QString& text); // hi, thanks, gn…: the face answers, no brain
+        void react(const QString& kind);
         void startIntro();
         void introNext();
         void introBack();

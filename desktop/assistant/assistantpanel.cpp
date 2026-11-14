@@ -138,6 +138,7 @@ namespace {
     };
     struct ParsedAnswer {
             int tone = 0; // 0 plain, 1 done, 2 unsure, 3 oops
+            QString face; // a face tag: {hi} {heart} {lol} {night} {bye}
             QList<AnswerToken> tokens;
             QList<WordStyle> styles;
     };
@@ -170,12 +171,15 @@ namespace {
         ParsedAnswer out;
         QString s = raw;
         while (!s.isEmpty() && s.at(0).isSpace()) s.remove(0, 1);
-        if (s.startsWith('{')) {
+        static const QHash<QString, QString> faces{{"hi", "hi"}, {"heart", "love"}, {"lol", "lol"}, {"night", "gn"}, {"bye", "bye"}};
+        while (s.startsWith('{')) { // a tone tag and a face tag, either order
             const int close = int(s.indexOf('}'));
             if (close < 0) return out;
             const QString tag = s.mid(1, close - 1).trimmed().toLower();
-            out.tone = tag == "done" ? 1 : tag == "unsure" ? 2 : tag == "oops" ? 3 : 0;
+            if (faces.contains(tag)) out.face = faces.value(tag);
+            else if (!out.tone) out.tone = tag == "done" ? 1 : tag == "unsure" ? 2 : tag == "oops" ? 3 : 0;
             s = s.mid(close + 1);
+            while (!s.isEmpty() && s.at(0).isSpace()) s.remove(0, 1);
         }
         bool key = false, glued = false;
         int closedAt = -2; // where the last ** or ]] ended: a word right after it has no space before it
@@ -317,6 +321,7 @@ struct AssistantPanel::Private {
                 QString pressed;                     // Chips
                 QHash<QString, double> countFrom;    // Answer: key numbers count from these (by suffix: "%" or "")
                 bool greeting = false;               // Answer: said on opening, not part of the talk yet
+                bool reacted = false;                // Answer: its face tag played
                 qint64 pressedAt = -1;
         };
         struct Sees {
@@ -354,6 +359,10 @@ struct AssistantPanel::Private {
         QString busyText, lastDone;
         int turnSteps = -1, turnAnswer = -1, turnChips = -1;
         M3SpringAnimation* seesShown; // the "Sees" row, hidden while it works
+        // small talk: the face morphs into a shape, pops and turns on springs
+        const m3shapes::RoundedPolygon* reactShape = nullptr;
+        M3SpringAnimation *reactMorph, *reactScale, *reactSpin, *reactDim;
+        int reactGeneration = 0;
         QVariantAnimation* leave;
 
         double scroll = 0, scrollVelocity = 0, scrollTarget = 0;
@@ -434,6 +443,15 @@ AssistantPanel::AssistantPanel() :
     connect(d->seesShown, &M3SpringAnimation::valueChanged, this, [this] {
         animateFor(100);
     });
+    const std::tuple<M3SpringAnimation**, M3Motion::Token, double> reactSprings[]{{&d->reactMorph, M3Motion::SpatialDefault, 0.0}, {&d->reactScale, M3Motion::SpatialFast, 1.0}, {&d->reactSpin, M3Motion::SpatialDefault, 0.0}, {&d->reactDim, M3Motion::EffectsDefault, 0.0}};
+    for (auto [spring, token, rest] : reactSprings) {
+        *spring = new M3SpringAnimation(this);
+        (*spring)->setToken(token);
+        (*spring)->snapTo(rest);
+        connect(*spring, &M3SpringAnimation::valueChanged, this, [this] {
+            animateFor(100);
+        });
+    }
 
     d->leave = new QVariantAnimation(this);
     d->leave->setStartValue(1.0);
@@ -490,7 +508,12 @@ AssistantPanel::AssistantPanel() :
         if (d->items[d->turnAnswer].countFrom.isEmpty()) d->items[d->turnAnswer].countFrom = d->lastNumbers;
         Private::Item& answer = d->items[d->turnAnswer];
         answer.text += part;
-        const int words = int(parseAnswer(answer.text).tokens.size());
+        const ParsedAnswer parsed = parseAnswer(answer.text);
+        if (!parsed.face.isEmpty() && !answer.reacted) { // the brain's own face tag: the face reacts as the words land
+            answer.reacted = true;
+            react(parsed.face);
+        }
+        const int words = int(parsed.tokens.size());
         while (answer.wordBorn.size() < words) {
             const qint64 last = answer.wordBorn.isEmpty() ? 0 : answer.wordBorn.last();
             // a steady beat, quicker when words pile up so the end doesn't lag
@@ -791,6 +814,7 @@ void AssistantPanel::send() {
 void AssistantPanel::sendText(QString text) {
     text = text.trimmed();
     if (text.isEmpty() || d->busy) return;
+    if (smallTalk(text)) return;
     d->field->clear();
     d->field->setPlaceholderText(tr("Ask %1 more").arg(Name));
     QStringList context;
@@ -814,6 +838,79 @@ void AssistantPanel::sendText(QString text) {
     scrollToEnd();
     d->brain->send(text, context, d->harder);
     d->harder = false;
+}
+
+bool AssistantPanel::smallTalk(const QString& text) {
+    // Pebble asked something: whatever comes back is the answer, for the brain
+    if (!d->items.isEmpty() && d->items.last().kind == Private::Item::Answer && !d->items.last().greeting && d->items.last().text.trimmed().endsWith('?')) return false;
+    // "Heyyy pebble!!" -> "heyyy"
+    QString said = text.toLower();
+    said.remove(QRegularExpression(QStringLiteral("[^a-z<3 ]")));
+    said.remove(QRegularExpression(QStringLiteral("\\b%1\\b").arg(Name.toLower())));
+    said = said.simplified();
+    static const QList<std::tuple<QRegularExpression, QString, const char*>> talk{
+        {QRegularExpression(QStringLiteral("^(h+i+|he+y+|hel+o+|yo+|su+p+|hiya|howdy|hey there|hi there|wassup|whats up)$")), QStringLiteral("hi"), QT_TR_NOOP("hey")},
+        {QRegularExpression(QStringLiteral("^(thanks?( you| a lot| so much)?|thank u|thx|ty+|tysm|tyvm)$")), QStringLiteral("thanks"), QT_TR_NOOP("np")},
+        {QRegularExpression(QStringLiteral("^(i )?(love (you|u)|ily|ilysm|<3+)$")), QStringLiteral("love"), QT_TR_NOOP("<3")},
+        {QRegularExpression(QStringLiteral("^(gn+|good ?night|night|nighty? ?night|gnight)$")), QStringLiteral("gn"), QT_TR_NOOP("night")},
+        {QRegularExpression(QStringLiteral("^(l+o+l+|lmf?a+o+|(ha){2,}h?|ha+h+a+|he(he)+|xd+|rofl)$")), QStringLiteral("lol"), QT_TR_NOOP("hehe")},
+        {QRegularExpression(QStringLiteral("^(bye+( bye)?|cya|see (ya|you)|ttyl|goodbye)$")), QStringLiteral("bye"), QT_TR_NOOP("bye")},
+    };
+    for (const auto& [words, kind, reply] : talk) {
+        if (!words.match(said).hasMatch()) continue;
+        d->field->clear();
+        if (!d->items.isEmpty()) d->items.last().greeting = false;
+        d->items.append({Private::Item::User, d->now(), text});
+        d->turnSteps = d->turnAnswer = d->turnChips = -1;
+        react(kind);
+        QTimer::singleShot(M3Motion::expressive() ? 260 : 120, this, [this, reply] {
+            say(tr(reply), false);
+        });
+        scrollToEnd();
+        return true;
+    }
+    return false;
+}
+
+void AssistantPanel::react(const QString& kind) {
+    // M3E: the shape morphs and pops on spatial springs, colour eases on effects ones
+    static const QHash<QString, std::pair<const m3shapes::RoundedPolygon* (*)(), double>> shapes{
+        {QStringLiteral("hi"), {[] { return &MaterialShapes::flower(); }, 90}},
+        {QStringLiteral("thanks"), {[] { return &MaterialShapes::heart(); }, 0}},
+        {QStringLiteral("love"), {[] { return &MaterialShapes::heart(); }, 0}},
+        {QStringLiteral("gn"), {[] { return &MaterialShapes::pill(); }, 0}},
+        {QStringLiteral("lol"), {[] { return &MaterialShapes::softBurst(); }, 45}},
+        {QStringLiteral("bye"), {[] { return &MaterialShapes::clover4Leaf(); }, -90}},
+    };
+    const auto [shape, turn] = shapes.value(kind);
+    const int generation = ++d->reactGeneration;
+    d->reactShape = shape();
+    d->reactMorph->animateTo(1.0);
+    d->reactSpin->snapTo(0.0);
+    d->reactSpin->animateTo(turn);
+    auto pop = [this](int at, double to) {
+        QTimer::singleShot(at, this, [this, to] {
+            d->reactScale->animateTo(to);
+        });
+    };
+    pop(0, 1.22);
+    pop(140, 1.0);
+    if (kind == "thanks" || kind == "love") { // a heartbeat
+        pop(520, 1.16);
+        pop(640, 1.0);
+    }
+    if (kind == "lol") // laughing: the burst kicks round a few more times
+        for (int i = 1; i <= 3; i++) QTimer::singleShot(i * 170, this, [this, i] {
+            d->reactSpin->animateTo(45.0 * (i + 1));
+        });
+    d->reactDim->animateTo(kind == "gn" ? 1.0 : 0.0); // night: the face dims, eye shut
+    // then the face settles back into itself
+    QTimer::singleShot(kind == "gn" ? 2600 : 1700, this, [this, generation] {
+        if (generation != d->reactGeneration) return;
+        d->reactMorph->animateTo(0.0);
+        d->reactDim->animateTo(0.0);
+    });
+    animateFor(400);
 }
 
 void AssistantPanel::animateFor(int ms) {
@@ -911,8 +1008,25 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
     const QRectF face(field.left() + 13, field.center().y() - 19, 38, 38);
     // thinking harder: the face turns tertiary
     const auto [faceInk, faceFill] = faceColours(s, d->deep);
+    const double reaction = d->reactMorph->currentValue().toDouble();
     if (d->busy) M3LoadingIndicator::paint(&p, face, d->now() - d->busySince, faceInk, faceFill);
-    else M3LoadingIndicator::paintDeterminate(&p, face, float(lerp(0.1, 1, c01(d->field->text().size() / 40.0))), faceInk, faceFill);
+    else if (d->reactShape && reaction > 0.002) {
+        // small talk: the face's shape morphs into the reaction, pops and turns
+        static QHash<const m3shapes::RoundedPolygon*, std::shared_ptr<m3shapes::Morph>> morphs;
+        auto& morph = morphs[d->reactShape];
+        if (!morph) morph = std::make_shared<m3shapes::Morph>(MaterialShapes::circle(), *d->reactShape);
+        const double dim = d->reactDim->currentValue().toDouble();
+        p.save();
+        p.translate(face.center());
+        p.scale(d->reactScale->currentValue().toDouble(), d->reactScale->currentValue().toDouble());
+        p.setBrush(mix(faceFill, s.surfaceContainerHigh, 0.7 * dim));
+        p.drawEllipse(QPointF(), face.width() / 2, face.height() / 2);
+        p.rotate(d->reactSpin->currentValue().toDouble());
+        p.setBrush(mix(faceInk, s.onSurfaceVariant, 0.6 * dim));
+        const double inner = face.width() * 0.62;
+        p.drawPath(m3shapes::toPath(*morph, float(qBound(-0.1, reaction, 1.1)), QRectF(-inner / 2, -inner / 2, inner, inner)));
+        p.restore();
+    } else M3LoadingIndicator::paintDeterminate(&p, face, float(lerp(0.1, 1, c01(d->field->text().size() / 40.0))), faceInk, faceFill);
     if (toward == 0) d->field->setGeometry(QRectF(field.left() + 66, field.center().y() - 20, field.width() - 66 - 64, 40).toRect());
     const QPointF button(field.right() - 30, field.center().y());
     const QRectF buttonRect(button.x() - 24, button.y() - 24, 48, 48);
