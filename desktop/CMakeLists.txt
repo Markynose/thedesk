@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24.0)
 
-project(thedesk VERSION 3.0.0 LANGUAGES CXX)
+project(thedesk VERSION 4.0.0 LANGUAGES CXX)
 
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network DBus Multimedia QuickWidgets)
 find_package(libcontemporary REQUIRED)

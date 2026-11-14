@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
     a.setOrganizationName("theSuite");
     a.setOrganizationDomain("vicr123.com");
     a.setApplicationName("theDesk");
-    a.setApplicationVersion("3.0");
+    a.setApplicationVersion("4.0");
     a.setCopyrightYear("2024");
     a.setApplicationShareDir("thedesk");
 
