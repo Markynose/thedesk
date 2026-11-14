@@ -238,8 +238,10 @@ int main(int argc, char* argv[]) {
             return;
         }
         if (!greeter.startSession(session)) {
-            surface.showError(QObject::tr("The session couldn't start."));
             surface.open(M3LockSurface::Opening::Plain);
+            surface.clearPassword();
+            surface.setBusy(false);
+            surface.showError(QObject::tr("The session couldn't start."));
             authenticate();
         }
     });

@@ -432,6 +432,12 @@ void M3LockSurface::setPlaceholder(const QString& text) {
 
 void M3LockSurface::open(Opening opening) {
     d->exiting = false;
+    // Back from an exit (the greeter's session didn't start): its overlay stops and the field returns
+    d->choreography->frame.stop();
+    d->choreography->mode = Choreography::Idle;
+    d->choreography->hide();
+    d->field->show();
+    d->message->show();
     this->relayout();
     if (opening == Opening::FromBoot) {
         // Hold everything back: the choreography draws the hand-over from
