@@ -23,6 +23,9 @@
 #include <Applications/application.h>
 #include <QActionGroup>
 #include <QMenu>
+#include <QPainter>
+#include <QPainterPath>
+#include <m3scheme.h>
 #include <barmanager.h>
 #include <libcontemporary_global.h>
 #include <mpris/mprisengine.h>
@@ -109,6 +112,10 @@ MprisChunk::MprisChunk() :
 
     ui->stateIcon->setFixedWidth(0);
     ui->stateIcon->setPixmap(QIcon::fromTheme("media-playback-start").pixmap(SC_DPI_T(QSize(16, 16), QSize)));
+
+    // M3E: what's playing sits in its own TertiaryContainer pill
+    this->layout()->setContentsMargins(10, 0, 6, 0);
+    applyColours();
 
     // Ensure that the player controls are always LTR
     //    if (this->layoutDirection() == Qt::RightToLeft) {
@@ -224,4 +231,27 @@ void MprisChunk::on_backButton_clicked() {
 
 void MprisChunk::on_forwardButton_clicked() {
     if (d->currentPlayer) d->currentPlayer->next();
+}
+
+void MprisChunk::applyColours() {
+    const M3::Scheme s = M3::currentScheme();
+    QPalette pal = ui->metadataLabel->palette();
+    pal.setColor(QPalette::WindowText, s.onTertiaryContainer);
+    ui->metadataLabel->setPalette(pal);
+}
+
+void MprisChunk::changeEvent(QEvent* event) {
+    Chunk::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange) applyColours(); // the horizon moved the scheme on
+}
+
+void MprisChunk::paintEvent(QPaintEvent* event) {
+    Q_UNUSED(event)
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    const double height = qMin(this->height() - 4.0, 32.0);
+    const QRectF pill(0, (this->height() - height) / 2, this->width(), height);
+    QPainterPath shape;
+    shape.addRoundedRect(pill, pill.height() / 2, pill.height() / 2);
+    painter.fillPath(shape, M3::currentScheme().tertiaryContainer);
 }

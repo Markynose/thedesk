@@ -22,6 +22,10 @@
 
 #include <icontextchunk.h>
 
+namespace PulseAudioQt {
+    class Sink;
+}
+
 struct AudioChunkPrivate;
 class AudioChunk : public IconTextChunk {
         Q_OBJECT
@@ -35,6 +39,7 @@ class AudioChunk : public IconTextChunk {
         AudioChunkPrivate* d;
 
         void updateData();
+        void trackSink(PulseAudioQt::Sink* sink);
 };
 
 #endif // AUDIOCHUNK_H

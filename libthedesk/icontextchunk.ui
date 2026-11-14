@@ -28,7 +28,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="textLabel">
+    <widget class="M3RollingLabel" name="textLabel">
      <property name="text">
       <string notr="true">TextLabel</string>
      </property>
@@ -36,6 +36,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>M3RollingLabel</class>
+   <extends>QLabel</extends>
+   <header>m3rollinglabel.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

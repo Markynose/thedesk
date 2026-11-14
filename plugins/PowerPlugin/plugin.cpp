@@ -103,6 +103,12 @@ void Plugin::activate() {
     connect(d->upower, &DesktopUPower::overallStateChanged, this, [=] {
         d->powerChunk->setIcon(d->upower->overallStateIcon());
         d->powerChunk->setText(d->upower->overallStateDescription());
+        // The percentage stays while the bar is closed
+        const QStringList parts = d->upower->overallStateDescription().split(QStringLiteral(" · "));
+        const auto percent = std::find_if(parts.cbegin(), parts.cend(), [](const QString& part) {
+            return part.endsWith(QLatin1Char('%'));
+        });
+        d->powerChunk->setShortText(percent == parts.cend() ? QString() : *percent);
 
         if (d->upower->shouldShowOverallState() && !d->powerChunk->chunkRegistered()) {
             // Register the chunk

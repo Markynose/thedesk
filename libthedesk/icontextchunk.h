@@ -37,6 +37,8 @@ class IconTextChunk : public Chunk {
 
         void setIcon(QIcon icon);
         void setText(QString text);
+        // Shown while the bar is closed (empty: only the icon); springs in and out
+        void setShortText(QString text);
         void setQuickWidget(QWidget* widget);
 
         void deleteLater();
@@ -44,6 +46,8 @@ class IconTextChunk : public Chunk {
     private:
         Ui::IconTextChunk* ui;
         IconTextChunkPrivate* d;
+
+        void updateLabel();
 
         // Chunk interface
     public:

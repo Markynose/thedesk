@@ -23,11 +23,18 @@
 #include "barmanager.h"
 #include "statemanager.h"
 #include <QIcon>
+#include <cmath>
 #include <libcontemporary_global.h>
+#include <m3motion.h>
 
 struct IconTextChunkPrivate {
         QString name;
         QWidget* quickWidget = nullptr;
+
+        QString text;
+        QString shortText, lastShortText; // the last one stays while it springs away
+        qreal percentage = 0;
+        M3SpringAnimation* shortShown;
 };
 
 IconTextChunk::IconTextChunk(QString name) :
@@ -36,16 +43,16 @@ IconTextChunk::IconTextChunk(QString name) :
     ui->setupUi(this);
     d = new IconTextChunkPrivate();
     d->name = name;
+    d->shortShown = new M3SpringAnimation(this);
+    d->shortShown->setToken(M3Motion::SpatialDefault);
+    d->shortShown->snapTo(0.0);
+    connect(d->shortShown, &M3SpringAnimation::valueChanged, this, &IconTextChunk::updateLabel);
 
     connect(StateManager::barManager(), &BarManager::barHeightTransitioning, this, [=](qreal percentage) {
         int padding = 3 + 6 * percentage;
         this->layout()->setContentsMargins(6, padding, 6, padding);
-
-        if (qFuzzyCompare(percentage, 1)) {
-            ui->textLabel->setFixedWidth(QWIDGETSIZE_MAX);
-        } else {
-            ui->textLabel->setFixedWidth(ui->textLabel->sizeHint().width() * percentage);
-        }
+        d->percentage = percentage;
+        updateLabel();
     });
 
     connect(this, &IconTextChunk::clicked, this, [=] {
@@ -63,7 +70,33 @@ void IconTextChunk::setIcon(QIcon icon) {
 }
 
 void IconTextChunk::setText(QString text) {
-    ui->textLabel->setText(text);
+    d->text = text;
+    updateLabel();
+}
+
+void IconTextChunk::setShortText(QString text) {
+    d->shortText = text;
+    if (!text.isEmpty()) d->lastShortText = text;
+    d->shortShown->animateTo(text.isEmpty() ? 0.0 : 1.0);
+    updateLabel();
+}
+
+void IconTextChunk::updateLabel() {
+    // The label grows from the short text (or nothing) to the full one as the
+    // bar opens; the text swaps half way, and the label rolls the change
+    const double shown = qBound(0.0, d->shortShown->currentValue().toDouble(), 1.0);
+    const bool full = d->percentage >= 0.5 || d->lastShortText.isEmpty();
+    ui->textLabel->setText(full ? d->text : d->lastShortText);
+    if (shown <= 0 && d->shortText.isEmpty()) d->lastShortText.clear();
+
+    if (qFuzzyCompare(d->percentage, 1)) {
+        ui->textLabel->setFixedWidth(QWIDGETSIZE_MAX);
+        return;
+    }
+    const QFontMetricsF metrics(ui->textLabel->font());
+    const double shortWidth = d->lastShortText.isEmpty() ? 0 : metrics.horizontalAdvance(d->lastShortText) * shown;
+    const double fullWidth = metrics.horizontalAdvance(d->text);
+    ui->textLabel->setFixedWidth(int(std::ceil(shortWidth + (fullWidth - shortWidth) * d->percentage)));
 }
 
 void IconTextChunk::setQuickWidget(QWidget* widget) {

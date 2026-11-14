@@ -36,8 +36,6 @@ class TaskbarApplicationWidget : public QPushButton {
         void removeTrackedWindow(DesktopWmWindowPtr window);
         QList<DesktopWmWindowPtr> trackedWindows();
 
-        void setColor(QColor color);
-
     signals:
         void iconChanged();
         void windowsRemoved();
@@ -45,13 +43,13 @@ class TaskbarApplicationWidget : public QPushButton {
     private:
         TaskbarApplicationWidgetPrivate* d;
 
-        void resizeEvent(QResizeEvent* event);
         void updateIcon();
         void updateActive();
 
         // QWidget interface
     protected:
         void contextMenuEvent(QContextMenuEvent *event);
+        void paintEvent(QPaintEvent* event);
 };
 
 #endif // TASKBARAPPLICATIONWIDGET_H

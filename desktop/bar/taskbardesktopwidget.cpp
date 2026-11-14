@@ -20,30 +20,193 @@
 #include "taskbardesktopwidget.h"
 
 #include <m3motion.h>
+#include <m3scheme.h>
 #include "ui_taskbardesktopwidget.h"
 
 #include "taskbarapplicationwidget.h"
 #include <Applications/application.h>
+#include <QLayout>
 #include <QPainter>
+#include <QPainterPath>
+#include <QStyleOption>
 #include <Wm/desktopwm.h>
 #include <tvariantanimation.h>
+
+namespace {
+    constexpr double buttonHeight = 40;
+    constexpr double innerCorner = 8;  // ButtonGroup's connected inner corners
+    constexpr double pressGrow = 8;    // the pressed button widens by this much...
+    constexpr double pressGiveWay = 4; // ...and each neighbour gives this much up
+
+    QColor mix(const QColor& a, const QColor& b, double t) {
+        t = qBound(0.0, t, 1.0);
+        return QColor::fromRgbF(a.redF() + (b.redF() - a.redF()) * t, a.greenF() + (b.greenF() - a.greenF()) * t, a.blueF() + (b.blueF() - a.blueF()) * t, a.alphaF() + (b.alphaF() - a.alphaF()) * t);
+    }
+
+    QColor alpha(QColor c, double a) {
+        c.setAlphaF(float(qBound(0.0, a, 1.0)));
+        return c;
+    }
+
+    // A rounded rect with one radius on the left and another on the right
+    QPainterPath segment(const QRectF& r, double left, double right) {
+        left = qMin(left, qMin(r.width(), r.height()) / 2);
+        right = qMin(right, qMin(r.width(), r.height()) / 2);
+        QPainterPath path;
+        path.moveTo(r.left() + left, r.top());
+        path.lineTo(r.right() - right, r.top());
+        path.arcTo(QRectF(r.right() - 2 * right, r.top(), 2 * right, 2 * right), 90, -90);
+        path.lineTo(r.right(), r.bottom() - right);
+        path.arcTo(QRectF(r.right() - 2 * right, r.bottom() - 2 * right, 2 * right, 2 * right), 0, -90);
+        path.lineTo(r.left() + left, r.bottom());
+        path.arcTo(QRectF(r.left(), r.bottom() - 2 * left, 2 * left, 2 * left), 270, -90);
+        path.lineTo(r.left(), r.top() + left);
+        path.arcTo(QRectF(r.left(), r.top(), 2 * left, 2 * left), 180, -90);
+        path.closeSubpath();
+        return path;
+    }
+
+    QFont label(double tone) {
+        // Roboto Flex swells in weight and width as the desktop is selected (in steps: each axis value is a new font instance)
+        QFont font(QStringLiteral("Roboto Flex"));
+        font.setPixelSize(15);
+        font.setVariableAxis(QFont::Tag("wght"), float(qRound((500 + 300 * tone) / 50) * 50));
+        font.setVariableAxis(QFont::Tag("wdth"), float(qRound((100 + 15 * tone) / 5) * 5));
+        return font;
+    }
+} // namespace
+
+DesktopButton::DesktopButton(QWidget* parent) :
+    QPushButton(parent) {
+    this->setCheckable(true);
+    this->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    this->setAttribute(Qt::WA_Hover);
+
+    selected = new M3SpringAnimation(this);
+    selected->setToken(M3Motion::SpatialFast);
+    tone = new M3SpringAnimation(this);
+    tone->setToken(M3Motion::EffectsDefault);
+    press = new M3SpringAnimation(this);
+    press->setToken(M3Motion::SpatialFast);
+    for (auto* spring : {selected, tone, press}) {
+        spring->snapTo(0.0);
+        connect(spring, &M3SpringAnimation::valueChanged, this, qOverload<>(&QWidget::update));
+    }
+    connect(press, &M3SpringAnimation::valueChanged, this, [this] {
+        for (DesktopButton* button : group()) button->updateWidth();
+    });
+    connect(this, &QAbstractButton::toggled, this, [this](bool checked) {
+        selected->animateTo(checked ? 1.0 : 0.0);
+        tone->animateTo(checked ? 1.0 : 0.0);
+    });
+    connect(this, &QAbstractButton::pressed, this, [this] {
+        press->animateTo(1.0);
+    });
+    connect(this, &QAbstractButton::released, this, [this] {
+        press->animateTo(0.0);
+    });
+}
+
+void DesktopButton::setAppCount(int count) {
+    apps = count;
+    this->update();
+}
+
+QSize DesktopButton::sizeHint() const {
+    const int text = this->text().isEmpty() ? 0 : QFontMetrics(label(1)).horizontalAdvance(this->text());
+    return QSize(qMax(int(buttonHeight), text + 24), int(buttonHeight));
+}
+
+QSize DesktopButton::minimumSizeHint() const {
+    return QSize(0, int(buttonHeight));
+}
+
+QList<DesktopButton*> DesktopButton::group() const {
+    // The group in layout order
+    QList<DesktopButton*> buttons;
+    QLayout* layout = this->parentWidget() ? this->parentWidget()->layout() : nullptr;
+    if (!layout) return buttons;
+    for (int i = 0; i < layout->count(); i++) {
+        auto* button = qobject_cast<DesktopButton*>(layout->itemAt(i)->widget());
+        if (button && !button->isHidden()) buttons.append(button);
+    }
+    return buttons;
+}
+
+void DesktopButton::updateWidth() {
+    const QList<DesktopButton*> buttons = group();
+    const int index = buttons.indexOf(const_cast<DesktopButton*>(this));
+    double neighbours = 0;
+    if (index > 0) neighbours += buttons.at(index - 1)->press->currentValue().toDouble();
+    if (index >= 0 && index < buttons.count() - 1) neighbours += buttons.at(index + 1)->press->currentValue().toDouble();
+    const int width = qMax(0, qRound(sizeHint().width() + pressGrow * press->currentValue().toDouble() - pressGiveWay * neighbours));
+    if (width == sizeHint().width()) {
+        // At rest: back to the size hint, which follows the text
+        this->setMinimumWidth(0);
+        this->setMaximumWidth(QWIDGETSIZE_MAX);
+    } else {
+        this->setFixedWidth(width);
+    }
+}
+
+void DesktopButton::paintEvent(QPaintEvent* event) {
+    Q_UNUSED(event)
+    const M3::Scheme s = M3::currentScheme();
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    const QList<DesktopButton*> buttons = group();
+    bool first = buttons.isEmpty() || buttons.first() == this, last = buttons.isEmpty() || buttons.last() == this;
+    if (this->layoutDirection() == Qt::RightToLeft) std::swap(first, last);
+
+    const double sel = qBound(0.0, selected->currentValue().toDouble(), 1.0);
+    const double t = qBound(0.0, tone->currentValue().toDouble(), 1.0);
+    const double pressed = qBound(0.0, press->currentValue().toDouble(), 1.0);
+    QRectF r(QRectF(this->rect()));
+    r.setTop(r.center().y() - buttonHeight / 2);
+    r.setHeight(buttonHeight);
+    const double full = r.height() / 2;
+    const double left = (first ? full : innerCorner) + (full - (first ? full : innerCorner)) * sel;
+    const double right = (last ? full : innerCorner) + (full - (last ? full : innerCorner)) * sel;
+    const QPainterPath shape = segment(r, left, right);
+
+    const QColor ink = mix(s.onSecondaryContainer, s.onPrimary, t);
+    painter.fillPath(shape, mix(s.secondaryContainer, s.primary, t));
+    QStyleOption option;
+    option.initFrom(this);
+    double layer = this->underMouse() ? 0.08 : 0;
+    if ((option.state & QStyle::State_HasFocus) && (option.state & QStyle::State_KeyboardFocusChange)) layer = 0.10;
+    layer = qMax(layer, 0.10 * pressed);
+    if (layer > 0) painter.fillPath(shape, alpha(ink, layer));
+
+    if (this->text().isEmpty()) {
+        QFont symbols(QStringLiteral("Material Symbols Rounded"));
+        symbols.setPixelSize(20);
+        symbols.setVariableAxis(QFont::Tag("opsz"), 20);
+        painter.setFont(symbols);
+        painter.setPen(ink);
+        painter.drawText(r, Qt::AlignCenter, QStringLiteral("add"));
+        return;
+    }
+
+    painter.setFont(label(t));
+    painter.setPen(ink);
+    painter.drawText(r.adjusted(0, apps > 0 ? -3 : 0, 0, apps > 0 ? -3 : 0), Qt::AlignCenter, this->text());
+
+    // A dot per app on the desktop (the icons were too small to make out)
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(alpha(ink, 0.8));
+    const int dots = qMin(apps, 5);
+    for (int i = 0; i < dots; i++) painter.drawEllipse(QPointF(r.center().x() + (i - (dots - 1) / 2.0) * 6, r.bottom() - 7), 1.6, 1.6);
+}
 
 struct TaskbarDesktopWidgetPrivate {
         QMap<QString, TaskbarApplicationWidget*> applicationWidgets;
         QList<TaskbarApplicationWidget*> applicationWidgetOrder;
         uint desktop;
-        QColor color;
+        DesktopButton* button;
 
         tVariantAnimation* progressAnim;
-
-        // Gruvbox dark accents: blue, aqua, green, yellow, orange, purple
-        const QRgb colors[6] = {
-            0x458588,
-            0x689d6a,
-            0x98971a,
-            0xd79921,
-            0xd65d0e,
-            0xb16286};
 };
 
 TaskbarDesktopWidget::TaskbarDesktopWidget(uint desktop, QWidget* parent) :
@@ -53,7 +216,11 @@ TaskbarDesktopWidget::TaskbarDesktopWidget(uint desktop, QWidget* parent) :
     d = new TaskbarDesktopWidgetPrivate();
     d->desktop = desktop;
 
-    d->color = QColor::fromRgb(d->colors[desktop % 6]);
+    d->button = new DesktopButton();
+    connect(d->button, &QAbstractButton::clicked, this, [this] {
+        DesktopWm::setCurrentDesktop(d->desktop);
+    });
+    d->button->setChecked(DesktopWm::currentDesktop() == d->desktop);
 
     d->progressAnim = new tVariantAnimation();
     d->progressAnim->setStartValue(0.0);
@@ -67,7 +234,7 @@ TaskbarDesktopWidget::TaskbarDesktopWidget(uint desktop, QWidget* parent) :
     finishAnimation();
 
     connect(DesktopWm::instance(), &DesktopWm::currentDesktopChanged, this, &TaskbarDesktopWidget::updateDesktop);
-    connect(DesktopWm::instance(), &DesktopWm::desktopCountChanged, this, &TaskbarDesktopWidget::updateOverviewButtonIcon);
+    connect(DesktopWm::instance(), &DesktopWm::desktopCountChanged, this, &TaskbarDesktopWidget::updateButton);
     connect(DesktopWm::instance(), &DesktopWm::windowAdded, this, &TaskbarDesktopWidget::windowAdded);
     connect(DesktopWm::instance(), &DesktopWm::windowRemoved, this, &TaskbarDesktopWidget::windowRemoved);
 
@@ -75,14 +242,17 @@ TaskbarDesktopWidget::TaskbarDesktopWidget(uint desktop, QWidget* parent) :
         this->windowAdded(window);
     }
 
-    updateHighlight(DesktopWm::currentDesktop() == d->desktop ? 1 : 0);
-    ui->desktopOverviewButton->setIconSize(SC_DPI_T(QSize(32, 32), QSize));
-    updateOverviewButtonIcon();
+    updateButton();
 }
 
 TaskbarDesktopWidget::~TaskbarDesktopWidget() {
+    delete d->button; // it lives in the taskbar's button group
     delete d;
     delete ui;
+}
+
+DesktopButton* TaskbarDesktopWidget::desktopButton() {
+    return d->button;
 }
 
 void TaskbarDesktopWidget::moveDesktop(uint newDesktop) {
@@ -123,15 +293,13 @@ void TaskbarDesktopWidget::registerOnDesktop(DesktopWmWindowPtr window) {
         widget = d->applicationWidgets.value(desktopEntry);
     } else {
         widget = new TaskbarApplicationWidget(desktopEntry, d->desktop, this);
-        widget->setColor(d->color);
-        connect(widget, &TaskbarApplicationWidget::iconChanged, this, &TaskbarDesktopWidget::updateOverviewButtonIcon);
         connect(widget, &TaskbarApplicationWidget::windowsRemoved, this, [=] {
             d->applicationWidgets.remove(desktopEntry);
             d->applicationWidgetOrder.removeOne(widget);
             ui->applicationsLayout->removeWidget(widget);
             widget->deleteLater();
 
-            updateOverviewButtonIcon();
+            updateButton();
         });
         ui->applicationsLayout->addWidget(widget);
         d->applicationWidgets.insert(desktopEntry, widget);
@@ -139,7 +307,7 @@ void TaskbarDesktopWidget::registerOnDesktop(DesktopWmWindowPtr window) {
     }
 
     widget->trackWindow(window);
-    updateOverviewButtonIcon();
+    updateButton();
 }
 
 void TaskbarDesktopWidget::deregisterFromDesktop(DesktopWmWindowPtr window) {
@@ -152,46 +320,17 @@ void TaskbarDesktopWidget::deregisterFromDesktop(DesktopWmWindowPtr window) {
     }
 }
 
-void TaskbarDesktopWidget::updateOverviewButtonIcon() {
-    QPixmap pixmap(SC_DPI_T(QSize(32, 32), QSize));
-    pixmap.fill(Qt::transparent);
-
-    QPainter painter(&pixmap);
-    for (int i = 0; i < 4; i++) {
-        if (d->applicationWidgetOrder.count() <= i) continue;
-
-        QRect boxGeometry;
-        boxGeometry.setSize(SC_DPI_T(QSize(16, 16), QSize));
-        boxGeometry.moveTopLeft(QPoint(SC_DPI(16) * (i % 2), SC_DPI(16) * (i / 2)));
-
-        QRect geometry;
-        geometry.setSize(SC_DPI_T(QSize(14, 14), QSize));
-        geometry.moveCenter(boxGeometry.center());
-
-        if (i == 3 && d->applicationWidgetOrder.count() > 4) {
-            QFont font = this->font();
-            font.setPixelSize(geometry.height());
-            painter.setFont(font);
-
-            painter.setPen(this->palette().color(QPalette::ButtonText));
-            painter.drawText(geometry, Qt::AlignCenter, QStringLiteral("%1%2").arg(QLocale().positiveSign()).arg(d->applicationWidgetOrder.count() - 3));
-        } else {
-            QPixmap icon(d->applicationWidgetOrder.at(i)->icon().pixmap(geometry.size()));
-            painter.drawPixmap(geometry, icon);
-        }
-    }
-
+void TaskbarDesktopWidget::updateButton() {
     // Number each desktop with the name the WM gives it (bspwm: 1..10)
     QString name = DesktopWm::desktops().value(d->desktop);
     if (name.isEmpty()) name = QString::number(d->desktop + 1);
-    ui->desktopOverviewButton->setText(name);
-    ui->desktopOverviewButton->setToolTip(tr("Desktop %1").arg(name));
-
-    // Empty desktop: just the number. Otherwise the number plus app icons.
-    ui->desktopOverviewButton->setIcon(d->applicationWidgetOrder.isEmpty() ? QIcon() : QIcon(pixmap));
+    d->button->setText(name);
+    d->button->setToolTip(tr("Desktop %1").arg(name));
+    d->button->setAppCount(d->applicationWidgetOrder.count());
 }
 
 void TaskbarDesktopWidget::updateDesktop() {
+    d->button->setChecked(DesktopWm::currentDesktop() == d->desktop);
     if (DesktopWm::currentDesktop() == d->desktop && d->progressAnim->currentValue().toReal() < 0.5) {
         d->progressAnim->setDirection(tVariantAnimation::Forward);
         d->progressAnim->start();
@@ -202,46 +341,13 @@ void TaskbarDesktopWidget::updateDesktop() {
 }
 
 void TaskbarDesktopWidget::updateAnimation() {
+    // Only the current desktop's apps show, after the group; they slide open
     double progress = d->progressAnim->currentValue().toReal();
     ui->applicationsWidget->setFixedWidth(ui->applicationsWidget->sizeHint().width() * progress);
-    // The numbered button always stays visible (collapsing it shifted every
-    // following tile); the current desktop is highlighted instead.
-    ui->desktopOverviewButton->setFixedWidth(this->height());
-    updateHighlight(progress);
-}
-
-void TaskbarDesktopWidget::updateHighlight(double progress) {
-    // M3 toolbar: the current desktop is the selected (filled) item
-    ui->desktopOverviewButton->setCheckable(true);
-    ui->desktopOverviewButton->setChecked(progress > 0.5);
-
-    QColor inactive = d->color.darker(170);
-    QColor colour;
-    colour.setRgbF(inactive.redF() + (d->color.redF() - inactive.redF()) * progress,
-        inactive.greenF() + (d->color.greenF() - inactive.greenF()) * progress,
-        inactive.blueF() + (d->color.blueF() - inactive.blueF()) * progress);
-    QPalette pal = ui->desktopOverviewButton->palette();
-    pal.setColor(QPalette::Button, colour);
-    ui->desktopOverviewButton->setPalette(pal);
-
-    QFont font = ui->desktopOverviewButton->font();
-    font.setBold(progress > 0.5);
-    ui->desktopOverviewButton->setFont(font);
 }
 
 void TaskbarDesktopWidget::finishAnimation() {
-    ui->desktopOverviewButton->setFixedWidth(this->height());
-    if (d->progressAnim->currentValue().toReal() > 0.5) {
-        ui->applicationsWidget->setFixedWidth(QWIDGETSIZE_MAX);
-        updateHighlight(1);
-    } else {
-        ui->applicationsWidget->setFixedWidth(0);
-        updateHighlight(0);
-    }
-}
-
-void TaskbarDesktopWidget::on_desktopOverviewButton_clicked() {
-    DesktopWm::setCurrentDesktop(d->desktop);
+    ui->applicationsWidget->setFixedWidth(d->progressAnim->currentValue().toReal() > 0.5 ? QWIDGETSIZE_MAX : 0);
 }
 
 void TaskbarDesktopWidget::resizeEvent(QResizeEvent* event) {

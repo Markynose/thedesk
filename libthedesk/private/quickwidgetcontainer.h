@@ -20,6 +20,7 @@
 #ifndef QUICKWIDGETCONTAINER_H
 #define QUICKWIDGETCONTAINER_H
 
+#include <QPainterPath>
 #include <QWidget>
 
 namespace Ui {
@@ -61,6 +62,10 @@ class QuickWidgetContainer : public QWidget {
         bool eventFilter(QObject* watched, QEvent* event);
 
         void calculatePosition();
+        void applyTransform();
+        QRect sourceRect() const;
+        QPainterPath panelShape() const;
+        QColor panelColour() const;
 
 
         // QWidget interface

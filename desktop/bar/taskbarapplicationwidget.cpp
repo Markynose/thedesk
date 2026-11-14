@@ -27,6 +27,11 @@
 #include <QActionGroup>
 #include <QContextMenuEvent>
 #include <QMenu>
+#include <QPainter>
+#include <QPainterPath>
+#include <QStyleOption>
+#include <m3motion.h>
+#include <m3scheme.h>
 #include <Wm/desktopwm.h>
 #include <actionquickwidget.h>
 #include <barmanager.h>
@@ -42,6 +47,8 @@ struct TaskbarApplicationWidgetPrivate {
 
         QList<DesktopWmWindowPtr> trackedWindows;
         QMap<DesktopWmWindowPtr, QAction*> actions;
+
+        M3SpringAnimation* checked;
 };
 
 TaskbarApplicationWidget::TaskbarApplicationWidget(QString desktopEntry, uint desktop, QWidget* parent) :
@@ -51,7 +58,18 @@ TaskbarApplicationWidget::TaskbarApplicationWidget(QString desktopEntry, uint de
     d->desktop = desktop;
 
     this->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    this->setFixedWidth(44);
     this->setCheckable(true);
+    this->setAttribute(Qt::WA_Hover);
+
+    // M3E toggle icon button: round off, CornerMedium and SecondaryContainer on
+    d->checked = new M3SpringAnimation(this);
+    d->checked->setToken(M3Motion::SpatialFast);
+    d->checked->snapTo(0.0);
+    connect(d->checked, &M3SpringAnimation::valueChanged, this, qOverload<>(&QWidget::update));
+    connect(this, &QAbstractButton::toggled, this, [this](bool on) {
+        d->checked->animateTo(on ? 1.0 : 0.0);
+    });
 
     connect(DesktopWm::instance(), &DesktopWm::windowRemoved, this, [=](DesktopWmWindowPtr window) {
         removeTrackedWindow(window);
@@ -66,7 +84,7 @@ TaskbarApplicationWidget::TaskbarApplicationWidget(QString desktopEntry, uint de
         }
         updateActive();
     });
-    this->setIconSize(SC_DPI_T(QSize(32, 32), QSize));
+    this->setIconSize(QSize(30, 30));
 
     d->windowListMenuContainer = new QuickWidgetContainer(this);
     d->windowListMenu = new ActionQuickWidget(d->windowListMenuContainer);
@@ -118,14 +136,36 @@ QList<DesktopWmWindowPtr> TaskbarApplicationWidget::trackedWindows() {
     return d->trackedWindows;
 }
 
-void TaskbarApplicationWidget::setColor(QColor color) {
-    QPalette pal = this->palette();
-    pal.setColor(QPalette::Button, color);
-    this->setPalette(pal);
-}
+void TaskbarApplicationWidget::paintEvent(QPaintEvent* event) {
+    Q_UNUSED(event)
+    const M3::Scheme s = M3::currentScheme();
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
 
-void TaskbarApplicationWidget::resizeEvent(QResizeEvent* event) {
-    this->setFixedWidth(this->height());
+    const double on = qBound(0.0, d->checked->currentValue().toDouble(), 1.0);
+    QRectF r(0, 0, 40, 40);
+    r.moveCenter(QRectF(this->rect()).center());
+    const double radius = 20 + (12 - 20) * d->checked->currentValue().toDouble();
+    QPainterPath shape;
+    shape.addRoundedRect(r, radius, radius);
+
+    QColor container = s.secondaryContainer;
+    container.setAlphaF(float(on));
+    painter.fillPath(shape, container);
+    QStyleOption option;
+    option.initFrom(this);
+    double layer = this->underMouse() ? 0.08 : 0;
+    if (this->isDown()) layer = 0.10;
+    if ((option.state & QStyle::State_HasFocus) && (option.state & QStyle::State_KeyboardFocusChange)) layer = qMax(layer, 0.10);
+    if (layer > 0) {
+        QColor state = on > 0.5 ? s.onSecondaryContainer : s.onSurfaceVariant;
+        state.setAlphaF(float(layer));
+        painter.fillPath(shape, state);
+    }
+
+    QRect iconRect(QPoint(0, 0), this->iconSize());
+    iconRect.moveCenter(r.center().toPoint());
+    this->icon().paint(&painter, iconRect);
 }
 
 void TaskbarApplicationWidget::updateIcon() {

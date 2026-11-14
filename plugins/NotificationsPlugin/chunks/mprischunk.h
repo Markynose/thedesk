@@ -43,6 +43,11 @@ class MprisChunk : public Chunk {
         void updateMetadata();
         void updateApplication();
         void updateState();
+        void applyColours();
+
+    protected:
+        void paintEvent(QPaintEvent* event) override;
+        void changeEvent(QEvent* event) override;
 
         // Chunk interface
     public:

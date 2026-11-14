@@ -20,11 +20,42 @@
 #ifndef TASKBARDESKTOPWIDGET_H
 #define TASKBARDESKTOPWIDGET_H
 
+#include <QPushButton>
 #include <QWidget>
 
 namespace Ui {
     class TaskbarDesktopWidget;
 }
+
+class M3SpringAnimation;
+
+// A button of the desktops' M3E connected button group: tonal segments with
+// small inner corners; the selected one turns fully round and Primary, and a
+// pressed one widens while its neighbours give way. A dot per app on the
+// desktop; no text draws the "add" symbol (the new desktop button)
+class DesktopButton : public QPushButton {
+        Q_OBJECT
+
+    public:
+        explicit DesktopButton(QWidget* parent = nullptr);
+
+        void setAppCount(int count);
+        QSize sizeHint() const override;
+        QSize minimumSizeHint() const override;
+
+    protected:
+        void nextCheckState() override {} // selected follows the current desktop, not clicks
+        void paintEvent(QPaintEvent* event) override;
+
+    private:
+        M3SpringAnimation* selected; // the shape rounding off
+        M3SpringAnimation* tone;     // the colour
+        M3SpringAnimation* press;
+        int apps = 0;
+
+        QList<DesktopButton*> group() const;
+        void updateWidth();
+};
 
 class DesktopWmWindow;
 typedef QPointer<DesktopWmWindow> DesktopWmWindowPtr;
@@ -38,9 +69,8 @@ class TaskbarDesktopWidget : public QWidget {
         ~TaskbarDesktopWidget();
 
         void moveDesktop(uint newDesktop);
-
-    private slots:
-        void on_desktopOverviewButton_clicked();
+        // Goes in the taskbar's button group; the apps stay in this widget
+        DesktopButton* desktopButton();
 
     private:
         Ui::TaskbarDesktopWidget* ui;
@@ -53,8 +83,7 @@ class TaskbarDesktopWidget : public QWidget {
         void registerOnDesktop(DesktopWmWindowPtr window);
         void deregisterFromDesktop(DesktopWmWindowPtr window);
 
-        void updateOverviewButtonIcon();
-        void updateHighlight(double progress);
+        void updateButton();
         void updateDesktop();
         void updateAnimation();
         void finishAnimation();

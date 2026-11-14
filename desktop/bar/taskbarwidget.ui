@@ -30,27 +30,42 @@
     <number>0</number>
    </property>
    <item>
+    <widget class="QWidget" name="desktopsGroup" native="true">
+     <layout class="QHBoxLayout" name="desktopsGroupLayout">
+      <property name="spacing">
+       <number>2</number>
+      </property>
+      <property name="leftMargin">
+       <number>6</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="DesktopButton" name="lastDesktopButton">
+        <property name="toolTip">
+         <string>New desktop</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="desktopsLayout">
      <property name="spacing">
       <number>0</number>
      </property>
+     <property name="leftMargin">
+      <number>12</number>
+     </property>
     </layout>
-   </item>
-   <item>
-    <widget class="QToolButton" name="lastDesktopButton">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="icon">
-      <iconset theme="list-add"/>
-     </property>
-     <property name="checkable">
-      <bool>true</bool>
-     </property>
-    </widget>
    </item>
    <item>
     <spacer name="horizontalSpacer">
@@ -67,6 +82,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>DesktopButton</class>
+   <extends>QPushButton</extends>
+   <header>bar/taskbardesktopwidget.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

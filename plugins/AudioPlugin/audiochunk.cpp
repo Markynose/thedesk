@@ -22,17 +22,32 @@
 #include <statemanager.h>
 #include <quietmodemanager.h>
 #include <QIcon>
+#include <QPointer>
+#include <QTimer>
+#include <PulseAudioQt/Context>
+#include <PulseAudioQt/Server>
+#include <PulseAudioQt/Sink>
 #include "audioquickwidget.h"
 
 struct AudioChunkPrivate {
     AudioQuickWidget* qw = nullptr;
+    QPointer<PulseAudioQt::Sink> sink;
+    QTimer volumeShown;
 };
 
 AudioChunk::AudioChunk() : IconTextChunk("audio") {
     d = new AudioChunkPrivate();
 
     connect(StateManager::quietModeManager(), &QuietModeManagerTd::quietModeChanged, this, &AudioChunk::updateData);
-    updateData();
+
+    // A volume change shows the level on the closed bar for a moment
+    d->volumeShown.setSingleShot(true);
+    d->volumeShown.setInterval(1500);
+    connect(&d->volumeShown, &QTimer::timeout, this, [this] {
+        this->setShortText({});
+    });
+    connect(PulseAudioQt::Context::instance()->server(), &PulseAudioQt::Server::defaultSinkChanged, this, &AudioChunk::trackSink);
+    trackSink(PulseAudioQt::Context::instance()->server()->defaultSink());
 
     d->qw = new AudioQuickWidget();
     this->setQuickWidget(d->qw);
@@ -43,7 +58,20 @@ AudioChunk::~AudioChunk() {
     delete d;
 }
 
+void AudioChunk::trackSink(PulseAudioQt::Sink* sink) {
+    if (d->sink) d->sink->disconnect(this);
+    d->sink = sink;
+    if (sink) connect(sink, &PulseAudioQt::Sink::volumeChanged, this, [this] {
+        updateData();
+        this->setShortText(QStringLiteral("%1%").arg(qRound(100.0 * d->sink->volume() / PulseAudioQt::normalVolume())));
+        d->volumeShown.start();
+    });
+    updateData();
+}
+
 void AudioChunk::updateData() {
     this->setIcon(QIcon::fromTheme(QuietModeManagerTd::icon(StateManager::quietModeManager()->currentMode())));
-    this->setText(QuietModeManagerTd::name(StateManager::quietModeManager()->currentMode()));
+    QString text = QuietModeManagerTd::name(StateManager::quietModeManager()->currentMode());
+    if (d->sink) text = QStringLiteral("%1 · %2%").arg(text).arg(qRound(100.0 * d->sink->volume() / PulseAudioQt::normalVolume()));
+    this->setText(text);
 }

@@ -89,7 +89,6 @@ TaskbarWidget::TaskbarWidget(QWidget* parent) :
         }
     });
 
-    ui->lastDesktopButton->setIconSize(SC_DPI_T(QSize(24, 24), QSize));
     // The "new desktop" button is the spare empty desktop of dynamic mode
     ui->lastDesktopButton->setVisible(DesktopWm::supportsSetNumDesktops() && dynamicDesktops());
 
@@ -129,6 +128,7 @@ void TaskbarWidget::normaliseDesktops() {
             // Add another widget
             TaskbarDesktopWidget* widget = new TaskbarDesktopWidget(i);
             ui->desktopsLayout->addWidget(widget);
+            ui->desktopsGroupLayout->insertWidget(i, widget->desktopButton());
             d->desktopWidgets.append(widget);
         }
     }
@@ -186,8 +186,4 @@ void TaskbarWidget::updateDesktop() {
 
 void TaskbarWidget::on_lastDesktopButton_clicked() {
     DesktopWm::setCurrentDesktop(DesktopWm::desktops().count() - 1);
-}
-
-void TaskbarWidget::resizeEvent(QResizeEvent* event) {
-    ui->lastDesktopButton->setFixedWidth(this->height());
 }

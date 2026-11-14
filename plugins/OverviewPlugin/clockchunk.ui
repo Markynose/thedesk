@@ -26,7 +26,7 @@
       <number>0</number>
      </property>
      <item>
-      <widget class="QLabel" name="time">
+      <widget class="M3RollingLabel" name="time">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
@@ -87,6 +87,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>M3RollingLabel</class>
+   <extends>QLabel</extends>
+   <header>m3rollinglabel.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

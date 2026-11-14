@@ -44,8 +44,6 @@ class TaskbarWidget : public QWidget {
         Ui::TaskbarWidget* ui;
         TaskbarWidgetPrivate* d;
 
-        void resizeEvent(QResizeEvent* event);
-
         void addWindow(DesktopWmWindowPtr window);
         void removeWindow(DesktopWmWindowPtr window);
         void activeWindowChanged();

@@ -37,6 +37,7 @@ set(SOURCES
     m3locksurface.cpp
     compositor.cpp
     m3themedicon.cpp
+    m3rollinglabel.cpp
     m3navigationdelegate.cpp
     onboarding/onboarding.cpp
     onboarding/onboardingbar.cpp
@@ -113,6 +114,7 @@ set(HEADERS
     m3locksurface.h
     compositor.h
     m3themedicon.h
+    m3rollinglabel.h
     m3navigationdelegate.h
     onboarding/onboarding.h
     onboarding/onboardingbar.h
