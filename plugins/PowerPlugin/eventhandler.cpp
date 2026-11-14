@@ -252,6 +252,9 @@ void EventHandler::trackDevice(DesktopUPowerDevice* device) {
     if (device->type() == DesktopUPowerDevice::Battery && device != d->upower->displayDevice()) return;
     connect(device, &DesktopUPowerDevice::lowBatteryNotification, this, [=](QString description) {
         DeskSound::play(QStringLiteral("battery-caution"));
+        // The bar's chip (and at 5% the charger's corner) are the warning; a fullscreen window hides them
+        DesktopWmWindowPtr active = DesktopWm::activeWindow();
+        if (!active || !active->isFullScreen() || active->isMinimized()) return;
         StateManager::instance()->hudManager()->showHud({
             {"icon",    device->iconName()          },
             {"title",   tr("Battery")               },

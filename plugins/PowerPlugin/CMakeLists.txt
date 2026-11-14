@@ -4,6 +4,7 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 find_package(libcontemporary)
 
 set(SOURCES
+    batterychunk.cpp
     chargingripple.cpp
     eventhandler.cpp
     plugin.cpp
@@ -15,6 +16,7 @@ set(SOURCES
 )
 
 set(HEADERS
+    batterychunk.h
     chargingripple.h
     eventhandler.h
     plugin.h

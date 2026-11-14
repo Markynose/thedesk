@@ -23,8 +23,10 @@
 
 #include <richtip.h>
 
+#include "batterychunk.h"
 #include "chargingripple.h"
 #include <QTimer>
+#include <memory>
 
 #include "eventhandler.h"
 #include "settings/powersettings.h"
@@ -36,6 +38,7 @@
 #include <QDBusInterface>
 #include <QIcon>
 #include <UPower/desktopupower.h>
+#include <UPower/desktopupowerdevice.h>
 #include <actionquickwidget.h>
 #include <barmanager.h>
 #include <icontextchunk.h>
@@ -50,7 +53,7 @@ struct PluginPrivate {
         DesktopPowerProfiles* powerProfiles;
 
         DesktopUPower* upower;
-        IconTextChunk* powerChunk;
+        BatteryChunk* powerChunk;
         EventHandler* logind;
         PowerSettings* powerSettings;
         QuickSwitch* powerStretchSwitch;
@@ -88,36 +91,58 @@ void Plugin::activate() {
             if (device.property("IsPresent").toBool()) {
                 const uint state = device.property("State").toUInt(); // 1 charging, 2 on battery, 4 full
                 const qint64 toEmpty = device.property("TimeToEmpty").toLongLong(), toFull = device.property("TimeToFull").toLongLong();
-                auto span = [](qint64 secs) {
-                    return secs >= 3600 ? tr("%1 h %2 min").arg(secs / 3600).arg(secs % 3600 / 60) : tr("%1 min").arg(qMax<qint64>(1, secs / 60));
-                };
                 result.card = QStringLiteral("battery");
                 result.value = device.property("Percentage").toDouble() / 100;
                 result.icon = state == 1 ? QStringLiteral("charging") : QStringLiteral("battery");
                 result.title = state == 1 ? tr("Charging") : state == 4 ? tr("Full") : state == 2 ? tr("On battery") : tr("Plugged in");
-                result.subtitle = state == 1 && toFull > 0 ? tr("Full in %1").arg(span(toFull)) : state == 2 && toEmpty > 0 ? tr("%1 left").arg(span(toEmpty)) : QString();
+                result.subtitle = state == 1 && toFull > 0 ? tr("Full in %1").arg(BatteryChunk::span(toFull)) : state == 2 && toEmpty > 0 ? tr("%1 left").arg(BatteryChunk::span(toEmpty)) : QString();
             }
             return result;
         }});
-    d->powerChunk = new IconTextChunk("Power");
-    connect(d->upower, &DesktopUPower::overallStateChanged, this, [=] {
-        d->powerChunk->setIcon(d->upower->overallStateIcon());
-        d->powerChunk->setText(d->upower->overallStateDescription());
-        // The percentage stays while the bar is closed
-        const QStringList parts = d->upower->overallStateDescription().split(QStringLiteral(" · "));
-        const auto percent = std::find_if(parts.cbegin(), parts.cend(), [](const QString& part) {
-            return part.endsWith(QLatin1Char('%'));
-        });
-        d->powerChunk->setShortText(percent == parts.cend() ? QString() : *percent);
+    d->powerChunk = new BatteryChunk();
+    // Testing without touching real power: TD_BATTERY_TEST=50,20,10,5,6c steps through
+    // these levels 4 s apart (c: charging), each with a made-up time left
+    const QStringList test = qEnvironmentVariable("TD_BATTERY_TEST").split(QLatin1Char(','), Qt::SkipEmptyParts);
+    auto step = std::make_shared<int>(0);
+    auto follow = [this, test, step] {
+        DesktopUPowerDevice* battery = d->upower->displayDevice();
+        int percentage = battery->percentage();
+        DesktopUPowerDevice::DeviceState state = battery->state();
+        qint64 seconds = state == DesktopUPowerDevice::Charging ? battery->timeToFull() : battery->timeToEmpty();
+        QString words = battery->stateString();
+        if (!test.isEmpty()) {
+            const QString now = test.at(qMin(*step, int(test.size()) - 1)).trimmed();
+            percentage = now.chopped(now.endsWith(QLatin1Char('c')) ? 1 : 0).toInt();
+            state = now.endsWith(QLatin1Char('c')) ? DesktopUPowerDevice::Charging : DesktopUPowerDevice::Discharging;
+            seconds = state == DesktopUPowerDevice::Charging ? (100 - percentage) * 75 : percentage * 216;
+            words = QString();
+        }
+        const bool onBattery = state == DesktopUPowerDevice::Discharging || state == DesktopUPowerDevice::Empty;
+        const bool charging = state == DesktopUPowerDevice::Charging;
+        d->powerChunk->setBattery(percentage, onBattery, charging, seconds, words);
+        ChargerCorner::follow(onBattery && percentage <= 5, charging);
 
-        if (d->upower->shouldShowOverallState() && !d->powerChunk->chunkRegistered()) {
+        const bool show = d->upower->shouldShowOverallState() || !test.isEmpty();
+        if (show && !d->powerChunk->chunkRegistered()) {
             // Register the chunk
             StateManager::barManager()->addChunk(d->powerChunk);
-        } else if (!d->upower->shouldShowOverallState() && d->powerChunk->chunkRegistered()) {
+        } else if (!show && d->powerChunk->chunkRegistered()) {
             // Deregister the chunk
             StateManager::barManager()->removeChunk(d->powerChunk);
         }
-    });
+    };
+    connect(d->upower, &DesktopUPower::overallStateChanged, this, follow);
+    if (test.size() > 1) {
+        auto* stepper = new QTimer(this);
+        stepper->setInterval(4000);
+        connect(stepper, &QTimer::timeout, this, [this, test, step, stepper, follow] {
+            const bool wasCharging = test.at(*step).endsWith(QLatin1Char('c'));
+            if (++*step >= test.size() - 1) stepper->stop();
+            if (!wasCharging && test.at(*step).endsWith(QLatin1Char('c'))) ChargingRipple::play(test.at(*step).chopped(1).toInt(), 0, d->powerChunk);
+            follow();
+        });
+        stepper->start();
+    }
     d->logind = new EventHandler();
     d->logind->setBatteryChunk(d->powerChunk);
     RichTip::attach(d->powerChunk, [this] {

@@ -46,4 +46,30 @@ class ChargingRipple : public QWidget {
         void tick();
 };
 
+/**
+ * At 5% on battery the charger's corner calls: an errorContainer Cookie9
+ * grows into it with a plug, beating and sending out a few wavy pings, then
+ * rests. The charger going in turns it into a primary circle with a bolt
+ * (the ripple starts there) and it goes. Click-through; it steps back while
+ * a fullscreen window is active; without a compositor it is the masked
+ * shape, still.
+ */
+class ChargerCorner : public QWidget {
+        Q_OBJECT
+    public:
+        static void follow(bool critical, bool charging);
+
+        ~ChargerCorner() override;
+
+    protected:
+        void paintEvent(QPaintEvent* event) override;
+
+    private:
+        explicit ChargerCorner(QScreen* screen);
+        struct Private;
+        Private* d;
+        void tick();
+        void updateCovered();
+};
+
 #endif // CHARGINGRIPPLE_H

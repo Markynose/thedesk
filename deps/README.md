@@ -70,6 +70,9 @@ Every change made here on top of upstream is listed below.
 - `libtdesktopenvironment/lib/UPower/desktopupower.cpp`: the battery summary
   uses UPower's DisplayDevice (all batteries combined, as in XFCE/GNOME)
   instead of the first battery plus "N more batteries".
+- `libtdesktopenvironment/lib/UPower/desktopupowerdevice.cpp`: the first
+  low-battery warning comes at 20% (Android's level, UPower's PercentageLow)
+  instead of 25%.
 - `libtdesktopenvironment/plugins/x11/Wm/x11backend.cpp`: `desktops()` only
   drops a trailing *empty* name (bspwm doesn't NUL-terminate the last one, so
   its last desktop showed as "Desktop 9"); fallback names are 1-based.

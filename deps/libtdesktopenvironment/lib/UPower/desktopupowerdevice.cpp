@@ -32,7 +32,7 @@ struct DesktopUPowerDevicePrivate {
 
         bool settingUp = true;
 
-        bool notification25 = false;
+        bool notification20 = false;
         bool notification10 = false;
         bool notification5 = false;
         DesktopUPowerDevice::DeviceState oldState = DesktopUPowerDevice::UnknownState;
@@ -51,7 +51,7 @@ DesktopUPowerDevice::DesktopUPowerDevice(QDBusObjectPath path, QObject* parent) 
             if (d->oldState != Charging && state == Charging) {
                 d->notification5 = false;
                 d->notification10 = false;
-                d->notification25 = false;
+                d->notification20 = false;
 
                 if (!d->settingUp) emit chargingNotification();
                 d->oldState = state;
@@ -60,7 +60,7 @@ DesktopUPowerDevice::DesktopUPowerDevice(QDBusObjectPath path, QObject* parent) 
             } else if ((d->oldState == Charging || d->oldState == FullyCharged) && state != Charging && state != FullyCharged) {
                 d->notification5 = false;
                 d->notification10 = false;
-                d->notification25 = false;
+                d->notification20 = false;
 
                 if (!d->settingUp) emit dischargingNotification();
                 d->oldState = state;
@@ -69,7 +69,7 @@ DesktopUPowerDevice::DesktopUPowerDevice(QDBusObjectPath path, QObject* parent) 
             } else if (d->oldState != FullyCharged && state == FullyCharged) {
                 d->notification5 = false;
                 d->notification10 = false;
-                d->notification25 = false;
+                d->notification20 = false;
 
                 if (!d->settingUp) emit fullNotification();
                 d->oldState = state;
@@ -85,18 +85,18 @@ DesktopUPowerDevice::DesktopUPowerDevice(QDBusObjectPath path, QObject* parent) 
 
         int percentage = this->percentage();
         if (percentage <= 5 && !d->notification5) {
-            d->notification25 = true;
+            d->notification20 = true;
             d->notification10 = true;
             d->notification5 = true;
 
             if (!d->settingUp) emit lowBatteryNotification(tr("About %1% remaining").arg(percentage));
         } else if (percentage <= 10 && !d->notification10) {
-            d->notification25 = true;
+            d->notification20 = true;
             d->notification10 = true;
 
             if (!d->settingUp) emit lowBatteryNotification(tr("About %1% remaining").arg(percentage));
-        } else if (percentage <= 25 && !d->notification25) {
-            d->notification25 = true;
+        } else if (percentage <= 20 && !d->notification20) {
+            d->notification20 = true;
 
             if (!d->settingUp) emit lowBatteryNotification(tr("About %1% remaining").arg(percentage));
         }
