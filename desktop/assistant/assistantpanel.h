@@ -6,8 +6,8 @@
 #include <QHash>
 #include <functional>
 
-// Pebble, the assistant: a sheet in the middle of the screen (Super+Space)
-// with a thread of answers, cards and follow-up chips. Esc or clicking away
+// Pebble, the assistant (Super+Space): a pill near the top of the screen;
+// under it the answer as one big line, cards in a carousel and follow-ups. Esc or clicking away
 // while it works puts it into the bar until it's done.
 class AssistantPanel : public QDialog {
         Q_OBJECT
@@ -61,10 +61,14 @@ class AssistantPanel : public QDialog {
         void redraw();
         void scrollToEnd();
         QRectF sheetRect() const;
-        double paintThread(QPainter& p, const QRectF& view, double scroll);
+        QRectF pillRect() const;
+        double stageWidth() const;
+        QList<int> turnStarts() const;
+        void showTurn(int back);
+        double paintStage(QPainter& p, const QRectF& view, const QList<int>& starts, double seesK);
         using HitFn = std::function<void(const QRectF&, std::function<void(QPointF)>)>;
         using HoverFn = std::function<bool(const QRectF&)>;
-        double paintLiving(QPainter& p, const QString& raw, const QList<qint64>& wordBorn, QPointF at, double width, double px, const HitFn& hit, const HoverFn& hovered, const QHash<QString, double>& countFrom = {});
+        double paintLiving(QPainter& p, const QString& raw, const QList<qint64>& wordBorn, QPointF at, double width, double px, const HitFn& hit, const HoverFn& hovered, const QHash<QString, double>& countFrom = {}, bool centred = false);
 };
 
 #endif // ASSISTANTPANEL_H

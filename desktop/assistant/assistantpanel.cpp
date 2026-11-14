@@ -51,7 +51,7 @@
 #include <shapes/shapepath.h>
 
 namespace {
-    constexpr double SheetWidth = 720, FieldHeight = 60, Edge = 20, Side = 28, Radius = 36;
+    constexpr double PillWidth = 640, PillHeight = 64, StageWidth = 760;
     constexpr double ScrimOpacity = 0.45;
     constexpr qint64 FreshThreadAfterMs = 10 * 60 * 1000; // a new thread after 10 idle minutes
     const QString Name = QStringLiteral("Pebble");
@@ -292,6 +292,35 @@ namespace {
     }
 
     // Rises into place with a spring (save the painter first)
+    // a rectangle with its left and right corners rounded apart (connected button groups)
+    QPainterPath sidedRect(const QRectF& r, double left, double right) {
+        QPainterPath path;
+        path.moveTo(r.left() + left, r.top());
+        path.lineTo(r.right() - right, r.top());
+        path.arcTo(QRectF(r.right() - 2 * right, r.top(), 2 * right, 2 * right), 90, -90);
+        path.lineTo(r.right(), r.bottom() - right);
+        path.arcTo(QRectF(r.right() - 2 * right, r.bottom() - 2 * right, 2 * right, 2 * right), 0, -90);
+        path.lineTo(r.left() + left, r.bottom());
+        path.arcTo(QRectF(r.left(), r.bottom() - 2 * left, 2 * left, 2 * left), 270, -90);
+        path.lineTo(r.left(), r.top() + left);
+        path.arcTo(QRectF(r.left(), r.top(), 2 * left, 2 * left), 180, -90);
+        path.closeSubpath();
+        return path;
+    }
+
+    QString plainOf(const QList<AnswerToken>& tokens, const QString& lineBreak) {
+        QString plain;
+        for (const AnswerToken& token : tokens) {
+            if (token.kind == 4) {
+                plain = plain.trimmed() + lineBreak;
+                continue;
+            }
+            if (token.glued && plain.endsWith(' ')) plain.chop(1);
+            plain += token.text + ' ';
+        }
+        return plain.trimmed();
+    }
+
     void rise(QPainter& p, const QRectF& r, double since) {
         const double s = springAt(M3Motion::SpatialDefault, since);
         p.translate(r.center());
@@ -305,6 +334,7 @@ struct AssistantPanel::Private {
         struct Step {
                 QString id, text;
                 bool done = false, card = false;
+                qint64 at = 0; // when it started: steps roll by in the pill
         };
         struct Item {
                 enum Kind { User, Steps, Answer, Card, Chips } kind;
@@ -322,6 +352,7 @@ struct AssistantPanel::Private {
                 QHash<QString, double> countFrom;    // Answer: key numbers count from these (by suffix: "%" or "")
                 bool greeting = false;               // Answer: said on opening, not part of the talk yet
                 bool reacted = false;                // Answer: its face tag played
+                bool opens = false;                  // Answer: a greeting, which starts a turn of its own
                 qint64 pressedAt = -1;
         };
         struct Sees {
@@ -363,11 +394,19 @@ struct AssistantPanel::Private {
         const m3shapes::RoundedPolygon* reactShape = nullptr;
         M3SpringAnimation *reactMorph, *reactScale, *reactSpin, *reactDim;
         int reactGeneration = 0;
+        M3SpringAnimation* carousel;   // which card is the large one
+        int viewBack = 0;              // turns flipped back from the latest
+        qint64 flipAt = -1;
+        int flipDir = 0;
+        bool listOpen = false;        // the earlier turns, as a list
+        qint64 listAt = -1;
+        qint64 sendPressedAt = -1;
+        QList<QRectF> solid;           // what's drawn; a click anywhere else closes
         QVariantAnimation* leave;
 
         double scroll = 0, scrollVelocity = 0, scrollTarget = 0;
         double contentHeight = 0, viewHeight = 0;
-        bool stickToEnd = true;
+        bool stickToEnd = false;
         QHash<QString, double> lastNumbers; // the last key number per suffix, so the next one rolls from it
         bool batteryNudged = false;
 
@@ -440,6 +479,12 @@ AssistantPanel::AssistantPanel() :
     d->seesShown = new M3SpringAnimation(this);
     d->seesShown->setToken(M3Motion::SpatialDefault);
     d->seesShown->snapTo(1.0);
+    d->carousel = new M3SpringAnimation(this);
+    d->carousel->setToken(M3Motion::SpatialDefault);
+    d->carousel->snapTo(0.0);
+    connect(d->carousel, &M3SpringAnimation::valueChanged, this, [this] {
+        animateFor(100);
+    });
     connect(d->seesShown, &M3SpringAnimation::valueChanged, this, [this] {
         animateFor(100);
     });
@@ -473,16 +518,13 @@ AssistantPanel::AssistantPanel() :
     if (qEnvironmentVariableIsSet("TD_ASSISTANT_DEMO")) d->brain = new DemoBrain(this);
     else d->brain = new ClaudeBrain(this);
     connect(d->brain, &AssistantBrain::stepStarted, this, [this](QString id, QString text) {
-        // steps after some of the answer start a new part of the thread
-        if (d->turnAnswer >= 0) {
-            d->turnAnswer = -1;
-            d->turnSteps = -1;
-        }
         if (d->turnSteps < 0) {
             d->items.append({Private::Item::Steps, d->now()});
             d->turnSteps = int(d->items.size()) - 1;
         }
-        d->items[d->turnSteps].steps.append({id, text});
+        Private::Step step{id, text};
+        step.at = d->now();
+        d->items[d->turnSteps].steps.append(step);
         d->busyText = QString(text).remove(QStringLiteral("…"));
         if (d->inBar) d->chunk->setState(false, d->busyText);
         scrollToEnd();
@@ -528,7 +570,7 @@ AssistantPanel::AssistantPanel() :
         Private::Item item{Private::Item::Card, born};
         item.card = card;
         d->items.append(item);
-        d->turnAnswer = -1; // more words go under the card
+        if (card.kind == AssistantCard::Ask) d->carousel->animateTo(0.0); // an ask comes first
         scrollToEnd();
     });
     connect(d->brain, &AssistantBrain::cardChanged, this, [this](AssistantCard card) {
@@ -558,7 +600,6 @@ AssistantPanel::AssistantPanel() :
     connect(d->brain, &AssistantBrain::turnFinished, this, [this] {
         d->busy = false;
         if (d->turnSteps >= 0 && d->items[d->turnSteps].foldAt < 0) d->items[d->turnSteps].foldAt = d->now();
-        d->seesShown->animateTo(1.0);
         if (d->turnAnswer >= 0) {
             static const QRegularExpression keyNumber(QStringLiteral("\\*\\*(\\d+)(%?)\\*\\*"));
             auto it = keyNumber.globalMatch(d->items[d->turnAnswer].text);
@@ -586,10 +627,10 @@ AssistantPanel::AssistantPanel() :
 }
 
 QRectF AssistantPanel::sheetRect() const {
-    const QRect screen = this->rect();
-    const double top = qMax(56.0, screen.height() * 0.094);
-    const double height = qMin(640.0, screen.height() - top - 48);
-    return QRectF((screen.width() - SheetWidth) / 2.0, top, SheetWidth, height);
+    // all Pebble draws on: the pill and the stage under it
+    const QRectF pill = pillRect();
+    const double w = qMax(pill.width(), stageWidth());
+    return QRectF((this->width() - w) / 2 - 24, pill.top() - 24, w + 48, this->height() - pill.top());
 }
 
 void AssistantPanel::open() {
@@ -717,6 +758,7 @@ void AssistantPanel::say(const QString& raw, bool isGreeting) {
     Private::Item item{Private::Item::Answer, d->now()};
     item.text = raw;
     item.greeting = isGreeting;
+    item.opens = isGreeting;
     const int words = int(parseAnswer(raw).tokens.size());
     for (int i = 0; i < words; i++) item.wordBorn.append(d->now() + 150 + i * 65);
     d->items.append(item);
@@ -808,6 +850,7 @@ void AssistantPanel::toBar() {
 }
 
 void AssistantPanel::send() {
+    d->sendPressedAt = d->now();
     sendText(d->field->text());
 }
 
@@ -830,6 +873,11 @@ void AssistantPanel::sendText(QString text) {
     if (!d->items.isEmpty()) d->items.last().greeting = false;
     d->items.append({Private::Item::User, d->now(), text});
     d->turnSteps = d->turnAnswer = d->turnChips = -1;
+    d->viewBack = 0;
+    d->flipAt = -1;
+    d->listOpen = false;
+    d->carousel->snapTo(0.0);
+    d->scroll = d->scrollTarget = 0;
     d->busy = true;
     d->busySince = d->now();
     d->busyText.clear();
@@ -862,6 +910,10 @@ bool AssistantPanel::smallTalk(const QString& text) {
         if (!d->items.isEmpty()) d->items.last().greeting = false;
         d->items.append({Private::Item::User, d->now(), text});
         d->turnSteps = d->turnAnswer = d->turnChips = -1;
+        d->viewBack = 0;
+        d->flipAt = -1;
+        d->listOpen = false;
+        d->carousel->snapTo(0.0);
         react(kind);
         QTimer::singleShot(M3Motion::expressive() ? 260 : 120, this, [this, reply] {
             say(tr(reply), false);
@@ -927,7 +979,6 @@ void AssistantPanel::redraw() {
 }
 
 void AssistantPanel::scrollToEnd() {
-    d->stickToEnd = true;
     animateFor(1200);
 }
 
@@ -964,50 +1015,53 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
         return;
     }
 
-    // Where the sheet is: opening, going to the bar or coming back from it
-    const QRectF base = sheetRect();
+    // One line: a pill at the top; under it the answer as one big line,
+    // cards in a carousel and the follow-ups as a connected button group
+    const QRectF base = pillRect();
     QRectF bar(this->width() / 2.0 - 110, 14, 220, 34);
     if (d->chunk->isVisible() && d->chunk->width() > 0) bar = QRectF(QPointF(d->chunk->mapToGlobal(QPoint(0, 0)) - this->mapToGlobal(QPoint(0, 0))), QSizeF(d->chunk->size()));
-    double toward = 0; // 0 = the sheet, 1 = the chip in the bar
+    double toward = 0; // 0 = the pill, 1 = the chip in the bar
     if (d->toBarAt >= 0) toward = springAt(M3Motion::SpatialDefault, d->since(d->toBarAt));
     else if (d->fromBarAt >= 0) toward = 1 - springAt(M3Motion::SpatialDefault, d->since(d->fromBarAt));
-    const QRectF sheet = lerpRect(base, bar, toward);
     const double presence = (1 - c01(toward)) * (d->openedAt >= 0 ? c01(d->since(d->openedAt) / 0.2) : 1);
+    d->solid.clear();
 
     if (Compositor::isActive()) {
         p.setCompositionMode(QPainter::CompositionMode_Source);
         p.fillRect(this->rect(), alpha(s.scrim, ScrimOpacity * presence));
         p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    } else {
+        // no compositor: no see-through, so the stage gets a plain backdrop
+        p.setPen(Qt::NoPen);
+        p.setBrush(s.surfaceContainer);
+        p.drawRoundedRect(sheetRect(), 28, 28);
     }
 
-    p.save();
+    // the pill grows out of the face as it opens
+    QRectF pill = base;
     if (d->openedAt >= 0 && toward == 0) {
         const double k = springAt(M3Motion::SpatialDefault, d->since(d->openedAt));
-        p.translate(base.center().x(), base.top());
-        p.scale(1, lerp(0.85, 1, k));
-        p.translate(-base.center().x(), -base.top());
-        p.setOpacity(c01(d->since(d->openedAt) / 0.2));
+        const double w = lerp(PillHeight, base.width(), k);
+        pill = QRectF(base.center().x() - w / 2, base.top() - 14 * (1 - c01(k)), w, PillHeight);
+        p.setOpacity(c01(d->since(d->openedAt) / 0.15));
     }
-    const double radius = lerp(Radius, sheet.height() / 2, c01(toward));
-    p.setPen(Qt::NoPen);
-    p.setBrush(toward > 0.85 ? s.surfaceContainerHigh : s.surfaceContainer);
-    p.drawRoundedRect(sheet, radius, radius);
+    pill = lerpRect(pill, bar, toward);
     double content = 1 - c01(toward * 4);
-    if (d->introToPanelAt >= 0) content *= c01((d->since(d->introToPanelAt) - 0.45) / 0.25); // after the tour, the sheet's insides fade in
+    if (d->introToPanelAt >= 0) content *= c01((d->since(d->introToPanelAt) - 0.45) / 0.25); // after the tour, the insides fade in
+    p.setPen(Qt::NoPen);
+    p.setBrush(s.surfaceContainerHigh);
+    p.drawRoundedRect(pill, pill.height() / 2, pill.height() / 2);
+    d->solid.append(pill);
     if (content <= 0) {
-        p.restore();
+        if (toward == 0) d->field->setGeometry(-2000, -2000, 10, 10);
         return;
     }
     p.setOpacity(p.opacity() * content);
-    p.setClipRect(sheet);
 
-    // The field: the face, the words (a real line edit), send / stop
-    const QRectF field(sheet.left() + Edge, sheet.top() + Edge, sheet.width() - 2 * Edge, FieldHeight);
-    p.setBrush(s.surfaceContainerHighest);
-    p.drawRoundedRect(field, FieldHeight / 2, FieldHeight / 2);
-    const QRectF face(field.left() + 13, field.center().y() - 19, 38, 38);
-    // thinking harder: the face turns tertiary
-    const auto [faceInk, faceFill] = faceColours(s, d->deep);
+    // The face, the words (a real line edit; steps roll by in its place while it works), send / stop
+    const double cy = pill.center().y();
+    const QRectF face(pill.left() + 12, cy - 22, 44, 44);
+    const auto [faceInk, faceFill] = faceColours(s, d->deep); // thinking harder: the face turns tertiary
     const double reaction = d->reactMorph->currentValue().toDouble();
     if (d->busy) M3LoadingIndicator::paint(&p, face, d->now() - d->busySince, faceInk, faceFill);
     else if (d->reactShape && reaction > 0.002) {
@@ -1027,39 +1081,76 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
         p.drawPath(m3shapes::toPath(*morph, float(qBound(-0.1, reaction, 1.1)), QRectF(-inner / 2, -inner / 2, inner, inner)));
         p.restore();
     } else M3LoadingIndicator::paintDeterminate(&p, face, float(lerp(0.1, 1, c01(d->field->text().size() / 40.0))), faceInk, faceFill);
-    if (toward == 0) d->field->setGeometry(QRectF(field.left() + 66, field.center().y() - 20, field.width() - 66 - 64, 40).toRect());
-    const QPointF button(field.right() - 30, field.center().y());
+    const double tx = pill.left() + 70;
+    if (toward == 0 && !d->busy) d->field->setGeometry(QRectF(tx - 2, cy - 20, pill.width() - 70 - 64, 40).toRect());
+    else if (toward == 0) d->field->setGeometry(-2000, -2000, 10, 10); // what they type meanwhile waits there
+    if (d->busy) {
+        p.save();
+        p.setClipRect(QRectF(tx, pill.top() + 6, pill.width() - 70 - 70, pill.height() - 12), Qt::IntersectClip);
+        // the steps roll up through the pill
+        QList<Private::Step> steps;
+        if (d->turnSteps >= 0 && d->turnSteps < d->items.size()) steps = d->items.at(d->turnSteps).steps;
+        if (steps.isEmpty()) text(p, QRectF(tx, cy - 22, pill.width() - 150, 26), d->busyText.isEmpty() ? tr("Thinking") : d->busyText, flex(15, 500), s.onSurface);
+        for (int i = qMax(0, int(steps.size()) - 2); i < steps.size(); i++) {
+            const double in = springAt(M3Motion::SpatialDefault, d->since(steps.at(i).at));
+            const double out = i + 1 < steps.size() ? springAt(M3Motion::SpatialDefault, d->since(steps.at(i + 1).at)) : 0;
+            p.save();
+            p.setOpacity(p.opacity() * c01(d->since(steps.at(i).at) / 0.2) * (1 - c01(out)));
+            text(p, QRectF(tx, cy - 22 + (1 - in) * 22 - out * 22, pill.width() - 150, 26), steps.at(i).text, flex(15, 500), s.onSurface);
+            p.restore();
+        }
+        // M3E wavy progress under it: amplitude 3, wavelength 40, stroke 4, a stop dot at the end
+        const double w = qMin(300.0, pill.width() - 150), working = d->since(d->busySince);
+        const double end = tx + w * (0.12 + 0.75 * (1 - std::exp(-working / 6)));
+        QPainterPath wave;
+        for (double x = tx; x <= end; x += 2) {
+            const QPointF pt(x, cy + 14 + 3 * std::sin((x - tx) / 40.0 * 2 * M_PI - working * 6));
+            if (x == tx) wave.moveTo(pt);
+            else wave.lineTo(pt);
+        }
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(s.primary, 4, Qt::SolidLine, Qt::RoundCap));
+        p.drawPath(wave);
+        p.setPen(QPen(s.secondaryContainer, 4, Qt::SolidLine, Qt::RoundCap));
+        if (end + 8 < tx + w) p.drawLine(QPointF(end + 8, cy + 14), QPointF(tx + w, cy + 14));
+        p.setPen(Qt::NoPen);
+        p.setBrush(s.primary);
+        p.drawEllipse(QPointF(tx + w, cy + 14), 2, 2);
+        p.restore();
+    }
+    // send / stop: a circle that squashes when pressed
+    const QPointF button(pill.right() - 32, cy);
     const QRectF buttonRect(button.x() - 24, button.y() - 24, 48, 48);
+    const double squash = d->sendPressedAt >= 0 ? std::sin(M_PI * c01(d->since(d->sendPressedAt) / 0.22)) : 0;
+    const double corner = lerp(24, 12, squash);
     if (d->busy) {
         p.setBrush(buttonRect.contains(d->mouse) ? mix(s.secondaryContainer, s.onSecondaryContainer, 0.08) : s.secondaryContainer);
-        p.drawEllipse(button, 24, 24);
+        p.drawRoundedRect(buttonRect, corner, corner);
         icon(p, buttonRect, QStringLiteral("stop"), s.onSecondaryContainer, 22, true);
         d->hits.append({buttonRect, [this](QPointF) { d->brain->stop(); }});
-    } else if (!d->field->text().trimmed().isEmpty()) {
+    } else if (!d->field->text().trimmed().isEmpty() || squash > 0) {
         p.setBrush(buttonRect.contains(d->mouse) ? mix(s.primary, s.onPrimary, 0.08) : s.primary);
-        p.drawEllipse(button, 24, 24);
+        p.drawRoundedRect(buttonRect, corner, corner);
         icon(p, buttonRect, QStringLiteral("arrow_upward"), s.onPrimary, 22);
         d->hits.append({buttonRect, [this](QPointF) { send(); }});
     }
 
-    // What it sees: chips that can be dismissed, hidden while it works
+    // What it sees, under the empty pill: chips that can be dismissed, and Think harder
+    const QList<int> starts = turnStarts();
+    bool talked = false;
+    for (const Private::Item& item : std::as_const(d->items)) talked = talked || item.kind == Private::Item::User;
+    const bool wantSees = !d->busy && (!talked || !d->field->text().isEmpty());
+    if (d->seesShown->endValue().toDouble() != (wantSees ? 1.0 : 0.0)) d->seesShown->animateTo(wantSees ? 1.0 : 0.0);
     const double seesK = c01(d->seesShown->currentValue().toDouble());
-    double top = field.bottom() + 12;
-    const QList<Private::Sees> visibleSees = [this] {
-        QList<Private::Sees> list;
-        for (const Private::Sees& seen : std::as_const(d->sees)) {
-            if (!seen.dismissed || d->since(seen.dismissedAt) < 0.4) list.append(seen);
-        }
-        return list;
-    }();
+    const double top = pill.bottom() + 14;
     if (seesK > 0.01) {
         p.save();
         p.setOpacity(p.opacity() * seesK);
-        const double left = sheet.left() + Side;
-        // Think harder, at the end of the row: this message gets the deeper mode
+        p.translate(0, -8 * (1 - seesK));
+        const double left = pill.left() + 8;
         const QString harderLabel = tr("Think harder");
         const double harderWidth = 24 + 26 + textWidth(harderLabel, flex(13, 600));
-        const QRectF harder(sheet.right() - Side - harderWidth, top, harderWidth, 32);
+        const QRectF harder(pill.right() - 8 - harderWidth, top, harderWidth, 32);
         p.setPen(d->harder ? Qt::NoPen : QPen(s.outlineVariant, 1));
         QColor harderBg = d->harder ? s.tertiaryContainer : s.surfaceContainer;
         if (harder.contains(d->mouse)) harderBg = mix(harderBg, d->harder ? s.onTertiaryContainer : s.onSurface, 0.08);
@@ -1073,8 +1164,8 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
             d->harder = !d->harder;
             animateFor(300);
         }});
-        if (!visibleSees.isEmpty()) text(p, QRectF(left, top, 50, 32), tr("Sees"), flex(13, 600), s.onSurfaceVariant);
-        double x = left + 46;
+        d->solid.append(harder);
+        double x = left;
         // the chips share what's left before Think harder: the widest ones shrink first
         auto seenK = [this](const Private::Sees& seen) { return seen.dismissed ? 1 - c01(springAt(M3Motion::SpatialFast, d->since(seen.dismissedAt))) : 1.0; };
         auto rowWidth = [&](double cap) {
@@ -1098,8 +1189,7 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
             p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 8, 8);
             icon(p, QRectF(r.left() + 8, r.top(), 20, 32), seen.icon, s.onSurfaceVariant, 17);
             text(p, QRectF(r.left() + 32, r.top(), full - 56, 32), QFontMetricsF(flex(13, 520)).elidedText(seen.label, Qt::ElideRight, full - 56), flex(13, 520), s.onSurface);
-            const QRectF x2(r.left() + full - 28, r.top(), 24, 32);
-            icon(p, x2, QStringLiteral("close"), s.onSurfaceVariant, 16);
+            icon(p, QRectF(r.left() + full - 28, r.top(), 24, 32), QStringLiteral("close"), s.onSurfaceVariant, 16);
             p.restore();
             if (!seen.dismissed) {
                 d->hits.append({r, [this, i](QPointF) {
@@ -1107,25 +1197,633 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
                     d->sees[i].dismissedAt = d->now();
                     animateFor(600);
                 }});
+                d->solid.append(r);
             }
             x += (full + 8) * k;
         }
         p.restore();
-        top += 44 * seesK;
     }
 
-    // The thread
-    const QRectF view(sheet.left() + Side - 8, top + 8, sheet.width() - 2 * Side + 16, sheet.bottom() - top - 8 - 16);
+    // The stage: the turn being looked at (the latest, or one flipped back to)
+    const QRectF view(this->width() / 2.0 - stageWidth() / 2, pill.bottom() + 64, stageWidth(), this->height() - pill.bottom() - 64 - 24);
     d->viewHeight = view.height();
     p.save();
-    p.setClipRect(view.adjusted(-4, 0, 4, 0), Qt::IntersectClip);
-    d->contentHeight = paintThread(p, view, d->scroll);
+    p.setClipRect(view.adjusted(-24, -60, 24, 0), Qt::IntersectClip);
+    d->contentHeight = paintStage(p, view, starts, seesK);
     p.restore();
     if (d->items.isEmpty() && d->introToPanelAt < 0) {
-        text(p, view.adjusted(0, 20, 0, 0), tr("Ask me to change a setting, explain what you copied, or find a file."), flex(15, 450), s.onSurfaceVariant, Qt::AlignHCenter | Qt::AlignTop);
+        text(p, view.adjusted(0, 4, 0, 0), tr("Ask me to change a setting, explain what you copied, or find a file."), flex(17, 450), s.onSurfaceVariant, Qt::AlignHCenter | Qt::AlignTop);
     }
-    p.restore();
     paintFocus(p);
+}
+
+QRectF AssistantPanel::pillRect() const {
+    const double w = qMin(PillWidth, this->width() - 80.0);
+    return QRectF((this->width() - w) / 2, qMax(72.0, this->height() * 0.14), w, PillHeight);
+}
+
+double AssistantPanel::stageWidth() const {
+    return qMin(StageWidth, this->width() - 80.0);
+}
+
+QList<int> AssistantPanel::turnStarts() const {
+    // a turn starts at each question, and at each greeting on opening
+    QList<int> starts;
+    for (int i = 0; i < d->items.size(); i++)
+        if (d->items.at(i).kind == Private::Item::User || d->items.at(i).opens) starts.append(i);
+    if (starts.isEmpty() && !d->items.isEmpty()) starts.append(0);
+    return starts;
+}
+
+void AssistantPanel::showTurn(int back) {
+    // a turn picked from the list of earlier ones (0: the latest)
+    d->listOpen = false;
+    d->viewBack = qMax(0, back);
+    d->flipAt = d->now();
+    d->carousel->snapTo(0.0);
+    d->scrollTarget = d->scroll = 0;
+    animateFor(900);
+}
+
+double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<int>& starts, double seesK) {
+    const M3::Scheme s = M3::currentScheme();
+    if (starts.isEmpty()) return 0;
+    const int turn = qBound(0, int(starts.size()) - 1 - d->viewBack, int(starts.size()) - 1);
+    const int from = starts.at(turn), to = turn + 1 < starts.size() ? starts.at(turn + 1) : int(d->items.size());
+    const double W = view.width();
+
+    // flipping: the turn slides in from the side it came from
+    const double flipK = d->flipAt >= 0 ? springAt(M3Motion::SpatialDefault, d->since(d->flipAt)) : 1;
+    p.translate(view.left(), view.top() - d->scroll + 24 * (1 - c01(flipK)));
+    p.setOpacity(p.opacity() * c01(d->flipAt >= 0 ? d->since(d->flipAt) / 0.2 : 1));
+
+    auto hit = [&](const QRectF& r, std::function<void(QPointF)> act, bool drags = false) {
+        const QRectF mapped = p.transform().mapRect(r);
+        if (mapped.intersects(view)) d->hits.append({mapped.intersected(view), act, drags});
+    };
+    auto hovered = [&](const QRectF& r) {
+        return p.transform().mapRect(r).contains(d->mouse);
+    };
+    auto solid = [&](const QRectF& r) {
+        d->solid.append(p.transform().mapRect(r));
+    };
+    auto button = [&](const QRectF& r, const QString& ic, const QString& label, bool tonal, std::function<void(QPointF)> act) {
+        p.setPen(tonal ? Qt::NoPen : QPen(s.outlineVariant, 1));
+        QColor bg = tonal ? s.secondaryContainer : QColor(Qt::transparent);
+        if (hovered(r)) bg = mix(bg.alpha() ? bg : s.surfaceContainerHigh, tonal ? s.onSecondaryContainer : s.primary, 0.08);
+        p.setBrush(bg);
+        p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), r.height() / 2, r.height() / 2);
+        p.setPen(Qt::NoPen);
+        const QColor ink = tonal ? s.onSecondaryContainer : s.primary;
+        if (ic.isEmpty()) {
+            text(p, r, label, flex(13, 600), ink, Qt::AlignCenter);
+        } else {
+            icon(p, QRectF(r.left() + 8, r.top(), 22, r.height()), ic, ink, 17);
+            text(p, r.adjusted(34, 0, 0, 0), label, flex(13, 600), ink);
+        }
+        hit(r, act);
+    };
+
+    // The questions asked so far, newest first
+    QList<int> asked; // turn numbers
+    for (int t = int(starts.size()) - 1; t >= 0; t--)
+        if (d->items.at(starts.at(t)).kind == Private::Item::User) asked.append(t);
+    if (d->listOpen) {
+        // a grouped list: the outer corners round, the rows joined by small ones
+        double y = 0;
+        const double since = d->since(d->listAt);
+        for (int row = 0; row < asked.size(); row++) {
+            const int t = asked.at(row);
+            const int end = t + 1 < starts.size() ? starts.at(t + 1) : int(d->items.size());
+            QString answer;
+            for (int i = starts.at(t); i < end && answer.isEmpty(); i++)
+                if (d->items.at(i).kind == Private::Item::Answer) answer = plainOf(parseAnswer(d->items.at(i).text).tokens, QStringLiteral(" "));
+            const double k = springAt(M3Motion::SpatialDefault, since - row * 0.04);
+            if (k <= 0) break;
+            const QRectF r(W * 0.1, y + (1 - c01(k)) * 20, W * 0.8, 64);
+            const bool first = row == 0, last = row == asked.size() - 1, current = t == turn;
+            const double top = first ? 20 : 4, bottom = last ? 20 : 4;
+            QPainterPath shape; // top and bottom corners rounded apart
+            shape.moveTo(r.left() + top, r.top());
+            shape.arcTo(QRectF(r.right() - 2 * top, r.top(), 2 * top, 2 * top), 90, -90);
+            shape.arcTo(QRectF(r.right() - 2 * bottom, r.bottom() - 2 * bottom, 2 * bottom, 2 * bottom), 0, -90);
+            shape.arcTo(QRectF(r.left(), r.bottom() - 2 * bottom, 2 * bottom, 2 * bottom), 270, -90);
+            shape.arcTo(QRectF(r.left(), r.top(), 2 * top, 2 * top), 180, -90);
+            shape.closeSubpath();
+            const QColor bg = current ? s.secondaryContainer : s.surfaceContainerHigh, ink = current ? s.onSecondaryContainer : s.onSurface;
+            p.save();
+            p.setOpacity(p.opacity() * c01((since - row * 0.04) / 0.2));
+            p.setPen(Qt::NoPen);
+            p.setBrush(hovered(r) ? mix(bg, ink, 0.08) : bg);
+            p.drawPath(shape);
+            text(p, QRectF(r.left() + 20, r.top() + 10, r.width() - 40, 24), QFontMetricsF(flex(15, 600)).elidedText(d->items.at(starts.at(t)).text, Qt::ElideRight, r.width() - 40), flex(15, 600), ink);
+            text(p, QRectF(r.left() + 20, r.top() + 33, r.width() - 40, 20), QFontMetricsF(flex(13, 450)).elidedText(answer, Qt::ElideRight, r.width() - 40), flex(13, 450), current ? ink : s.onSurfaceVariant);
+            p.restore();
+            solid(r);
+            const int back = int(starts.size()) - 1 - t;
+            hit(r, [this, back](QPointF) { showTurn(back); });
+            y += 64 + 2;
+        }
+        return y;
+    }
+
+    // What's in the turn
+    int user = -1, chips = -1;
+    QList<int> answers, cards;
+    int pendingAsk = -1;
+    for (int i = from; i < to; i++) {
+        const Private::Item& item = d->items.at(i);
+        if (item.kind == Private::Item::User) user = i;
+        else if (item.kind == Private::Item::Answer) answers.append(i);
+        else if (item.kind == Private::Item::Chips) chips = i;
+        else if (item.kind == Private::Item::Card) {
+            if (item.card.kind == AssistantCard::Ask && item.card.value == 0) pendingAsk = i;
+            cards.append(i);
+        }
+    }
+
+    // An answer longer than about three lines: the line says its first
+    // sentence and the whole of it goes on a Read card
+    const double LinePx = 30;
+    QString line;
+    QList<qint64> lineBorn;
+    QHash<QString, double> lineFrom;
+    bool long_ = false;
+    if (!answers.isEmpty()) {
+        const Private::Item& first = d->items.at(answers.first());
+        const QString plain = plainOf(parseAnswer(first.text).tokens, QStringLiteral("\n"));
+        const QFontMetricsF metrics(flex(LinePx, 480));
+        long_ = answers.size() > 1 || metrics.boundingRect(QRectF(0, 0, W, 1e6), Qt::TextWordWrap, plain).height() > metrics.lineSpacing() * 3.2;
+        line = first.text;
+        if (long_) {
+            static const QRegularExpression sentence(QStringLiteral("^[^\\n]{8,}?[.!?](\\s|$)"));
+            const QRegularExpressionMatch m = sentence.match(first.text);
+            line = m.hasMatch() ? m.captured(0).trimmed() : first.text.section('\n', 0, 0).left(140);
+        }
+        lineBorn = first.wordBorn;
+        lineFrom = first.countFrom;
+    }
+
+    double y = 0;
+    // The line: the answer; while it works, the question waiting faintly; an ask says what it wants
+    if (pendingAsk >= 0) {
+        const QFont f = flex(26, 560);
+        const QRectF r = QFontMetricsF(f).boundingRect(QRectF(0, 0, W, 1e6), Qt::AlignHCenter | Qt::TextWordWrap, d->items.at(pendingAsk).card.title);
+        p.save();
+        rise(p, QRectF(0, y, W, r.height()), (d->now() - d->items.at(pendingAsk).born) / 1000.0);
+        text(p, QRectF(0, y, W, r.height() + 4), d->items.at(pendingAsk).card.title, f, s.onSurface, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap);
+        p.restore();
+        y += r.height() + 24;
+    } else if (!line.isEmpty()) {
+        const double h = paintLiving(p, line, lineBorn, QPointF(0, y), W, LinePx, hit, hovered, lineFrom, true);
+        solid(QRectF(0, y, W, h)); // clicking the words doesn't close it
+        y += h + 22;
+    } else if (user >= 0 && d->busy && d->viewBack == 0) {
+        const QFont f = flex(20, 450);
+        const QRectF r = QFontMetricsF(f).boundingRect(QRectF(0, 0, W * 0.8, 1e6), Qt::AlignHCenter | Qt::TextWordWrap, d->items.at(user).text);
+        p.save();
+        rise(p, QRectF(0, y, W, r.height()), (d->now() - d->items.at(user).born) / 1000.0);
+        text(p, QRectF(W * 0.1, y, W * 0.8, r.height() + 4), d->items.at(user).text, f, alpha(s.onSurfaceVariant, 0.7), Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap);
+        p.restore();
+        y += r.height() + 24;
+    } else if (user >= 0) {
+        // an earlier question with no words back (only cards, or stopped)
+        text(p, QRectF(0, y, W, 30), d->items.at(user).text, flex(20, 450), alpha(s.onSurfaceVariant, 0.7), Qt::AlignCenter);
+        y += 30 + 22;
+    }
+
+    // The carousel: an ask first, then the Read card, then the rest
+    struct Slot {
+            int item = -1; // -1: the Read card
+            qint64 born = 0;
+    };
+    QList<Slot> tiles;
+    if (pendingAsk >= 0) tiles.append({pendingAsk, d->items.at(pendingAsk).born});
+    if (long_) tiles.append({-1, d->items.at(answers.first()).born + 300});
+    for (int i : std::as_const(cards))
+        if (i != pendingAsk) tiles.append({i, d->items.at(i).born});
+
+    const double readPx = 16;
+    auto readHeight = [&](double w) {
+        double h = 40;
+        for (int a : std::as_const(answers)) {
+            const QString plain = plainOf(parseAnswer(d->items.at(a).text).tokens, QStringLiteral("\n"));
+            const QFontMetricsF metrics(flex(readPx, 480));
+            h += metrics.boundingRect(QRectF(0, 0, w - 48, 1e6), Qt::TextWordWrap, plain).height() / metrics.lineSpacing() * metrics.height() * 1.3 * 1.08 + 12;
+        }
+        return h;
+    };
+    auto heightOf = [&](const Slot& slot, double w) -> double {
+        if (slot.item < 0) return readHeight(w);
+        const Private::Item& item = d->items.at(slot.item);
+        const AssistantCard& card = item.card;
+        switch (card.kind) {
+            case AssistantCard::Ask: {
+                const double full = 64 + qMin<qsizetype>(card.lines.size(), 8) * 21 + 12 + 40 + 16;
+                const double settle = item.changedAt >= 0 ? c01(springAt(M3Motion::SpatialDefault, d->since(item.changedAt))) : 0;
+                return lerp(full, 64, settle);
+            }
+            case AssistantCard::Level: return 140;
+            case AssistantCard::Switch: return 96;
+            case AssistantCard::Code: return 48 + card.lines.size() * 23 + 12;
+            case AssistantCard::Image: {
+                const QImage image = d->images.value(card.path);
+                if (image.isNull() || image.width() <= 1) return 200;
+                return qMin(320.0, image.height() * qMin(1.0, w / image.width()));
+            }
+            default: return 128;
+        }
+    };
+
+    auto paintCard = [&](int index, const QRectF& r) {
+        Private::Item& item = d->items[index];
+        const AssistantCard& card = item.card;
+        if (card.kind == AssistantCard::Ask) {
+            // what it wants to do, Allow / Don't; once answered it shrinks to one line
+            const int shownLines = int(qMin<qsizetype>(card.lines.size(), 8));
+            const double settle = item.changedAt >= 0 ? c01(springAt(M3Motion::SpatialDefault, d->since(item.changedAt))) : 0;
+            p.setPen(Qt::NoPen);
+            p.setBrush(card.value > 0 ? s.secondaryContainer : s.surfaceContainerHigh);
+            p.drawRect(r);
+            const QPointF disc(r.left() + 32, r.top() + 32);
+            const QString ic = card.value > 0 ? QStringLiteral("check") : card.value < 0 ? QStringLiteral("block") : QStringLiteral("shield_question");
+            p.setBrush(card.value > 0 ? s.primary : s.tertiaryContainer);
+            p.drawEllipse(disc, 16, 16);
+            icon(p, QRectF(disc.x() - 16, disc.y() - 16, 32, 32), ic, card.value > 0 ? s.onPrimary : s.onTertiaryContainer, 18, true);
+            const QString title = card.value > 0 ? tr("Allowed · %1").arg(card.title.chopped(1)) : card.value < 0 ? tr("Not allowed · %1").arg(card.title.chopped(1)) : card.title;
+            text(p, QRectF(r.left() + 58, r.top() + 14, r.width() - 80, 36), title, flex(15, 600), card.value > 0 ? s.onSecondaryContainer : s.onSurface);
+            if (settle >= 1) return;
+            p.save();
+            p.setOpacity(p.opacity() * (1 - settle));
+            if (!card.subtitle.isEmpty()) text(p, QRectF(r.left() + 58, r.top() + 40, r.width() - 80, 20), card.subtitle, flex(12, 450), s.onSurfaceVariant);
+            const QRectF code(r.left() + 14, r.top() + 64, r.width() - 28, shownLines * 21 + 8);
+            p.setBrush(s.surfaceContainerLowest);
+            p.drawRoundedRect(code, 14, 14);
+            for (int i = 0; i < shownLines; i++) {
+                const QString& l = card.lines.at(i);
+                const QChar mark = l.isEmpty() ? ' ' : l.at(0);
+                const bool diff = mark == '+' || mark == '-';
+                text(p, QRectF(code.left() + 12, code.top() + 4 + i * 21, code.width() - 24, 21), l, mono(13, 450), diff ? (mark == '+' ? s.primary : s.error) : s.onSurface);
+            }
+            if (card.value == 0) {
+                const QRectF allow(r.right() - 116, r.bottom() - 54, 100, 40), deny(r.right() - 228, r.bottom() - 54, 100, 40);
+                p.setPen(QPen(s.outlineVariant, 1));
+                p.setBrush(hovered(deny) ? mix(s.surfaceContainerHigh, s.primary, 0.08) : QColor(Qt::transparent));
+                p.drawRoundedRect(deny.adjusted(0.5, 0.5, -0.5, -0.5), 20, 20);
+                text(p, deny, tr("Don't"), flex(14, 600), s.primary, Qt::AlignCenter);
+                p.setPen(Qt::NoPen);
+                p.setBrush(hovered(allow) ? mix(s.primary, s.onPrimary, 0.08) : s.primary);
+                p.drawRoundedRect(allow, 20, 20);
+                text(p, allow, tr("Allow"), flex(14, 600), s.onPrimary, Qt::AlignCenter);
+                auto decide = [this, index](bool yes) {
+                    Private::Item& it = d->items[index];
+                    if (it.card.value != 0) return;
+                    it.card.value = yes ? 1 : -1;
+                    it.changedAt = d->now();
+                    d->brain->answer(it.card.id, yes);
+                    animateFor(800);
+                };
+                hit(allow, [decide](QPointF) { decide(true); });
+                hit(deny, [decide](QPointF) { decide(false); });
+            }
+            p.restore();
+        } else if (card.kind == AssistantCard::Level || card.kind == AssistantCard::Switch) {
+            const double flash = item.changedAt >= 0 ? qMax(0.0, 1 - d->since(item.changedAt) / 0.9) : 0;
+            p.setPen(Qt::NoPen);
+            p.setBrush(mix(s.surfaceContainerHigh, s.secondaryContainer, flash));
+            p.drawRect(r);
+            const bool level = card.kind == AssistantCard::Level;
+            const QPointF disc(r.left() + 40, r.top() + 40);
+            p.setBrush(level ? s.secondaryContainer : s.tertiaryContainer);
+            p.drawEllipse(disc, 20, 20);
+            icon(p, QRectF(disc.x() - 20, disc.y() - 20, 40, 40), card.icon.isEmpty() ? (level ? QStringLiteral("tune") : QStringLiteral("toggle_on")) : card.icon, level ? s.onSecondaryContainer : s.onTertiaryContainer, 22, true);
+            if (level) {
+                text(p, QRectF(r.left() + 72, r.top() + 20, r.width() - 180, 40), card.title, flex(16, 600), s.onSurface);
+                const double v = c01(card.value);
+                text(p, QRectF(r.right() - 140, r.top() + 14, 120, 52), QStringLiteral("%1%").arg(qRound(v * 100)), flex(30, 700, 110), s.onSurface, Qt::AlignRight | Qt::AlignVCenter);
+                // the M3E slider: a thin handle with gaps, a stop dot at the end
+                const QRectF track(r.left() + 24, r.bottom() - 60, r.width() - 48, 40);
+                const double hx = track.left() + track.width() * v, ty = track.center().y();
+                p.setBrush(s.primary);
+                p.drawRoundedRect(QRectF(track.left(), ty - 8, qMax(0.0, hx - 6 - track.left()), 16), 8, 8);
+                p.setBrush(s.secondaryContainer);
+                p.drawRoundedRect(QRectF(hx + 6, ty - 8, qMax(0.0, track.right() - hx - 6), 16), 8, 8);
+                p.setBrush(s.onSecondaryContainer);
+                p.drawEllipse(QPointF(track.right() - 8, ty), 2, 2);
+                p.setBrush(s.primary);
+                p.drawRoundedRect(QRectF(hx - 2, ty - 20, 4, 40), 2, 2);
+                // dragging works in window coordinates, so map the track there
+                const QRectF mapped = p.transform().mapRect(track);
+                if (mapped.intersects(view)) {
+                    d->hits.append({mapped.adjusted(0, -4, 0, 4), [this, index, mapped](QPointF at) {
+                        Private::Item& it = d->items[index];
+                        it.card.value = c01((at.x() - mapped.left()) / mapped.width());
+                        d->brain->setCardValue(it.card.id, it.card.value);
+                        animateFor(200);
+                    }, true, [this, index](int step) {
+                        Private::Item& it = d->items[index];
+                        it.card.value = c01(std::round(it.card.value * 20 + step) / 20);
+                        d->brain->setCardValue(it.card.id, it.card.value);
+                        animateFor(200);
+                    }});
+                }
+            } else {
+                text(p, QRectF(r.left() + 72, r.top() + 22, r.width() - 160, 24), card.title, flex(16, 600), s.onSurface);
+                // the time rolls over to the new one
+                const QRectF sub(r.left() + 72, r.top() + 46, r.width() - 160, 20);
+                const double roll = item.changedAt >= 0 ? springAt(M3Motion::SpatialDefault, d->since(item.changedAt)) : 1;
+                p.save();
+                p.setClipRect(sub, Qt::IntersectClip);
+                if (roll < 1) text(p, sub.translated(0, -20 * roll), item.was, flex(13, 450), s.onSurfaceVariant);
+                text(p, sub.translated(0, 20 * (1 - roll)), card.subtitle, flex(13, 450), s.onSurfaceVariant);
+                p.restore();
+                const QRectF track(r.right() - 76, r.top() + 24, 52, 32);
+                const double on = c01(card.value);
+                p.setPen(on < 0.5 ? QPen(s.outline, 2) : Qt::NoPen);
+                p.setBrush(mix(s.surfaceContainerHighest, s.primary, on));
+                p.drawRoundedRect(track.adjusted(1, 1, -1, -1), 15, 15);
+                p.setPen(Qt::NoPen);
+                const double knob = lerp(16, 24, on);
+                const QPointF kc(lerp(track.left() + 16, track.left() + 36, on), track.center().y());
+                p.setBrush(mix(s.outline, s.onPrimary, on));
+                p.drawEllipse(kc, knob / 2, knob / 2);
+                if (on > 0.5) icon(p, QRectF(kc.x() - 10, kc.y() - 10, 20, 20), QStringLiteral("check"), s.onPrimaryContainer, 16);
+                hit(track.adjusted(-8, -8, 8, 8), [this, index](QPointF) {
+                    Private::Item& it = d->items[index];
+                    it.card.value = it.card.value > 0.5 ? 0 : 1;
+                    d->brain->setCardValue(it.card.id, it.card.value);
+                    animateFor(300);
+                });
+            }
+        } else if (card.kind == AssistantCard::Image) {
+            // A picture: a file, or fetched from the web
+            const QString source = card.path;
+            if (!d->images.contains(source)) {
+                d->images.insert(source, QImage());
+                if (source.startsWith(QStringLiteral("http"))) {
+                    if (!d->network) d->network = new QNetworkAccessManager(this);
+                    QNetworkRequest request{QUrl(source)};
+                    // some sites (Wikimedia) refuse requests that don't say what they are
+                    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("theDesk/3.0 (desktop assistant)"));
+                    QNetworkReply* reply = d->network->get(request);
+                    connect(reply, &QNetworkReply::finished, this, [this, reply, source] {
+                        QImage image = QImage::fromData(reply->readAll());
+                        if (image.isNull()) image = QImage(1, 1, QImage::Format_ARGB32); // failed: a gap, not a spinner forever
+                        d->images.insert(source, image);
+                        reply->deleteLater();
+                        animateFor(600);
+                    });
+                } else {
+                    d->images.insert(source, QImage(source));
+                }
+            }
+            const QImage image = d->images.value(source);
+            p.setPen(Qt::NoPen);
+            p.setBrush(s.surfaceContainerHigh);
+            p.drawRect(r);
+            if (!image.isNull() && image.width() > 1) {
+                // cover the tile, cropped from the middle
+                const QSizeF fit = QSizeF(image.size()).scaled(r.size(), Qt::KeepAspectRatioByExpanding);
+                p.setRenderHint(QPainter::SmoothPixmapTransform);
+                p.drawImage(QRectF(r.center().x() - fit.width() / 2, r.center().y() - fit.height() / 2, fit.width(), fit.height()), image);
+            } else {
+                icon(p, r, QStringLiteral("image"), s.onSurfaceVariant, 32);
+            }
+            if (!card.title.isEmpty()) {
+                const QRectF label(r.left(), r.bottom() - 36, r.width(), 36);
+                p.setBrush(alpha(s.scrim, 0.45));
+                p.drawRect(label);
+                text(p, label.adjusted(16, 0, -16, 0), QFontMetricsF(flex(13, 500)).elidedText(card.title, Qt::ElideRight, r.width() - 32), flex(13, 500), Qt::white);
+            }
+            hit(r, [source](QPointF) {
+                QDesktopServices::openUrl(source.startsWith(QStringLiteral("http")) ? QUrl(source) : QUrl::fromLocalFile(source));
+            });
+        } else if (card.kind == AssistantCard::Code) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(s.surfaceContainerLowest);
+            p.drawRect(r);
+            const bool isFile = card.path.startsWith('/') || card.path.startsWith('~');
+            text(p, QRectF(r.left() + 20, r.top() + 8, 300, 32), isFile ? QFileInfo(card.path).fileName() : (card.path.isEmpty() ? tr("code") : card.path), mono(13, 600), s.onSurfaceVariant);
+            const QString path = card.path;
+            const QStringList lines = card.lines;
+            button(QRectF(r.right() - (isFile ? 252 : 108), r.top() + 8, 96, 32), QStringLiteral("content_copy"), tr("Copy"), false, [lines](QPointF) {
+                // the code as it is now: without the removed lines or the markers
+                QStringList now;
+                for (const QString& l : lines) {
+                    if (!l.startsWith('-')) now.append(l.mid(1));
+                }
+                QGuiApplication::clipboard()->setText(now.join('\n'));
+            });
+            if (isFile) {
+                button(QRectF(r.right() - 148, r.top() + 8, 136, 32), QStringLiteral("open_in_new"), tr("Open in Zed"), true, [path](QPointF) {
+                    QProcess::startDetached(QStringLiteral("zeditor"), {QString(path).replace(QRegularExpression(QStringLiteral("^~")), QDir::homePath())});
+                });
+            }
+            for (int i = 0; i < card.lines.size(); i++) {
+                const QString& l = card.lines.at(i);
+                const QRectF lr(r.left() + 10, r.top() + 48 + i * 23, r.width() - 20, 23);
+                const QChar k = l.isEmpty() ? ' ' : l.at(0);
+                if (k == '+' || k == '-') {
+                    p.setPen(Qt::NoPen);
+                    p.setBrush(alpha(k == '+' ? s.primaryContainer : s.errorContainer, 0.3));
+                    p.drawRoundedRect(lr, 6, 6);
+                }
+                text(p, QRectF(lr.left() + 10, lr.top(), 20, lr.height()), k == ' ' ? QString() : QString(k), mono(14, 600), k == '+' ? s.primary : s.error);
+                text(p, QRectF(lr.left() + 30, lr.top(), lr.width() - 40, lr.height()), l.mid(1), mono(14, 450), s.onSurface);
+            }
+        } else {
+            // a file: what it is, Open / Show in folder
+            p.setPen(Qt::NoPen);
+            p.setBrush(s.surfaceContainerHigh);
+            p.drawRect(r);
+            const QString suffix = QFileInfo(card.path).suffix().toLower();
+            const QString ic = suffix == "css" ? QStringLiteral("css") : suffix == "html" ? QStringLiteral("html") : suffix == "js" ? QStringLiteral("javascript") : QStringLiteral("description");
+            const QPointF disc(r.left() + 40, r.top() + 40);
+            p.setBrush(s.tertiaryContainer);
+            p.drawEllipse(disc, 20, 20);
+            icon(p, QRectF(disc.x() - 20, disc.y() - 20, 40, 40), ic, s.onTertiaryContainer, 22);
+            text(p, QRectF(r.left() + 72, r.top() + 18, r.width() - 92, 22), QFontMetricsF(flex(15, 600)).elidedText(card.title, Qt::ElideMiddle, r.width() - 92), flex(15, 600), s.onSurface);
+            text(p, QRectF(r.left() + 72, r.top() + 40, r.width() - 92, 20), QFontMetricsF(flex(12, 450)).elidedText(card.subtitle, Qt::ElideMiddle, r.width() - 92), flex(12, 450), s.onSurfaceVariant);
+            const QString path = QString(card.path).replace(QRegularExpression(QStringLiteral("^~")), QDir::homePath());
+            button(QRectF(r.left() + 20, r.bottom() - 52, 80, 36), {}, tr("Open"), true, [path](QPointF) {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+            });
+            button(QRectF(r.left() + 108, r.bottom() - 52, 130, 36), {}, tr("Show in folder"), false, [path](QPointF) {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
+            });
+        }
+    };
+
+    // A tile too narrow for the card: its icon, and its name if there's room
+    auto paintCompact = [&](const Slot& slot, const QRectF& r, int place) {
+        const bool tonal = place % 2 == 0;
+        const QColor bg = tonal ? s.secondaryContainer : s.tertiaryContainer, ink = tonal ? s.onSecondaryContainer : s.onTertiaryContainer;
+        p.setPen(Qt::NoPen);
+        p.setBrush(hovered(r) ? mix(bg, ink, 0.08) : bg);
+        p.drawRect(r);
+        QString ic = QStringLiteral("notes"), title = tr("Read");
+        if (slot.item >= 0) {
+            const AssistantCard& card = d->items.at(slot.item).card;
+            title = card.title;
+            ic = card.kind == AssistantCard::Ask ? QStringLiteral("shield_question") : card.kind == AssistantCard::Code ? QStringLiteral("code") : card.kind == AssistantCard::Image ? QStringLiteral("image") : card.kind == AssistantCard::Level ? (card.icon.isEmpty() ? QStringLiteral("tune") : card.icon) : card.kind == AssistantCard::Switch ? (card.icon.isEmpty() ? QStringLiteral("toggle_on") : card.icon) : QStringLiteral("description");
+        }
+        if (r.width() < 110) {
+            icon(p, QRectF(r.center().x() - 16, r.center().y() - 16, 32, 32), ic, ink, 26);
+            return;
+        }
+        icon(p, QRectF(r.left() + 20, r.top() + 20, 32, 32), ic, ink, 28);
+        text(p, QRectF(r.left() + 20, r.bottom() - 44, r.width() - 40, 28), QFontMetricsF(flex(15, 600)).elidedText(title, Qt::ElideRight, r.width() - 40), flex(15, 600), ink);
+    };
+
+    // Multi-browse: the focused item large, the next one medium, one small at the edge
+    if (!tiles.isEmpty()) {
+        const int n = int(tiles.size());
+        const double pos = qBound(0.0, d->carousel->currentValue().toDouble(), double(n - 1));
+        const double gap = 8, small = 56;
+        const double large = n == 1 ? W : n == 2 ? W * 0.64 : W * 0.56;
+        const double medium = n == 2 ? W - large - gap : W - large - small - 2 * gap;
+        auto widthAt = [&](double off) {
+            auto at = [&](int k) {
+                return k <= -2 ? 0.0 : k == -1 ? small : k == 0 ? large : k == 1 ? medium : k == 2 ? small : 0.0;
+            };
+            const int lo = int(std::floor(off));
+            return lerp(at(lo), at(lo + 1), off - lo);
+        };
+        const int lo = int(std::floor(pos)), hi = qMin(n - 1, lo + 1);
+        const double height = qMax(120.0, lerp(heightOf(tiles.at(lo), large), heightOf(tiles.at(hi), large), pos - lo));
+        double total = -gap;
+        for (int i = 0; i < n; i++) {
+            const double w = widthAt(i - pos);
+            if (w > 0.5) total += w + gap;
+        }
+        double x = qMax(0.0, (W - total) / 2);
+        for (int i = 0; i < n; i++) {
+            const double w = widthAt(i - pos);
+            if (w <= 0.5) continue;
+            const Slot& slot = tiles.at(i);
+            const double age = (d->now() - slot.born) / 1000.0 - i * 0.09;
+            if (age < 0) {
+                x += w + gap;
+                continue;
+            }
+            const double in = springAt(M3Motion::SpatialDefault, age);
+            const QRectF r(x + (1 - c01(in)) * (420 - i * 50), y, w, height);
+            p.save();
+            p.setOpacity(p.opacity() * c01(age / 0.2));
+            QPainterPath tile;
+            tile.addRoundedRect(r, 28, 28);
+            p.setClipPath(tile, Qt::IntersectClip);
+            const double full = c01((w - (large - 60)) / 50); // only the large one shows the whole card
+            if (full < 1) {
+                p.save();
+                p.setOpacity(p.opacity() * (1 - full));
+                paintCompact(slot, r, i);
+                p.restore();
+            }
+            if (full > 0) {
+                p.save();
+                p.setOpacity(p.opacity() * full);
+                const int hitsBefore = int(d->hits.size());
+                if (slot.item >= 0) paintCard(slot.item, r);
+                else {
+                    p.setPen(Qt::NoPen);
+                    p.setBrush(s.surfaceContainerHigh);
+                    p.drawRect(r);
+                    double ty = r.top() + 20;
+                    for (int a : std::as_const(answers)) {
+                        const Private::Item& answer = d->items.at(a);
+                        ty += paintLiving(p, answer.text, answer.wordBorn, QPointF(r.left() + 24, ty), r.width() - 48, readPx, hit, hovered, answer.countFrom) + 12;
+                    }
+                }
+                if (full < 0.9) d->hits.resize(hitsBefore); // only the large one is live
+                p.restore();
+            }
+            p.restore();
+            solid(r);
+            if (i != qRound(pos)) {
+                hit(r, [this, i](QPointF) {
+                    d->carousel->animateTo(double(i));
+                    animateFor(900);
+                });
+            }
+            x += w + gap;
+        }
+        y += height + 20;
+    }
+
+    // Follow-ups: a connected button group, the outer ends round, the joins tight
+    if (chips >= 0 && !d->items.at(chips).chips.isEmpty()) {
+        Private::Item& item = d->items[chips];
+        const double age = (d->now() - item.born) / 1000.0;
+        const QFont f = flex(14, 560);
+        QList<double> widths;
+        double total = -2;
+        for (const AssistantChip& chip : std::as_const(item.chips)) {
+            widths.append(24 + (chip.icon.isEmpty() ? 0 : 28) + textWidth(chip.label, f) + 4);
+            total += widths.last() + 2;
+        }
+        double x = qMax(0.0, (W - total) / 2);
+        for (int i = 0; i < item.chips.size(); i++) {
+            const AssistantChip& chip = item.chips.at(i);
+            const double k = springAt(M3Motion::SpatialFast, age - i * 0.07);
+            if (k <= 0) continue;
+            const QRectF r(x, y + (1 - c01(k)) * 16, widths.at(i), 40);
+            const bool pressed = item.pressed == chip.id && d->since(item.pressedAt) < 0.3;
+            const double press = pressed ? std::sin(M_PI * c01(d->since(item.pressedAt) / 0.3)) : 0;
+            const double left = i == 0 ? lerp(20, 10, press) : lerp(6, 10, press), right = i == item.chips.size() - 1 ? lerp(20, 10, press) : lerp(6, 10, press);
+            const QPainterPath shape = sidedRect(r, left, right);
+            p.save();
+            p.setOpacity(p.opacity() * c01(age / 0.2));
+            p.setPen(Qt::NoPen);
+            p.setBrush(pressed ? mix(s.secondaryContainer, s.onSecondaryContainer, 0.12) : hovered(r) ? mix(s.secondaryContainer, s.onSecondaryContainer, 0.08) : s.secondaryContainer);
+            p.drawPath(shape);
+            double cx = r.left() + 14;
+            if (!chip.icon.isEmpty()) {
+                icon(p, QRectF(cx, r.top(), 20, r.height()), chip.icon, s.onSecondaryContainer, 18);
+                cx += 28;
+            }
+            text(p, QRectF(cx, r.top(), r.right() - cx - 8, r.height()), chip.label, f, s.onSecondaryContainer);
+            p.restore();
+            solid(r);
+            const QString id = chip.id, label = chip.label;
+            hit(r, [this, chips, id, label](QPointF) {
+                if (d->busy) return;
+                d->items[chips].pressed = id;
+                d->items[chips].pressedAt = d->now();
+                if (!d->brain->chip(id)) sendText(label);
+                animateFor(400);
+            });
+            x += widths.at(i) + 2;
+        }
+        y += 40 + 16;
+    }
+
+    // "N earlier": opens the questions asked before as a list
+    const int earlier = int(asked.size()) - (user >= 0 ? 1 : 0);
+    if (earlier > 0) {
+        const QString label = d->viewBack > 0 ? tr("Back to the latest") : earlier == 1 ? tr("1 earlier") : tr("%1 earlier").arg(earlier);
+        const QString ic = d->viewBack > 0 ? QStringLiteral("arrow_downward") : QStringLiteral("history");
+        const QRectF r((W - chipWidth(ic, label) - 8) / 2, y, chipWidth(ic, label) + 8, 36);
+        p.setPen(QPen(s.outlineVariant, 1));
+        p.setBrush(hovered(r) ? mix(s.surfaceContainer, s.onSurface, 0.08) : s.surfaceContainer);
+        p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 18, 18);
+        p.setPen(Qt::NoPen);
+        icon(p, QRectF(r.left() + 12, r.top(), 20, 36), ic, s.onSurfaceVariant, 18);
+        text(p, r.adjusted(38, 0, 0, 0), label, flex(13, 600), s.onSurface);
+        solid(r);
+        hit(r, [this](QPointF) {
+            if (d->viewBack > 0) {
+                showTurn(0);
+                return;
+            }
+            d->listOpen = true;
+            d->listAt = d->now();
+            d->scrollTarget = d->scroll = 0;
+            animateFor(900);
+        });
+        y += 36 + 16;
+    }
+    return y;
 }
 
 void AssistantPanel::paintFocus(QPainter& p) {
@@ -1179,447 +1877,7 @@ bool AssistantPanel::focusKey(QKeyEvent* event) {
     }
 }
 
-double AssistantPanel::paintThread(QPainter& p, const QRectF& view, double scroll) {
-    const M3::Scheme s = M3::currentScheme();
-    p.translate(view.left(), view.top() - scroll);
-    const double W = view.width();
-    const double inset = 8; // text lines up with the field's text; cards reach the edge
-    double y = 4;
-    auto hit = [&](const QRectF& r, std::function<void(QPointF)> act, bool drags = false) {
-        const QRectF mapped = p.transform().mapRect(r);
-        if (mapped.intersects(view)) d->hits.append({mapped.intersected(view), act, drags});
-    };
-    auto hovered = [&](const QRectF& r) {
-        return p.transform().mapRect(r).contains(d->mouse);
-    };
-    auto button = [&](const QRectF& r, const QString& ic, const QString& label, bool tonal, std::function<void(QPointF)> act) {
-        p.setPen(tonal ? Qt::NoPen : QPen(s.outlineVariant, 1));
-        QColor bg = tonal ? s.secondaryContainer : QColor(Qt::transparent);
-        if (hovered(r)) bg = mix(bg.alpha() ? bg : s.surfaceContainerHigh, tonal ? s.onSecondaryContainer : s.primary, 0.08);
-        p.setBrush(bg);
-        p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), r.height() / 2, r.height() / 2);
-        p.setPen(Qt::NoPen);
-        const QColor ink = tonal ? s.onSecondaryContainer : s.primary;
-        if (ic.isEmpty()) {
-            text(p, r, label, flex(13, 600), ink, Qt::AlignCenter);
-        } else {
-            icon(p, QRectF(r.left() + 8, r.top(), 22, r.height()), ic, ink, 17);
-            text(p, r.adjusted(34, 0, 0, 0), label, flex(13, 600), ink);
-        }
-        hit(r, act);
-    };
-
-    for (int index = 0; index < d->items.size(); index++) {
-        Private::Item& item = d->items[index];
-        const double age = (d->now() - item.born) / 1000.0;
-        if (age < 0) continue;
-        switch (item.kind) {
-            case Private::Item::User: {
-                const QFont font = flex(15, 520);
-                const double maxText = W * 0.75 - 36;
-                const QRectF bounds = QFontMetricsF(font).boundingRect(QRectF(0, 0, maxText, 1000), Qt::TextWordWrap, item.text);
-                const QRectF bubble(W - bounds.width() - 36, y, bounds.width() + 36, qMax(44.0, bounds.height() + 22));
-                p.save();
-                rise(p, bubble, age);
-                p.setPen(Qt::NoPen);
-                p.setBrush(s.primaryContainer);
-                p.drawRoundedRect(bubble, 22, 22);
-                text(p, bubble.adjusted(18, 0, -18, 0), item.text, font, s.onPrimaryContainer, Qt::AlignVCenter | Qt::AlignLeft | Qt::TextWordWrap);
-                p.restore();
-                y += bubble.height() + 20;
-                break;
-            }
-            case Private::Item::Steps: {
-                // Working: a wave and what it's doing; done: a chip with a check.
-                // Once the answer lands they fold away; steps without a card
-                // leave one "N steps" chip that opens them again
-                int plain = 0;
-                for (const Private::Step& step : std::as_const(item.steps)) plain += step.card ? 0 : 1;
-                const double fold = item.unfolded || item.foldAt < 0 ? 0 : springAt(M3Motion::SpatialDefault, d->since(item.foldAt));
-                double x = inset, rowY = 0, fullHeight = 36;
-                QList<QPointF> places;
-                for (const Private::Step& step : std::as_const(item.steps)) {
-                    const double w = step.done ? chipWidth(QStringLiteral("check"), step.text) : 68 + textWidth(step.text, flex(14, 500));
-                    if (x + w > W && x > inset) {
-                        x = inset;
-                        rowY += 44;
-                        fullHeight += 44;
-                    }
-                    places.append(QPointF(x, rowY));
-                    x += w + 8;
-                }
-                const double folded = plain > 0 ? 36 : 0;
-                const double height = lerp(fullHeight, folded, c01(fold));
-                p.save();
-                p.setOpacity(p.opacity() * (1 - c01(fold * 2)));
-                for (int i = 0; i < item.steps.size(); i++) {
-                    const Private::Step& step = item.steps.at(i);
-                    const QPointF at(places.at(i).x(), y + places.at(i).y());
-                    if (!step.done) {
-                        // M3E wavy progress: amplitude 3, wavelength 40, stroke 4
-                        QPainterPath wave;
-                        const double phase = d->now() / 1000.0 * 6;
-                        for (double wx = 0; wx <= 56; wx += 2) {
-                            const QPointF pt(at.x() + wx, at.y() + 18 + 3 * std::sin(wx / 40.0 * 2 * M_PI - phase));
-                            if (wx == 0) wave.moveTo(pt);
-                            else wave.lineTo(pt);
-                        }
-                        p.setBrush(Qt::NoBrush);
-                        p.setPen(QPen(s.primary, 4, Qt::SolidLine, Qt::RoundCap));
-                        p.drawPath(wave);
-                        p.setPen(Qt::NoPen);
-                        text(p, QRectF(at.x() + 68, at.y(), W, 36), step.text, flex(14, 500), s.onSurfaceVariant);
-                    } else {
-                        const QRectF r(at, QSizeF(chipWidth(QStringLiteral("check"), step.text), 36));
-                        p.setPen(Qt::NoPen);
-                        p.setBrush(s.secondaryContainer);
-                        p.drawRoundedRect(r, 10, 10);
-                        icon(p, QRectF(r.left() + 10, r.top(), 20, 36), QStringLiteral("check"), s.onSecondaryContainer, 18);
-                        text(p, r.adjusted(36, 0, 0, 0), step.text, flex(14, 560), s.onSecondaryContainer);
-                    }
-                }
-                if (item.unfolded) {
-                    hit(QRectF(0, y, W, fullHeight), [this, index](QPointF) {
-                        d->items[index].unfolded = false;
-                        d->items[index].foldAt = d->now();
-                        animateFor(800);
-                    });
-                }
-                p.restore();
-                if (plain > 0 && fold > 0.5) {
-                    const QString label = item.steps.size() == 1 ? tr("1 step") : tr("%1 steps").arg(item.steps.size());
-                    const QRectF r(inset, y, chipWidth(QStringLiteral("checklist"), label) + 22, 36);
-                    p.save();
-                    p.setOpacity(p.opacity() * c01((fold - 0.5) * 2));
-                    p.setPen(QPen(s.outlineVariant, 1));
-                    p.setBrush(hovered(r) ? mix(s.surfaceContainer, s.onSurface, 0.08) : s.surfaceContainer);
-                    p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 10, 10);
-                    icon(p, QRectF(r.left() + 10, r.top(), 20, 36), QStringLiteral("checklist"), s.onSurfaceVariant, 18);
-                    text(p, r.adjusted(36, 0, 0, 0), label, flex(14, 560), s.onSurface);
-                    icon(p, QRectF(r.right() - 26, r.top(), 20, 36), QStringLiteral("expand_more"), s.onSurfaceVariant, 18);
-                    p.restore();
-                    hit(r, [this, index](QPointF) {
-                        d->items[index].unfolded = true;
-                        animateFor(400);
-                    });
-                }
-                y += height + (height > 0.5 ? 16 : 0);
-                break;
-            }
-            case Private::Item::Answer: {
-                y += paintLiving(p, item.text, item.wordBorn, QPointF(inset, y), W - 2 * inset, 19, hit, hovered, item.countFrom) + 14;
-                break;
-            }
-            case Private::Item::Card: {
-                const AssistantCard& card = item.card;
-                if (card.kind == AssistantCard::Ask) {
-                    // A permission ask: what it wants to do, Allow / Don't.
-                    // Once answered it shrinks to one line
-                    const int shownLines = int(qMin<qsizetype>(card.lines.size(), 8));
-                    const double full = 64 + shownLines * 21 + 12 + 40 + 16;
-                    const double settle = item.changedAt >= 0 ? c01(springAt(M3Motion::SpatialDefault, d->since(item.changedAt))) : 0;
-                    const double height = lerp(full, 52, settle);
-                    const QRectF r(0, y, W, height);
-                    p.save();
-                    rise(p, r, age);
-                    p.setPen(Qt::NoPen);
-                    p.setBrush(card.value == 0 ? s.surfaceContainerHigh : card.value > 0 ? s.secondaryContainer : s.surfaceContainerHigh);
-                    p.drawRoundedRect(r, 24, 24);
-                    p.setClipRect(r, Qt::IntersectClip);
-                    const QPointF disc(r.left() + 30, r.top() + 26);
-                    const QString ic = card.value > 0 ? QStringLiteral("check") : card.value < 0 ? QStringLiteral("block") : QStringLiteral("shield_question");
-                    p.setBrush(card.value > 0 ? s.primary : s.tertiaryContainer);
-                    p.drawEllipse(disc, 16, 16);
-                    icon(p, QRectF(disc.x() - 16, disc.y() - 16, 32, 32), ic, card.value > 0 ? s.onPrimary : s.onTertiaryContainer, 18, true);
-                    const QString title = card.value > 0 ? tr("Allowed · %1").arg(card.title.chopped(1)) : card.value < 0 ? tr("Not allowed · %1").arg(card.title.chopped(1)) : card.title;
-                    text(p, QRectF(r.left() + 56, r.top() + 8, W - 80, 36), title, flex(15, 600), card.value > 0 ? s.onSecondaryContainer : s.onSurface);
-                    if (settle < 1) {
-                        p.save();
-                        p.setOpacity(p.opacity() * (1 - settle));
-                        if (!card.subtitle.isEmpty()) text(p, QRectF(r.left() + 56, r.top() + 34, W - 80, 20), card.subtitle, flex(12, 450), s.onSurfaceVariant);
-                        const QRectF code(r.left() + 12, r.top() + 60, W - 24, shownLines * 21 + 8);
-                        p.setPen(Qt::NoPen);
-                        p.setBrush(s.surfaceContainerLowest);
-                        p.drawRoundedRect(code, 14, 14);
-                        for (int i = 0; i < shownLines; i++) {
-                            const QString& line = card.lines.at(i);
-                            const QChar mark = line.isEmpty() ? ' ' : line.at(0);
-                            const bool diff = mark == '+' || mark == '-';
-                            text(p, QRectF(code.left() + 12, code.top() + 4 + i * 21, code.width() - 24, 21), line, mono(13, 450), diff ? (mark == '+' ? s.primary : s.error) : s.onSurface);
-                        }
-                        if (card.value == 0) {
-                            const QRectF allow(r.right() - 116, r.bottom() - 52, 100, 40), deny(r.right() - 228, r.bottom() - 52, 100, 40);
-                            p.setPen(QPen(s.outlineVariant, 1));
-                            p.setBrush(hovered(deny) ? mix(s.surfaceContainerHigh, s.primary, 0.08) : QColor(Qt::transparent));
-                            p.drawRoundedRect(deny.adjusted(0.5, 0.5, -0.5, -0.5), 20, 20);
-                            text(p, deny, tr("Don't"), flex(14, 600), s.primary, Qt::AlignCenter);
-                            p.setPen(Qt::NoPen);
-                            p.setBrush(hovered(allow) ? mix(s.primary, s.onPrimary, 0.08) : s.primary);
-                            p.drawRoundedRect(allow, 20, 20);
-                            text(p, allow, tr("Allow"), flex(14, 600), s.onPrimary, Qt::AlignCenter);
-                            auto decide = [this, index](bool yes) {
-                                Private::Item& it = d->items[index];
-                                if (it.card.value != 0) return;
-                                it.card.value = yes ? 1 : -1;
-                                it.changedAt = d->now();
-                                d->brain->answer(it.card.id, yes);
-                                animateFor(800);
-                            };
-                            hit(allow, [decide](QPointF) { decide(true); });
-                            hit(deny, [decide](QPointF) { decide(false); });
-                        }
-                        p.restore();
-                    }
-                    p.restore();
-                    y += height + 12;
-                } else if (card.kind == AssistantCard::Level || card.kind == AssistantCard::Switch) {
-                    // A segmented list: neighbours share the group's corners
-                    auto isRow = [this](int i) {
-                        return i >= 0 && i < d->items.size() && d->items.at(i).kind == Private::Item::Card && (d->items.at(i).card.kind == AssistantCard::Level || d->items.at(i).card.kind == AssistantCard::Switch);
-                    };
-                    const bool first = !isRow(index - 1), last = !isRow(index + 1);
-                    const QRectF r(0, y, W, 68);
-                    p.save();
-                    rise(p, r, age);
-                    const double flash = item.changedAt >= 0 ? qMax(0.0, 1 - d->since(item.changedAt) / 0.9) : 0;
-                    QPainterPath shape;
-                    shape.addRoundedRect(r, 6, 6);
-                    if (first) {
-                        QPainterPath topRound;
-                        topRound.addRoundedRect(r.adjusted(0, 0, 0, -20), 22, 22);
-                        shape = shape.united(topRound);
-                    }
-                    if (last) {
-                        QPainterPath bottomRound;
-                        bottomRound.addRoundedRect(r.adjusted(0, 20, 0, 0), 22, 22);
-                        shape = shape.united(bottomRound);
-                    }
-                    p.setPen(Qt::NoPen);
-                    p.setBrush(mix(s.surfaceContainerHigh, s.secondaryContainer, flash));
-                    p.drawPath(shape);
-                    const bool brightness = card.kind == AssistantCard::Level;
-                    const QPointF disc(r.left() + 34, r.center().y());
-                    p.setBrush(brightness ? s.secondaryContainer : s.tertiaryContainer);
-                    p.drawEllipse(disc, 20, 20);
-                    icon(p, QRectF(disc.x() - 20, disc.y() - 20, 40, 40), card.icon.isEmpty() ? (brightness ? QStringLiteral("tune") : QStringLiteral("toggle_on")) : card.icon, brightness ? s.onSecondaryContainer : s.onTertiaryContainer, 22, true);
-                    if (brightness) {
-                        text(p, QRectF(r.left() + 66, r.top(), 120, r.height()), card.title, flex(15, 600), s.onSurface);
-                        // the M3E slider: a thin handle with gaps, a stop dot at the end
-                        const QRectF track(r.left() + 196, r.center().y() - 20, r.width() - 196 - 84, 40);
-                        const double v = c01(card.value), hx = track.left() + track.width() * v, cy = track.center().y();
-                        p.setPen(Qt::NoPen);
-                        p.setBrush(s.primary);
-                        p.drawRoundedRect(QRectF(track.left(), cy - 8, qMax(0.0, hx - 6 - track.left()), 16), 8, 8);
-                        p.setBrush(s.secondaryContainer);
-                        p.drawRoundedRect(QRectF(hx + 6, cy - 8, qMax(0.0, track.right() - hx - 6), 16), 8, 8);
-                        p.setBrush(s.onSecondaryContainer);
-                        p.drawEllipse(QPointF(track.right() - 8, cy), 2, 2);
-                        p.setBrush(s.primary);
-                        p.drawRoundedRect(QRectF(hx - 2, cy - 20, 4, 40), 2, 2);
-                        text(p, QRectF(r.right() - 72, r.top(), 54, r.height()), QStringLiteral("%1%").arg(qRound(v * 100)), flex(15, 650), s.onSurface, Qt::AlignRight | Qt::AlignVCenter);
-                        // dragging works in window coordinates, so map the track there
-                        const QRectF mapped = p.transform().mapRect(track);
-                        if (mapped.intersects(view)) {
-                            d->hits.append({mapped.adjusted(0, -4, 0, 4), [this, index, mapped](QPointF at) {
-                                Private::Item& it = d->items[index];
-                                it.card.value = c01((at.x() - mapped.left()) / mapped.width());
-                                d->brain->setCardValue(it.card.id, it.card.value);
-                                animateFor(200);
-                            }, true, [this, index](int step) {
-                                Private::Item& it = d->items[index];
-                                it.card.value = c01(std::round(it.card.value * 20 + step) / 20);
-                                d->brain->setCardValue(it.card.id, it.card.value);
-                                animateFor(200);
-                            }});
-                        }
-                    } else {
-                        text(p, QRectF(r.left() + 66, r.top() + 12, 300, 24), card.title, flex(15, 600), s.onSurface);
-                        // the time rolls over to the new one
-                        const QRectF sub(r.left() + 66, r.top() + 34, r.width() - 160, 20);
-                        const double roll = item.changedAt >= 0 ? springAt(M3Motion::SpatialDefault, d->since(item.changedAt)) : 1;
-                        p.save();
-                        p.setClipRect(sub, Qt::IntersectClip);
-                        if (roll < 1) text(p, sub.translated(0, -20 * roll), item.was, flex(13, 450), s.onSurfaceVariant);
-                        text(p, sub.translated(0, 20 * (1 - roll)), card.subtitle, flex(13, 450), s.onSurfaceVariant);
-                        p.restore();
-                        // the switch
-                        const QRectF track(r.right() - 72, r.center().y() - 16, 52, 32);
-                        const double on = c01(card.value);
-                        p.setPen(on < 0.5 ? QPen(s.outline, 2) : Qt::NoPen);
-                        p.setBrush(mix(s.surfaceContainerHighest, s.primary, on));
-                        p.drawRoundedRect(track.adjusted(1, 1, -1, -1), 15, 15);
-                        p.setPen(Qt::NoPen);
-                        const double knob = lerp(16, 24, on);
-                        const QPointF kc(lerp(track.left() + 16, track.left() + 36, on), track.center().y());
-                        p.setBrush(mix(s.outline, s.onPrimary, on));
-                        p.drawEllipse(kc, knob / 2, knob / 2);
-                        if (on > 0.5) icon(p, QRectF(kc.x() - 10, kc.y() - 10, 20, 20), QStringLiteral("check"), s.onPrimaryContainer, 16);
-                        hit(track.adjusted(-8, -8, 8, 8), [this, index](QPointF) {
-                            Private::Item& it = d->items[index];
-                            it.card.value = it.card.value > 0.5 ? 0 : 1;
-                            d->brain->setCardValue(it.card.id, it.card.value);
-                            animateFor(300);
-                        });
-                    }
-                    p.restore();
-                    y += 68 + (last ? 14 : 2);
-                } else if (card.kind == AssistantCard::Image) {
-                    // A picture: a file, or fetched from the web
-                    const QString source = card.path;
-                    if (!d->images.contains(source)) {
-                        d->images.insert(source, QImage());
-                        if (source.startsWith(QStringLiteral("http"))) {
-                            if (!d->network) d->network = new QNetworkAccessManager(this);
-                            QNetworkRequest request{QUrl(source)};
-                            // some sites (Wikimedia) refuse requests that don't say what they are
-                            request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("theDesk/3.0 (desktop assistant)"));
-                            QNetworkReply* reply = d->network->get(request);
-                            connect(reply, &QNetworkReply::finished, this, [this, reply, source] {
-                                QImage image = QImage::fromData(reply->readAll());
-                                if (image.isNull()) image = QImage(1, 1, QImage::Format_ARGB32); // failed: a gap, not a spinner forever
-                                d->images.insert(source, image);
-                                reply->deleteLater();
-                                animateFor(600);
-                            });
-                        } else {
-                            d->images.insert(source, QImage(source));
-                        }
-                    }
-                    const QImage image = d->images.value(source);
-                    const bool loaded = !image.isNull() && image.width() > 1;
-                    QSizeF size(W, 180);
-                    if (loaded) {
-                        size = QSizeF(image.size()).scaled(QSizeF(W, 300), Qt::KeepAspectRatio);
-                        if (size.width() > image.width()) size = image.size();
-                    }
-                    const double captionHeight = card.title.isEmpty() ? 0 : 24;
-                    const QRectF r(0, y, size.width(), size.height());
-                    p.save();
-                    rise(p, r, age);
-                    QPainterPath shape;
-                    shape.addRoundedRect(r, 20, 20);
-                    p.setPen(Qt::NoPen);
-                    if (loaded) {
-                        p.setClipPath(shape, Qt::IntersectClip);
-                        p.setRenderHint(QPainter::SmoothPixmapTransform);
-                        p.drawImage(r, image);
-                    } else {
-                        p.setBrush(s.surfaceContainerHigh);
-                        p.drawPath(shape);
-                        icon(p, r, QStringLiteral("image"), s.onSurfaceVariant, 32);
-                    }
-                    p.restore();
-                    if (!card.title.isEmpty()) text(p, QRectF(4, y + size.height() + 4, W, 20), card.title, flex(13, 450), s.onSurfaceVariant);
-                    hit(r, [source](QPointF) {
-                        QDesktopServices::openUrl(source.startsWith(QStringLiteral("http")) ? QUrl(source) : QUrl::fromLocalFile(source));
-                    });
-                    y += size.height() + captionHeight + 12;
-                } else if (card.kind == AssistantCard::Code) {
-                    const QRectF r(0, y, W, 48 + card.lines.size() * 23 + 12);
-                    p.save();
-                    rise(p, r, age);
-                    p.setPen(Qt::NoPen);
-                    p.setBrush(s.surfaceContainerLowest);
-                    p.drawRoundedRect(r, 20, 20);
-                    const bool isFile = card.path.startsWith('/') || card.path.startsWith('~');
-                    text(p, QRectF(r.left() + 18, r.top() + 8, 300, 32), isFile ? QFileInfo(card.path).fileName() : (card.path.isEmpty() ? tr("code") : card.path), mono(13, 600), s.onSurfaceVariant);
-                    const QString path = card.path;
-                    const QStringList lines = card.lines;
-                    button(QRectF(r.right() - (isFile ? 252 : 108), r.top() + 8, 96, 32), QStringLiteral("content_copy"), tr("Copy"), false, [lines](QPointF) {
-                        // the code as it is now: without the removed lines or the markers
-                        QStringList now;
-                        for (const QString& line : lines) {
-                            if (!line.startsWith('-')) now.append(line.mid(1));
-                        }
-                        QGuiApplication::clipboard()->setText(now.join('\n'));
-                    });
-                    if (isFile) {
-                        button(QRectF(r.right() - 148, r.top() + 8, 136, 32), QStringLiteral("open_in_new"), tr("Open in Zed"), true, [path](QPointF) {
-                            QProcess::startDetached(QStringLiteral("zeditor"), {QString(path).replace(QRegularExpression(QStringLiteral("^~")), QDir::homePath())});
-                        });
-                    }
-                    for (int i = 0; i < card.lines.size(); i++) {
-                        const QString& line = card.lines.at(i);
-                        const QRectF lr(r.left() + 8, r.top() + 48 + i * 23, r.width() - 16, 23);
-                        const QChar k = line.isEmpty() ? ' ' : line.at(0);
-                        if (k == '+' || k == '-') {
-                            p.setPen(Qt::NoPen);
-                            p.setBrush(alpha(k == '+' ? s.primaryContainer : s.errorContainer, 0.3));
-                            p.drawRoundedRect(lr, 6, 6);
-                        }
-                        text(p, QRectF(lr.left() + 10, lr.top(), 20, lr.height()), k == ' ' ? QString() : QString(k), mono(14, 600), k == '+' ? s.primary : s.error);
-                        text(p, QRectF(lr.left() + 30, lr.top(), lr.width() - 40, lr.height()), line.mid(1), mono(14, 450), s.onSurface);
-                    }
-                    p.restore();
-                    y += r.height() + 10;
-                } else {
-                    const QRectF r(0, y, W, 60);
-                    p.save();
-                    rise(p, r, age);
-                    p.setPen(Qt::NoPen);
-                    p.setBrush(s.surfaceContainerHigh);
-                    p.drawRoundedRect(r, 20, 20);
-                    const QString suffix = QFileInfo(card.path).suffix().toLower();
-                    const QString ic = suffix == "css" ? QStringLiteral("css") : suffix == "html" ? QStringLiteral("html") : suffix == "js" ? QStringLiteral("javascript") : QStringLiteral("description");
-                    const QPointF disc(r.left() + 32, r.center().y());
-                    p.setBrush(s.tertiaryContainer);
-                    p.drawEllipse(disc, 20, 20);
-                    icon(p, QRectF(disc.x() - 20, disc.y() - 20, 40, 40), ic, s.onTertiaryContainer, 22);
-                    text(p, QRectF(r.left() + 64, r.top() + 9, r.width() - 300, 22), card.title, flex(15, 600), s.onSurface);
-                    text(p, QRectF(r.left() + 64, r.top() + 30, r.width() - 300, 20), card.subtitle, flex(12, 450), s.onSurfaceVariant);
-                    const QString path = QString(card.path).replace(QRegularExpression(QStringLiteral("^~")), QDir::homePath());
-                    button(QRectF(r.right() - 230, r.top() + 12, 80, 36), {}, tr("Open"), false, [path](QPointF) {
-                        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
-                    });
-                    button(QRectF(r.right() - 142, r.top() + 12, 130, 36), {}, tr("Show in folder"), false, [path](QPointF) {
-                        QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
-                    });
-                    p.restore();
-                    y += 70;
-                }
-                break;
-            }
-            case Private::Item::Chips: {
-                double x = inset;
-                for (const AssistantChip& chip : std::as_const(item.chips)) {
-                    const double w = chipWidth(chip.icon, chip.label);
-                    if (x + w > W && x > inset) {
-                        x = inset;
-                        y += 44;
-                    }
-                    const QRectF r(x, y, w, 36);
-                    p.save();
-                    rise(p, r, age);
-                    const bool pressed = item.pressed == chip.id && d->since(item.pressedAt) < 0.25;
-                    p.setPen(QPen(s.outlineVariant, 1));
-                    p.setBrush(pressed ? mix(s.surfaceContainer, s.onSurface, 0.12) : hovered(r) ? mix(s.surfaceContainer, s.onSurface, 0.08) : s.surfaceContainer);
-                    p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 10, 10);
-                    double tx = r.left() + 12;
-                    if (!chip.icon.isEmpty()) {
-                        icon(p, QRectF(tx, r.top(), 20, 36), chip.icon, s.onSurface, 18);
-                        tx += 26;
-                    }
-                    text(p, QRectF(tx, r.top(), r.right() - tx - 10, 36), chip.label, flex(14, 560), s.onSurface);
-                    p.restore();
-                    const QString id = chip.id, label = chip.label;
-                    hit(r, [this, index, id, label](QPointF) {
-                        if (d->busy) return;
-                        d->items[index].pressed = id;
-                        d->items[index].pressedAt = d->now();
-                        if (!d->brain->chip(id)) sendText(label);
-                        animateFor(400);
-                    });
-                    x += w + 8;
-                }
-                y += 36 + 16;
-                break;
-            }
-        }
-    }
-    return y;
-}
-
-double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<qint64>& wordBorn, QPointF at, double W, double px, const HitFn& hit, const HoverFn& hovered, const QHash<QString, double>& countFrom) {
+double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<qint64>& wordBorn, QPointF at, double W, double px, const HitFn& hit, const HoverFn& hovered, const QHash<QString, double>& countFrom, bool centred) {
     // Living type: words arrive thin and narrow and spring to their weight.
     // Key words land heavy, wide and in primary (and stay); a key number
     // counts up; files, apps and links turn into chips; the tone shapes the
@@ -1681,11 +1939,20 @@ double AssistantPanel::paintLiving(QPainter& p, const QString& raw, const QList<
     }
     QList<double> lineTop{at.y()};
     for (double size : std::as_const(lineSize)) lineTop.append(lineTop.last() + lineHeight * qMax(1.0, size));
+    // centred: each line sits in the middle of the width
+    QList<double> lineShift(lineSize.size(), 0.0);
+    if (centred) {
+        QList<double> lineWidth(lineSize.size(), 0.0);
+        for (int t = 0; t < parsed.tokens.size(); t++)
+            if (parsed.tokens.at(t).kind != 4) lineWidth[places.at(t).line] = qMax(lineWidth.at(places.at(t).line), places.at(t).x + places.at(t).ww);
+        for (int l = 0; l < lineSize.size(); l++) lineShift[l] = qMax(0.0, (W - lineWidth.at(l)) / 2);
+    }
 
     for (int t = 0; t < parsed.tokens.size(); t++) {
         const AnswerToken& token = parsed.tokens.at(t);
         if (token.kind == 4) continue;
-        const Place& place = places.at(t);
+        Place place = places.at(t);
+        place.x += lineShift.at(place.line);
         const double born = t < wordBorn.size() ? d->since(wordBorn.at(t)) : -1;
         const double chipK = token.kind >= 2 ? c01(springAt(M3Motion::SpatialDefault, born - 0.55)) : 0;
         const double k = born > 0 ? springAt(M3Motion::SpatialDefault, born) : 0;
@@ -1794,8 +2061,10 @@ void AssistantPanel::mousePressEvent(QMouseEvent* event) {
         d->hits.at(i).act(at);
         return;
     }
-    // on the scrim: away it goes (into the bar while it works)
-    if (!sheetRect().contains(at)) close();
+    // anywhere Pebble didn't draw: away it goes (into the bar while it works)
+    for (const QRectF& r : std::as_const(d->solid))
+        if (r.contains(at)) return;
+    close();
 }
 
 void AssistantPanel::mouseMoveEvent(QMouseEvent* event) {
@@ -1816,9 +2085,15 @@ void AssistantPanel::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void AssistantPanel::wheelEvent(QWheelEvent* event) {
+    // sideways: through the carousel; up past the top: back to earlier turns
+    if (std::abs(event->angleDelta().x()) > std::abs(event->angleDelta().y())) {
+        d->carousel->animateTo(qMax(0.0, std::round(d->carousel->endValue().toDouble() + (event->angleDelta().x() < 0 ? 1 : -1))));
+        animateFor(900);
+        return;
+    }
     const double max = qMax(0.0, d->contentHeight - d->viewHeight);
-    d->scrollTarget = qBound(0.0, d->scrollTarget - event->angleDelta().y() / 2.0, max);
-    d->stickToEnd = d->scrollTarget >= max - 4;
+    const double dy = event->angleDelta().y();
+    d->scrollTarget = qBound(0.0, d->scrollTarget - dy / 2.0, max);
     animateFor(600);
 }
 
@@ -1836,9 +2111,13 @@ bool AssistantPanel::eventFilter(QObject* watched, QEvent* event) {
             return true;
         }
         if (key->key() == Qt::Key_Escape) {
-            close();
+            if (d->listOpen) { // the list of earlier ones goes first
+                d->listOpen = false;
+                animateFor(600);
+            } else close();
             return true;
         }
+
     }
     return QDialog::eventFilter(watched, event);
 }
@@ -1865,7 +2144,7 @@ void AssistantPanel::paintIntro(QPainter& p) {
 
     // turning into the sheet
     const double away = d->introToPanelAt >= 0 ? c01(springAt(M3Motion::SpatialDefault, d->since(d->introToPanelAt))) : 0;
-    const QRectF box = lerpRect(card, sheetRect(), away);
+    const QRectF box = lerpRect(card, pillRect(), away);
     const double appear = springAt(M3Motion::SpatialDefault, d->since(d->openedAt >= 0 ? d->openedAt : 0));
     p.save();
     if (away == 0 && d->openedAt >= 0) {
@@ -1875,7 +2154,7 @@ void AssistantPanel::paintIntro(QPainter& p) {
     }
     p.setPen(Qt::NoPen);
     p.setBrush(s.surfaceContainer);
-    p.drawRoundedRect(box, lerp(28, Radius, away), lerp(28, Radius, away));
+    p.drawRoundedRect(box, lerp(28, PillHeight / 2, away), lerp(28, PillHeight / 2, away));
     p.setClipRect(box);
     p.setOpacity(1 - c01(away * 3));
     if (p.opacity() <= 0) {
