@@ -24,6 +24,7 @@
 
 struct QuickSwitchPrivate;
 class tSwitch;
+class QWidget;
 class QuickSwitch : public QObject {
         Q_OBJECT
     public:
@@ -40,9 +41,18 @@ class QuickSwitch : public QObject {
 
         void setSwitch(tSwitch* s);
 
+        // A switch with a detail is a big tile: its icon toggles, its label
+        // opens the detail (a dialog grown out of the tile) or, without one,
+        // the pane. The dialog's "See all" opens the pane too.
+        void setDetail(QWidget* detail);
+        QWidget* detail();
+        void setDetailPane(QString pane);
+        QString detailPane();
+
     signals:
         void titleChanged(QString title);
         void toggled(bool checked);
+        void detailDone(); // the detail asks its dialog to close
 
     private:
         QuickSwitchPrivate* d;

@@ -28,6 +28,8 @@ struct QuickSwitchPrivate {
     bool checked = false;
 
     QPointer<tSwitch> s;
+    QPointer<QWidget> detail;
+    QString detailPane;
 };
 
 QuickSwitch::QuickSwitch(QString name, QObject* parent) : QObject(parent) {
@@ -67,4 +69,20 @@ bool QuickSwitch::isChecked() {
 
 void QuickSwitch::setSwitch(tSwitch* s) {
     d->s = s;
+}
+
+void QuickSwitch::setDetail(QWidget* detail) {
+    d->detail = detail;
+}
+
+QWidget* QuickSwitch::detail() {
+    return d->detail;
+}
+
+void QuickSwitch::setDetailPane(QString pane) {
+    d->detailPane = pane;
+}
+
+QString QuickSwitch::detailPane() {
+    return d->detailPane;
 }

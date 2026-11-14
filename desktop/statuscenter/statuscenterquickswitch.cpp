@@ -26,40 +26,54 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QTimer>
 #include <m3motion.h>
 #include <m3scheme.h>
 #include <quickswitch.h>
+#include <shapes/materialshapes.h>
+#include <shapes/morph.h>
+#include <shapes/shapepath.h>
 
-// M3 Expressive quick-setting tile, in the manner of Android 16's: an inactive
-// tile is a SurfaceContainerHighest pill; switching it on fills it with Primary
-// and springs its corners tighter; pressing squishes the corners further.
-// Icon, title, and the state underneath.
+// M3 Expressive quick-setting tiles, in the manner of Android 16's. Off, a
+// tile is a SurfaceContainerHighest pill; on, it fills with Primary and springs
+// its corners tighter; pressing squishes them further. A switch with a detail
+// is a big tile: its icon sits in its own shape (a circle off, a square on)
+// and toggles, the rest opens the detail. The others are small round tiles.
 
 namespace {
     constexpr int tileHeight = 64;
-    constexpr int tileWidth = 176;
+    constexpr int bigTileWidth = 200;
     constexpr double activeCorner = 20;
     constexpr double pressedCorner = 12;
 
-    QString iconFor(const QString& name) {
+    QIcon iconFor(const QString& name, bool on) {
         static const QHash<QString, QStringList> icons = {
-            {QStringLiteral("NetworkFlight"),    {QStringLiteral("airplane-mode-symbolic")}                                                             },
-            {QStringLiteral("NetworkWireless"),  {QStringLiteral("network-wireless-symbolic")}                                                          },
-            {QStringLiteral("NetworkCellular"),  {QStringLiteral("network-cellular-symbolic")}                                                          },
-            {QStringLiteral("Bluetooth"),        {QStringLiteral("bluetooth-active-symbolic"), QStringLiteral("bluetooth-symbolic")}                    },
-            {QStringLiteral("PowerStretch"),     {QStringLiteral("power-profile-power-saver-symbolic"), QStringLiteral("battery-profile-powersave-symbolic")}},
-            {QStringLiteral("Redshift"),         {QStringLiteral("night-light-symbolic")}                                                               },
-            {QStringLiteral("PowerCaffeinate"),  {QStringLiteral("my-caffeine-on-symbolic"), QStringLiteral("caffeine-cup-full")}                       },
+            {QStringLiteral("NetworkFlight"),      {QStringLiteral("airplane-mode-symbolic")}                                                                 },
+            {QStringLiteral("NetworkWireless"),    {QStringLiteral("network-wireless-symbolic")}                                                              },
+            {QStringLiteral("NetworkCellular"),    {QStringLiteral("network-cellular-symbolic")}                                                              },
+            {QStringLiteral("Bluetooth"),          {QStringLiteral("bluetooth-active-symbolic"), QStringLiteral("bluetooth-symbolic")}                        },
+            {QStringLiteral("NotificationsQuiet"), {QStringLiteral("do-not-disturb-on-symbolic"), QStringLiteral("quiet-mode-symbolic")}                      },
+            {QStringLiteral("PowerStretch"),       {QStringLiteral("power-profile-power-saver-symbolic"), QStringLiteral("battery-profile-powersave-symbolic")}},
+            {QStringLiteral("Redshift"),           {QStringLiteral("night-light-symbolic")}                                                                   },
+            {QStringLiteral("PowerCaffeinate"),    {QStringLiteral("my-caffeine-on-symbolic"), QStringLiteral("caffeine-cup-full")}                           },
         };
-        for (const QString& icon : icons.value(name)) {
-            if (QIcon::hasThemeIcon(icon)) return icon;
+        // the big tiles say "off" with a symbol of its own
+        static const QHash<QString, QString> offIcons = {
+            {QStringLiteral("NetworkWireless"),    QStringLiteral("network-wireless-offline-symbolic")},
+            {QStringLiteral("Bluetooth"),          QStringLiteral("bluetooth-disabled-symbolic")      },
+            {QStringLiteral("NotificationsQuiet"), QStringLiteral("do-not-disturb-off-symbolic")      },
+        };
+        QStringList names = icons.value(name);
+        if (!on && offIcons.contains(name)) names.prepend(offIcons.value(name));
+        for (const QString& icon : names) {
+            if (QIcon::hasThemeIcon(icon)) return QIcon::fromTheme(icon);
         }
-        return QStringLiteral("preferences-system-symbolic");
+        return QIcon::fromTheme(QStringLiteral("preferences-system-symbolic"));
     }
 
-    // Symbolic icons take the tile's content colour
-    QPixmap tinted(const QIcon& icon, int size, qreal dpr, QColor colour) {
-        QPixmap pixmap = icon.pixmap(QSize(size, size), dpr);
+    // Symbolic icons take the tile's content colour (filled when on)
+    QPixmap tinted(const QIcon& icon, int size, qreal dpr, QColor colour, bool filled = false) {
+        QPixmap pixmap = icon.pixmap(QSize(size, size), dpr, QIcon::Normal, filled ? QIcon::On : QIcon::Off);
         QPainter p(&pixmap);
         p.setCompositionMode(QPainter::CompositionMode_SourceIn);
         p.fillRect(pixmap.rect(), colour);
@@ -70,15 +84,22 @@ namespace {
         t = qBound(0.0, t, 1.0);
         return QColor::fromRgbF(a.redF() + (b.redF() - a.redF()) * t, a.greenF() + (b.greenF() - a.greenF()) * t, a.blueF() + (b.blueF() - a.blueF()) * t, a.alphaF() + (b.alphaF() - a.alphaF()) * t);
     }
+
+    QColor withAlpha(QColor c, double a) {
+        c.setAlphaF(float(qBound(0.0, a, 1.0)));
+        return c;
+    }
 } // namespace
 
 struct StatusCenterQuickSwitchPrivate {
     QuickSwitch* sw;
-    QIcon icon;
-    M3SpringAnimation* active = nullptr; // 0 off -> 1 on: corners (spatial, bouncy)
-    M3SpringAnimation* colour = nullptr; // 0 off -> 1 on: colours (effects, quick)
-    M3SpringAnimation* press = nullptr;  // 0 -> 1: squish
-    M3SpringAnimation* hover = nullptr;  // 0 -> 1: state layer
+    bool big = false;
+    bool pressOnIcon = false;
+    M3SpringAnimation* active = nullptr;   // 0 off -> 1 on: corners, icon shape (spatial, bouncy)
+    M3SpringAnimation* colour = nullptr;   // 0 off -> 1 on: colours (effects, quick)
+    M3SpringAnimation* press = nullptr;    // 0 -> 1: squish
+    M3SpringAnimation* hover = nullptr;    // 0 -> 1: state layer
+    M3SpringAnimation* entrance = nullptr; // 0 -> 1: dropping in as the shade opens
     bool keyboardFocus = false;
 };
 
@@ -89,21 +110,26 @@ StatusCenterQuickSwitch::StatusCenterQuickSwitch(QuickSwitch* sw, QWidget* paren
     d = new StatusCenterQuickSwitchPrivate();
 
     d->sw = sw;
+    d->big = sw->detail() || !sw->detailPane().isEmpty();
     ui->sw->setChecked(sw->isChecked());
     ui->titleLabel->setText(sw->title());
 
     sw->setSwitch(ui->sw);
     connect(sw, &QuickSwitch::titleChanged, ui->titleLabel, &QLabel::setText);
-    connect(sw, &QuickSwitch::titleChanged, this, qOverload<>(&QWidget::update));
+    connect(sw, &QuickSwitch::titleChanged, this, &StatusCenterQuickSwitch::updateLabels);
 
     // The tile is the control now; the switch stays as the QuickSwitch's model
     ui->sw->setVisible(false);
     ui->titleLabel->setVisible(false);
     this->setFocusPolicy(Qt::StrongFocus);
     this->setAttribute(Qt::WA_Hover);
-    this->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    this->setFixedHeight(tileHeight);
-    d->icon = QIcon::fromTheme(iconFor(sw->name()));
+    if (d->big) {
+        this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        this->setFixedHeight(tileHeight);
+    } else {
+        this->setFixedSize(tileHeight, tileHeight);
+    }
+    updateLabels();
 
     d->active = new M3SpringAnimation(this);
     d->active->setToken(M3Motion::SpatialDefault);
@@ -117,11 +143,49 @@ StatusCenterQuickSwitch::StatusCenterQuickSwitch(QuickSwitch* sw, QWidget* paren
     d->hover = new M3SpringAnimation(this);
     d->hover->setToken(M3Motion::EffectsFast);
     d->hover->snapTo(0.0);
-    for (auto* spring : {d->active, d->colour, d->press, d->hover}) connect(spring, &M3SpringAnimation::valueChanged, this, qOverload<>(&QWidget::update));
+    d->entrance = new M3SpringAnimation(this);
+    d->entrance->setToken(M3Motion::SpatialDefault);
+    d->entrance->snapTo(1.0);
+    for (auto* spring : {d->active, d->colour, d->press, d->hover, d->entrance}) connect(spring, &M3SpringAnimation::valueChanged, this, qOverload<>(&QWidget::update));
 }
 
 QSize StatusCenterQuickSwitch::sizeHint() const {
-    return QSize(tileWidth, tileHeight);
+    return d->big ? QSize(bigTileWidth, tileHeight) : QSize(tileHeight, tileHeight);
+}
+
+QSize StatusCenterQuickSwitch::minimumSizeHint() const {
+    return d->big ? QSize(160, tileHeight) : QSize(tileHeight, tileHeight);
+}
+
+bool StatusCenterQuickSwitch::isBig() const {
+    return d->big;
+}
+
+QuickSwitch* StatusCenterQuickSwitch::quickSwitch() const {
+    return d->sw;
+}
+
+void StatusCenterQuickSwitch::playEntrance(int delay) {
+    d->entrance->snapTo(0.0);
+    QTimer::singleShot(delay, this, [this] {
+        d->entrance->animateTo(1.0);
+    });
+}
+
+void StatusCenterQuickSwitch::updateLabels() {
+    const QString state = d->sw->isChecked() ? tr("On") : tr("Off");
+    this->setAccessibleName(d->sw->title());
+    this->setAccessibleDescription(state);
+    // small tiles are just a symbol: the name comes up as a tooltip
+    this->setToolTip(d->big ? QString() : QStringLiteral("%1 · %2").arg(d->sw->title(), state));
+    this->update();
+}
+
+QRectF StatusCenterQuickSwitch::iconBounds() const {
+    const QRectF r = QRectF(this->rect()).adjusted(1, 1, -1, -1);
+    const double size = r.height() - 16;
+    const bool rtl = this->layoutDirection() == Qt::RightToLeft;
+    return QRectF(rtl ? r.right() - 8 - size : r.left() + 8, r.top() + 8, size, size);
 }
 
 void StatusCenterQuickSwitch::paintEvent(QPaintEvent* event) {
@@ -131,9 +195,21 @@ void StatusCenterQuickSwitch::paintEvent(QPaintEvent* event) {
     M3::Scheme s = M3::currentScheme();
     const double on = d->active->currentValue().toDouble();
     const double press = d->press->currentValue().toDouble();
+    const bool checked = d->sw->isChecked();
+    const bool rtl = this->layoutDirection() == Qt::RightToLeft;
 
-    // Pill when off, CornerLarge-ish when on, tighter still while pressed
-    QRectF r = QRectF(this->rect()).adjusted(2, 2, -2, -2);
+    // Dropping in: fades up and grows to size
+    const double entrance = d->entrance->currentValue().toDouble();
+    if (entrance < 0.999) {
+        const double scale = 0.85 + 0.15 * qMin(entrance, 1.1);
+        painter.setOpacity(qBound(0.0, entrance, 1.0));
+        painter.translate(this->width() / 2.0, this->height() / 2.0);
+        painter.scale(scale, scale);
+        painter.translate(-this->width() / 2.0, -this->height() / 2.0);
+    }
+
+    // Pill (or circle) when off, CornerLarge-ish when on, tighter still while pressed
+    QRectF r = QRectF(this->rect()).adjusted(1, 1, -1, -1);
     double corner = r.height() / 2 + (activeCorner - r.height() / 2) * qBound(-0.2, on, 1.2);
     corner += (pressedCorner - corner) * press;
     corner = qBound(4.0, corner, r.height() / 2);
@@ -147,21 +223,32 @@ void StatusCenterQuickSwitch::paintEvent(QPaintEvent* event) {
     QColor content = tint < 0.5 ? s.onSurface : s.onPrimary;
     QColor secondary = tint < 0.5 ? s.onSurfaceVariant : s.onPrimary;
     painter.fillPath(tile, container);
-    QColor layer = content;
-    layer.setAlphaF(0.08 * d->hover->currentValue().toDouble() + 0.10 * press);
-    painter.fillPath(tile, layer);
+    painter.fillPath(tile, withAlpha(content, 0.08 * d->hover->currentValue().toDouble() + 0.10 * press));
     if (this->hasFocus() && d->keyboardFocus) {
         // Keyboard focus: a 2 dp Secondary ring just inside the tile
         painter.setPen(QPen(s.secondary, 2));
         painter.drawPath(tile);
+        painter.setPen(Qt::NoPen);
     }
 
-    // Icon, then the title over its state
-    const int iconSize = 20;
-    QRectF iconRect(r.left() + 18, r.center().y() - iconSize / 2.0, iconSize, iconSize);
-    painter.drawPixmap(iconRect.topLeft(), tinted(d->icon, iconSize, this->devicePixelRatioF(), content));
+    const QIcon icon = iconFor(d->sw->name(), checked);
+    if (!d->big) {
+        const int iconSize = 24;
+        painter.drawPixmap(QPointF(r.center().x() - iconSize / 2.0, r.center().y() - iconSize / 2.0), tinted(icon, iconSize, this->devicePixelRatioF(), tint < 0.5 ? s.onSurfaceVariant : s.onPrimary, checked));
+        return;
+    }
 
-    QRectF textRect(iconRect.right() + 12, r.top(), r.right() - iconRect.right() - 12 - 14, r.height());
+    // The icon's own shape: a circle off, morphing to a square on
+    static const m3shapes::Morph iconMorph(MaterialShapes::circle(), MaterialShapes::square());
+    const QRectF ib = iconBounds();
+    painter.fillPath(m3shapes::toPath(iconMorph, float(qBound(0.0, on, 1.0)), ib), tint < 0.5 ? withAlpha(s.onSurface, 0.08) : withAlpha(s.onPrimary, 0.16 * tint));
+    const int iconSize = 22;
+    painter.drawPixmap(QPointF(ib.center().x() - iconSize / 2.0, ib.center().y() - iconSize / 2.0), tinted(icon, iconSize, this->devicePixelRatioF(), content, checked));
+
+    // Title over its state, then a chevron: this part opens the detail
+    const int chevron = 20;
+    QRectF textRect = rtl ? QRectF(r.left() + 36, r.top(), ib.left() - 12 - r.left() - 36, r.height())
+                          : QRectF(ib.right() + 12, r.top(), r.right() - 36 - ib.right() - 12, r.height());
     QFont title = this->font();
     title.setPixelSize(14); // TitleSmall
     title.setWeight(QFont::Medium);
@@ -174,18 +261,24 @@ void StatusCenterQuickSwitch::paintEvent(QPaintEvent* event) {
     painter.drawText(QRectF(textRect.left(), top, textRect.width(), tm.height()), Qt::AlignLeading | Qt::AlignVCenter, tm.elidedText(d->sw->title(), Qt::ElideRight, textRect.width()));
     painter.setFont(state);
     painter.setPen(secondary);
-    painter.drawText(QRectF(textRect.left(), top + tm.height(), textRect.width(), sm.height()), Qt::AlignLeading | Qt::AlignVCenter, d->sw->isChecked() ? tr("On") : tr("Off"));
+    painter.drawText(QRectF(textRect.left(), top + tm.height(), textRect.width(), sm.height()), Qt::AlignLeading | Qt::AlignVCenter, checked ? tr("On") : tr("Off"));
+    const QIcon chevronIcon = QIcon::fromTheme(rtl ? QStringLiteral("pan-start-symbolic") : QStringLiteral("pan-end-symbolic"));
+    painter.drawPixmap(QPointF(rtl ? r.left() + 12 : r.right() - 12 - chevron, r.center().y() - chevron / 2.0), tinted(chevronIcon, chevron, this->devicePixelRatioF(), secondary));
 }
 
 void StatusCenterQuickSwitch::mousePressEvent(QMouseEvent* event) {
     if (event->button() != Qt::LeftButton) return QWidget::mousePressEvent(event);
+    // A big tile has two targets: the icon toggles, the rest opens the detail
+    d->pressOnIcon = !d->big || iconBounds().adjusted(-4, -8, 4, 8).contains(event->position());
     d->press->animateTo(1.0);
 }
 
 void StatusCenterQuickSwitch::mouseReleaseEvent(QMouseEvent* event) {
     if (event->button() != Qt::LeftButton) return QWidget::mouseReleaseEvent(event);
     d->press->animateTo(0.0);
-    if (this->rect().contains(event->position().toPoint())) ui->sw->toggle();
+    if (!this->rect().contains(event->position().toPoint())) return;
+    if (d->pressOnIcon) ui->sw->toggle();
+    else emit detailRequested();
 }
 
 void StatusCenterQuickSwitch::enterEvent(QEnterEvent* event) {
@@ -200,8 +293,13 @@ void StatusCenterQuickSwitch::leaveEvent(QEvent* event) {
 }
 
 void StatusCenterQuickSwitch::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Space || event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+    // Space toggles; Enter opens a big tile's detail (it toggles a small one)
+    if (event->key() == Qt::Key_Space || (!d->big && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter))) {
         ui->sw->toggle();
+        return;
+    }
+    if (d->big && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)) {
+        emit detailRequested();
         return;
     }
     QWidget::keyPressEvent(event);
@@ -233,6 +331,7 @@ void StatusCenterQuickSwitch::on_sw_toggled(bool checked) {
     d->sw->setChecked(checked);
     if (d->active) d->active->animateTo(checked ? 1.0 : 0.0); // not yet built during setupUi
     if (d->colour) d->colour->animateTo(checked ? 1.0 : 0.0);
+    if (d->entrance) updateLabels();
 
     this->update();
 }

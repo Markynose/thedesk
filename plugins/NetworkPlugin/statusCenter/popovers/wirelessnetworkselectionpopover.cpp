@@ -94,6 +94,10 @@ WirelessNetworkSelectionPopover::~WirelessNetworkSelectionPopover() {
     delete ui;
 }
 
+void WirelessNetworkSelectionPopover::setTitleVisible(bool visible) {
+    ui->titleLabel->setVisible(visible);
+}
+
 void WirelessNetworkSelectionPopover::on_titleLabel_backButtonClicked() {
     emit done();
 }

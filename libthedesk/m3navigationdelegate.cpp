@@ -28,10 +28,11 @@
 
 namespace {
     constexpr int rowHeight = 52;
+    constexpr int railRowHeight = 68; // NavigationRail item: a 56x32 indicator over its label
     constexpr int circle = 36;
 
-    QPixmap tinted(const QIcon& icon, int size, qreal dpr, QColor colour) {
-        QPixmap pixmap = icon.pixmap(QSize(size, size), dpr);
+    QPixmap tinted(const QIcon& icon, int size, qreal dpr, QColor colour, bool filled = false) {
+        QPixmap pixmap = icon.pixmap(QSize(size, size), dpr, QIcon::Normal, filled ? QIcon::On : QIcon::Off);
         QPainter p(&pixmap);
         p.setCompositionMode(QPainter::CompositionMode_SourceIn);
         p.fillRect(pixmap.rect(), colour);
@@ -48,8 +49,20 @@ namespace {
         return 0;
     }
 
-    QRectF pillRect(const QRect& row) {
-        return QRectF(row).adjusted(8, 2, -8, -2);
+    double lerp(double a, double b, double t) {
+        return a + (b - a) * t;
+    }
+
+    QColor mix(const QColor& a, const QColor& b, double t) {
+        return QColor::fromRgbF(lerp(a.redF(), b.redF(), t), lerp(a.greenF(), b.greenF(), t), lerp(a.blueF(), b.blueF(), t), lerp(a.alphaF(), b.alphaF(), t));
+    }
+
+    // The row's pill as a list; as a rail it's the indicator over the label
+    QRectF pillRect(const QRect& row, double rail) {
+        const QRectF pill = QRectF(row).adjusted(8, 2, -8, -2);
+        const QRectF indicator(row.center().x() + 0.5 - 28, row.top() + 6, 56, 32);
+        return QRectF(QPointF(lerp(pill.left(), indicator.left(), rail), lerp(pill.top(), indicator.top(), rail)),
+            QPointF(lerp(pill.right(), indicator.right(), rail), lerp(pill.bottom(), indicator.bottom(), rail)));
     }
 
     // Step response of an M3 spring (0 at t <= 0; t in seconds)
@@ -122,10 +135,11 @@ namespace {
 
             void paintPill() {
                 if (!current.isValid()) return;
-                const QRectF to = pillRect(view->visualRect(current));
+                const double rail = railOf(view);
+                const QRectF to = pillRect(view->visualRect(current), rail);
                 QRectF rect = to;
                 if (previous.isValid() && clock.isValid() && clock.elapsed() < 900) {
-                    const QRectF from = pillRect(view->visualRect(previous));
+                    const QRectF from = pillRect(view->visualRect(previous), rail);
                     const double t = clock.elapsed() / 1000.0;
                     const double lead = spring(t, 0.6, 800);  // SpatialFast (expressive)
                     const double trail = spring(t, 0.8, 380); // SpatialDefault
@@ -158,7 +172,7 @@ QSize M3NavigationDelegate::sizeHint(const QStyleOptionViewItem& option, const Q
     QSize size = QStyledItemDelegate::sizeHint(option, index);
     // folding into a rail, a row asks for no more than its circle (else the list scrolls sideways)
     const double rail = railOf(option.widget);
-    return QSize(qRound((size.width() + circle) * (1 - rail) + (circle + 32) * rail), rowHeight);
+    return QSize(qRound((size.width() + circle) * (1 - rail) + (circle + 32) * rail), qRound(lerp(rowHeight, railRowHeight, rail)));
 }
 
 void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const {
@@ -171,8 +185,9 @@ void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& 
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing);
 
-    // The pill
-    QRectF pill = QRectF(option.rect).adjusted(8, 2, -8, -2);
+    // The pill (folded into a rail: the indicator)
+    const double rail = railOf(option.widget);
+    QRectF pill = pillRect(option.rect, rail);
     QPainterPath shape;
     shape.addRoundedRect(pill, pill.height() / 2, pill.height() / 2);
     // The selected pill slides between rows (PillSlide, behind the rows)
@@ -191,13 +206,17 @@ void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& 
     // (the selected row's circle turns Primary so it stands out from the pill)
     const QColor circleColour = selected ? s.primary : role == 0 ? s.primaryContainer : role == 1 ? s.tertiaryContainer : s.secondaryContainer;
     const QColor symbolColour = selected ? s.onPrimary : role == 0 ? s.onPrimaryContainer : role == 1 ? s.onTertiaryContainer : s.onSecondaryContainer;
-    // folding into a rail: the circle slides to the middle, the words fade
-    const double rail = railOf(option.widget);
-    const double dotX = rtl ? pill.right() - 8 - circle : pill.left() + 8;
-    QRectF dot(dotX + (pill.center().x() - circle / 2.0 - dotX) * rail, pill.center().y() - circle / 2.0, circle, circle);
+    // folding into a rail: the circle slides into the indicator and fades,
+    // the words move under it
+    const QRectF listPill = pillRect(option.rect, 0);
+    const double dotX = rtl ? listPill.right() - 8 - circle : listPill.left() + 8;
+    QRectF dot(lerp(dotX, pill.center().x() - circle / 2.0, rail), lerp(listPill.center().y(), pill.center().y(), rail) - circle / 2.0, circle, circle);
     QPainterPath circlePath;
     circlePath.addEllipse(dot);
-    painter->fillPath(circlePath, circleColour);
+    QColor fadingCircle = circleColour;
+    fadingCircle.setAlphaF(float(fadingCircle.alphaF() * (1 - rail)));
+    painter->fillPath(circlePath, fadingCircle);
+    const QColor railSymbol = selected ? s.onSecondaryContainer : s.onSurfaceVariant;
 
     QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
     if (!icon.isNull()) {
@@ -205,7 +224,7 @@ void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& 
         QPointF at(dot.center().x() - size / 2.0, dot.center().y() - size / 2.0);
         QIcon symbolic = icon.name().isEmpty() ? QIcon() : QIcon::fromTheme(icon.name() + QStringLiteral("-symbolic"));
         if (!symbolic.isNull()) {
-            painter->drawPixmap(at, tinted(symbolic, size, dpr, symbolColour));
+            painter->drawPixmap(at, tinted(symbolic, size, dpr, mix(symbolColour, railSymbol, rail), selected && rail > 0.5));
         } else {
             painter->drawPixmap(at, icon.pixmap(QSize(size, size), dpr));
         }
@@ -215,20 +234,34 @@ void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& 
         initial.setPixelSize(16);
         initial.setWeight(QFont::DemiBold);
         painter->setFont(initial);
-        painter->setPen(symbolColour);
+        painter->setPen(mix(symbolColour, railSymbol, rail));
         painter->drawText(dot, Qt::AlignCenter, index.data(Qt::DisplayRole).toString().left(1).toUpper());
     }
 
+    // A rail's label, under the indicator
+    if (rail > 0.5) {
+        painter->save();
+        painter->setOpacity(rail * 2 - 1);
+        QFont label = option.font;
+        label.setPixelSize(12); // LabelMedium
+        label.setWeight(selected ? QFont::Bold : QFont::Medium);
+        painter->setFont(label);
+        painter->setPen(selected ? s.onSurface : s.onSurfaceVariant);
+        const QRectF under(option.rect.left() + 4, pill.bottom() + 2, option.rect.width() - 8, 18);
+        painter->drawText(under, Qt::AlignHCenter | Qt::AlignTop, QFontMetrics(label).elidedText(index.data(Qt::DisplayRole).toString(), Qt::ElideRight, int(under.width())));
+        painter->restore();
+    }
+
     // Label and chevron
-    if (rail >= 0.99) {
+    if (rail >= 0.5) {
         painter->restore();
         return;
     }
     painter->setOpacity(1 - qMin(1.0, rail * 2));
-    painter->setClipRect(pill);
+    painter->setClipRect(listPill);
     const bool hasChildren = index.data(Qt::UserRole).toBool();
-    QRectF text = pill.adjusted(8 + circle + 12, 0, -(hasChildren ? 36 : 12), 0);
-    if (rtl) text = pill.adjusted(hasChildren ? 36 : 12, 0, -(8 + circle + 12), 0);
+    QRectF text = listPill.adjusted(8 + circle + 12, 0, -(hasChildren ? 36 : 12), 0);
+    if (rtl) text = listPill.adjusted(hasChildren ? 36 : 12, 0, -(8 + circle + 12), 0);
     QFont label = option.font;
     label.setPixelSize(15);
     label.setWeight(selected ? QFont::DemiBold : QFont::Medium);
@@ -240,7 +273,7 @@ void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& 
     if (hasChildren) {
         QIcon chevron = QIcon::fromTheme(rtl ? QStringLiteral("go-previous") : QStringLiteral("go-next"));
         const int size = 18;
-        QPointF at(rtl ? pill.left() + 12 : pill.right() - 12 - size, pill.center().y() - size / 2.0);
+        QPointF at(rtl ? listPill.left() + 12 : listPill.right() - 12 - size, listPill.center().y() - size / 2.0);
         QIcon materialChevron = QIcon::fromTheme(rtl ? QStringLiteral("pan-start-symbolic") : QStringLiteral("pan-end-symbolic"));
         painter->drawPixmap(at, tinted(materialChevron.isNull() ? chevron : materialChevron, size, dpr, s.onSurfaceVariant));
     }

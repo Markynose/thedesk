@@ -32,9 +32,79 @@
 #include <actionquickwidget.h>
 
 #include <tsettings.h>
+#include <tswitch.h>
 
 #include <NetworkManagerQt/Device>
 #include <NetworkManagerQt/Manager>
+
+#include <QBoxLayout>
+#include <QLabel>
+#include <QPointer>
+#include "statusCenter/popovers/wirelessnetworkselectionpopover.h"
+
+namespace {
+    // Wi-Fi's detail, as Android's Internet dialog: the switch over the
+    // networks to pick from (made fresh each time it opens)
+    class InternetDetail : public QWidget {
+        public:
+            explicit InternetDetail(QuickSwitch* wifi) :
+                wifi(wifi) {
+                this->setWindowTitle(SwitchManager::tr("Internet"));
+                this->setWindowIcon(QIcon::fromTheme(QStringLiteral("globe")));
+                layout = new QVBoxLayout(this);
+                layout->setContentsMargins(0, 0, 0, 0);
+                auto* row = new QHBoxLayout();
+                QLabel* label = new QLabel(SwitchManager::tr("Wi-Fi"), this);
+                QFont font = label->font();
+                font.setPixelSize(16);
+                font.setWeight(QFont::Medium);
+                label->setFont(font);
+                toggle = new tSwitch(this);
+                label->setBuddy(toggle);
+                row->addWidget(label);
+                row->addStretch();
+                row->addWidget(toggle);
+                layout->addLayout(row);
+                QObject::connect(toggle, &tSwitch::toggled, wifi, &QuickSwitch::setChecked);
+                QObject::connect(NetworkManager::notifier(), &NetworkManager::Notifier::wirelessEnabledChanged, this, [this](bool enabled) {
+                    QSignalBlocker blocker(toggle);
+                    toggle->setChecked(enabled);
+                });
+            }
+
+            QSize sizeHint() const override {
+                return QSize(460, 440);
+            }
+
+        protected:
+            void showEvent(QShowEvent* event) override {
+                QWidget::showEvent(event);
+                {
+                    QSignalBlocker blocker(toggle);
+                    toggle->setChecked(wifi->isChecked());
+                }
+                for (const NetworkManager::Device::Ptr& device : NetworkManager::networkInterfaces()) {
+                    if (device->type() != NetworkManager::Device::Wifi) continue;
+                    selection = new WirelessNetworkSelectionPopover(device->uni(), this);
+                    selection->setTitleVisible(false);
+                    QObject::connect(selection, &WirelessNetworkSelectionPopover::done, wifi, &QuickSwitch::detailDone);
+                    layout->addWidget(selection, 1);
+                    break;
+                }
+            }
+
+            void hideEvent(QHideEvent* event) override {
+                QWidget::hideEvent(event);
+                if (selection) selection->deleteLater();
+            }
+
+        private:
+            QuickSwitch* wifi;
+            QVBoxLayout* layout;
+            tSwitch* toggle;
+            QPointer<WirelessNetworkSelectionPopover> selection;
+    };
+} // namespace
 
 struct SwitchManagerPrivate {
     QDBusServiceWatcher* nmWatcher;
@@ -43,6 +113,7 @@ struct SwitchManagerPrivate {
     QuickSwitch* flightModeSwitch;
     QuickSwitch* wifiSwitch;
     QuickSwitch* cellularSwitch;
+    InternetDetail* internetDetail;
 
     IconTextChunk* flightModeChunk;
 
@@ -76,6 +147,9 @@ SwitchManager::SwitchManager(QObject* parent) : QObject(parent) {
     }
 
     d->wifiSwitch->setTitle(tr("Wi-Fi"));
+    d->internetDetail = new InternetDetail(d->wifiSwitch);
+    d->wifiSwitch->setDetail(d->internetDetail);
+    d->wifiSwitch->setDetailPane(QStringLiteral("NetworkManagerPane"));
     d->wifiSwitch->setChecked(NetworkManager::isWirelessEnabled());
     connect(NetworkManager::notifier(), &NetworkManager::Notifier::wirelessEnabledChanged, this, [ = ](bool enabled) {
         QSignalBlocker blocker(d->wifiSwitch);
@@ -110,6 +184,7 @@ SwitchManager::~SwitchManager() {
     d->flightModeSwitch->deleteLater();
     d->wifiSwitch->deleteLater();
     d->cellularSwitch->deleteLater();
+    d->internetDetail->deleteLater();
     delete d;
 }
 

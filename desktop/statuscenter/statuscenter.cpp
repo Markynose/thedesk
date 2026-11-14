@@ -35,6 +35,228 @@
 #include <quickswitch.h>
 #include "statuscenterquickswitch.h"
 
+#include <QBoxLayout>
+#include <QLabel>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QPainterPath>
+#include <QPushButton>
+#include <TimeDate/desktoptimedate.h>
+#include <UPower/desktopupower.h>
+#include <m3motion.h>
+#include <m3scheme.h>
+#include <powermanager.h>
+
+namespace {
+    double lerp(double a, double b, double t) {
+        return a + (b - a) * t;
+    }
+
+    QColor mix(const QColor& a, const QColor& b, double t) {
+        t = qBound(0.0, t, 1.0);
+        return QColor::fromRgbF(lerp(a.redF(), b.redF(), t), lerp(a.greenF(), b.greenF(), t), lerp(a.blueF(), b.blueF(), t), lerp(a.alphaF(), b.alphaF(), t));
+    }
+
+    QPainterPath rounded(const QRectF& rect, double radius) {
+        QPainterPath path;
+        radius = qMin(radius, qMin(rect.width(), rect.height()) / 2);
+        path.addRoundedRect(rect, radius, radius);
+        return path;
+    }
+
+    /**
+     * A quick switch's detail as Android's dialogs do it (the Internet
+     * dialog): it grows out of the tile over a scrim (a container
+     * transform), holds the plugin's widget under a symbol and headline, with
+     * "See all" (the switch's pane) and Done.
+     */
+    class DetailDialog : public QWidget {
+        public:
+            explicit DetailDialog(QWidget* parent) :
+                QWidget(parent) {
+                this->hide();
+                card = new QWidget(this);
+                auto* layout = new QVBoxLayout(card);
+                layout->setContentsMargins(24, 24, 24, 20);
+                layout->setSpacing(12);
+                symbol = new QLabel(card);
+                symbol->setAlignment(Qt::AlignCenter);
+                headline = new QLabel(card);
+                headline->setAlignment(Qt::AlignCenter);
+                QFont font = headline->font();
+                font.setPixelSize(24); // HeadlineSmall
+                headline->setFont(font);
+                host = new QVBoxLayout();
+                host->setContentsMargins(0, 0, 0, 0);
+                seeAll = new QPushButton(StatusCenter::tr("See all"), card);
+                seeAll->setProperty("m3ButtonStyle", QStringLiteral("text"));
+                done = new QPushButton(StatusCenter::tr("Done"), card);
+                done->setProperty("m3ButtonStyle", QStringLiteral("filled"));
+                auto* buttons = new QHBoxLayout();
+                buttons->addWidget(seeAll);
+                buttons->addStretch();
+                buttons->addWidget(done);
+                layout->addWidget(symbol);
+                layout->addWidget(headline);
+                layout->addLayout(host, 1);
+                layout->addLayout(buttons);
+                QObject::connect(done, &QPushButton::clicked, this, [this] {
+                    close();
+                });
+                QObject::connect(seeAll, &QPushButton::clicked, this, [this] {
+                    const QString pane = tile ? tile->quickSwitch()->detailPane() : QString();
+                    close();
+                    if (!pane.isEmpty()) StateManager::statusCenterManager()->setPane(pane);
+                });
+
+                // The contents fade in once the box has some room
+                veil = new QWidget(card);
+                veil->setAttribute(Qt::WA_TransparentForMouseEvents);
+                veil->installEventFilter(this);
+
+                grow = new M3SpringAnimation(this);
+                grow->setToken(M3Motion::SpatialDefault);
+                grow->snapTo(0.0);
+                fade = new M3SpringAnimation(this);
+                fade->setToken(M3Motion::EffectsDefault);
+                fade->snapTo(0.0);
+                for (auto* spring : {grow, fade}) QObject::connect(spring, &M3SpringAnimation::valueChanged, this, &DetailDialog::apply);
+                QObject::connect(fade, &M3SpringAnimation::finished, this, [this] {
+                    if (fade->endValue().toDouble() < 0.5) release();
+                });
+            }
+
+            bool isOpen() const {
+                return this->isVisible() && fade->endValue().toDouble() > 0.5;
+            }
+
+            void open(StatusCenterQuickSwitch* tile) {
+                if (this->isVisible()) release();
+                this->tile = tile;
+                detail = tile->quickSwitch()->detail();
+                detailDone = QObject::connect(tile->quickSwitch(), &QuickSwitch::detailDone, this, [this] {
+                    close();
+                });
+
+                const M3::Scheme s = M3::currentScheme();
+                QPalette palette = card->palette();
+                for (auto role : {QPalette::Window, QPalette::Base}) palette.setColor(role, s.surfaceContainerHigh);
+                card->setPalette(palette);
+                const QIcon icon = detail->windowIcon();
+                symbol->setVisible(!icon.isNull());
+                if (!icon.isNull()) {
+                    QPixmap pixmap = icon.pixmap(QSize(24, 24), this->devicePixelRatioF());
+                    QPainter tint(&pixmap);
+                    tint.setCompositionMode(QPainter::CompositionMode_SourceIn);
+                    tint.fillRect(pixmap.rect(), s.secondary);
+                    tint.end();
+                    symbol->setPixmap(pixmap);
+                }
+                headline->setText(detail->windowTitle().isEmpty() ? tile->quickSwitch()->title() : detail->windowTitle());
+                seeAll->setVisible(!tile->quickSwitch()->detailPane().isEmpty());
+                host->addWidget(detail);
+                detail->show();
+
+                this->setGeometry(this->parentWidget()->rect());
+                const QSize hint = card->sizeHint();
+                const int width = qBound(460, hint.width(), 560);
+                const int height = qBound(240, card->heightForWidth(width) > 0 ? card->heightForWidth(width) : hint.height(), this->height() - 96);
+                to = QRect(0, 0, width, height);
+                to.moveCenter(this->rect().center());
+                card->setGeometry(to);
+                this->raise();
+                this->show();
+                grow->animateTo(1.0);
+                fade->animateTo(1.0);
+                done->setFocus();
+            }
+
+            void close() {
+                if (!this->isVisible()) return;
+                grow->animateTo(0.0);
+                fade->animateTo(0.0);
+            }
+
+        protected:
+            void paintEvent(QPaintEvent*) override {
+                const M3::Scheme s = M3::currentScheme();
+                QPainter painter(this);
+                painter.setRenderHint(QPainter::Antialiasing);
+                QColor scrim = s.scrim;
+                scrim.setAlphaF(float(0.4 * qBound(0.0, fade->currentValue().toDouble(), 1.0)));
+                painter.fillPath(rounded(this->rect(), 28), scrim);
+                // the tile's colour becomes the dialog's surface
+                const QColor from = tile && tile->quickSwitch()->isChecked() ? s.primary : s.surfaceContainerHighest;
+                painter.fillPath(box(), mix(from, s.surfaceContainerHigh, fade->currentValue().toDouble()));
+            }
+
+            void mousePressEvent(QMouseEvent* event) override {
+                if (!box().contains(event->position())) close();
+            }
+
+            void resizeEvent(QResizeEvent*) override {
+                if (!this->isVisible()) return;
+                to.moveCenter(this->rect().center());
+                card->setGeometry(to);
+                apply();
+            }
+
+            bool eventFilter(QObject* watched, QEvent* event) override {
+                if (watched == veil && event->type() == QEvent::Paint) {
+                    QColor colour = M3::currentScheme().surfaceContainerHigh;
+                    colour.setAlphaF(float(1 - qBound(0.0, fade->currentValue().toDouble() * 1.6 - 0.6, 1.0)));
+                    QPainter(veil).fillRect(veil->rect(), colour);
+                    return true;
+                }
+                return false;
+            }
+
+        private:
+            QPainterPath box() const {
+                const double k = grow->currentValue().toDouble();
+                const QRectF from = tile ? QRectF(tile->mapTo(this->parentWidget(), QPoint(0, 0)), tile->size()) : QRectF(to);
+                const QRectF r(QPointF(lerp(from.left(), to.left(), k), lerp(from.top(), to.top(), k)), QPointF(lerp(from.right(), to.right(), k), lerp(from.bottom(), to.bottom(), k)));
+                return rounded(r, lerp(20, 28, qBound(0.0, k, 1.0)));
+            }
+
+            void apply() {
+                // The real widgets show only inside the growing box
+                card->setMask(QRegion(box().translated(-to.topLeft()).toFillPolygon().toPolygon()));
+                veil->setGeometry(card->rect());
+                veil->setVisible(fade->currentValue().toDouble() < 0.99);
+                veil->raise();
+                veil->update();
+                this->update();
+            }
+
+            void release() {
+                this->hide();
+                QObject::disconnect(detailDone);
+                if (detail) {
+                    host->removeWidget(detail);
+                    detail->hide();
+                    detail->setParent(nullptr); // the plugin owns it
+                }
+                if (tile && this->parentWidget()->isVisible()) tile->setFocus();
+                detail.clear();
+            }
+
+            QWidget* card;
+            QWidget* veil;
+            QLabel* symbol;
+            QLabel* headline;
+            QVBoxLayout* host;
+            QPushButton* seeAll;
+            QPushButton* done;
+            M3SpringAnimation* grow;
+            M3SpringAnimation* fade;
+            QRect to;
+            QPointer<StatusCenterQuickSwitch> tile;
+            QPointer<QWidget> detail;
+            QMetaObject::Connection detailDone;
+    };
+} // namespace
+
 struct StatusCenterPrivate {
     StatusCenterLeftPane* leftPane;
     bool leftPaneAttached = false;
@@ -48,6 +270,9 @@ struct StatusCenterPrivate {
     QStringList preferredPaneOrder;
     QStringList preferredSwitchOrder;
 
+    DetailDialog* detail;
+    DesktopUPower* upower;
+
     tSettings settings;
 };
 
@@ -59,6 +284,46 @@ StatusCenter::StatusCenter(QWidget* parent) :
     d = new StatusCenterPrivate();
 
     ui->stackedWidget->setCurrentAnimation(tStackedWidget::Lift);
+    d->detail = new DetailDialog(this);
+
+    // The header: Android's big clock and the date; battery, settings, power and close
+    QFont clockFont = ui->clockLabel->font();
+    clockFont.setPixelSize(44);
+    ui->clockLabel->setFont(clockFont);
+    QFont dateFont = ui->dateLabel->font();
+    dateFont.setPixelSize(16);
+    ui->dateLabel->setFont(dateFont);
+    QPalette datePalette = ui->dateLabel->palette();
+    datePalette.setColor(QPalette::WindowText, M3::currentScheme().onSurfaceVariant);
+    ui->dateLabel->setPalette(datePalette);
+    DesktopTimeDate::makeTimeLabel(ui->clockLabel, DesktopTimeDate::Time);
+    DesktopTimeDate::makeTimeLabel(ui->dateLabel, DesktopTimeDate::StandardDate);
+    for (QToolButton* button : {ui->settingsButton, ui->powerButton, ui->closeButton}) button->setProperty("m3IconButtonStyle", QStringLiteral("tonal"));
+    ui->batteryButton->setProperty("m3ButtonStyle", QStringLiteral("tonal"));
+    ui->batteryButton->setProperty("m3ButtonSize", QStringLiteral("xs"));
+    d->upower = new DesktopUPower(this);
+    auto updateBattery = [this] {
+        // just the percentage, as the closed bar shows it
+        const QStringList parts = d->upower->overallStateDescription().split(QStringLiteral(" · "));
+        const auto percent = std::find_if(parts.cbegin(), parts.cend(), [](const QString& part) {
+            return part.endsWith(QLatin1Char('%'));
+        });
+        ui->batteryButton->setVisible(d->upower->shouldShowOverallState() && percent != parts.cend());
+        ui->batteryButton->setText(percent == parts.cend() ? QString() : *percent);
+        ui->batteryButton->setIcon(d->upower->overallStateIcon());
+    };
+    connect(d->upower, &DesktopUPower::overallStateChanged, this, updateBattery);
+    updateBattery();
+    connect(ui->batteryButton, &QPushButton::clicked, this, [] {
+        StateManager::statusCenterManager()->setPane(QStringLiteral("PowerSettings"));
+    });
+    connect(ui->settingsButton, &QToolButton::clicked, this, [this] {
+        selectPane(QStringLiteral("SystemSettings"));
+    });
+    connect(ui->powerButton, &QToolButton::clicked, this, [] {
+        StateManager::statusCenterManager()->hide();
+        StateManager::powerManager()->showPowerOffConfirmation();
+    });
 
     d->preferredPaneOrder = d->settings.delimitedList("StatusCenter/panesOrder");
     d->preferredSwitchOrder = d->settings.delimitedList("StatusCenter/quickSwitchOrder");
@@ -119,8 +384,12 @@ StatusCenter::StatusCenter(QWidget* parent) :
     //Add internal items to the Status Center
     StateManager::instance()->statusCenterManager()->addPane(new SystemSettings(d->leftPane), StatusCenterManager::Informational);
 
+    // Esc closes a detail first, then the Status Center
     QShortcut* escapeShortcut = new QShortcut(Qt::Key_Escape, this);
-    connect(escapeShortcut, &QShortcut::activated, ui->closeButton, &QToolButton::click);
+    connect(escapeShortcut, &QShortcut::activated, this, [this] {
+        if (d->detail->isOpen()) d->detail->close();
+        else ui->closeButton->click();
+    });
 }
 
 StatusCenter::~StatusCenter() {
@@ -132,7 +401,17 @@ void StatusCenter::on_closeButton_clicked() {
     StateManager::instance()->statusCenterManager()->hide();
 }
 
+void StatusCenter::playEntrance() {
+    // the tiles drop in one after another as the shade opens
+    for (int i = 0; i < d->switchItems.count(); i++) d->switchItems.at(i).second->playEntrance(120 + i * 40);
+}
+
+void StatusCenter::closeDetail() {
+    d->detail->close();
+}
+
 void StatusCenter::resizeEvent(QResizeEvent* event) {
+    d->detail->setGeometry(this->rect());
     if (this->width() <= SC_DPI(1024)) {
         detachLeftPane();
     } else {
@@ -259,6 +538,11 @@ void StatusCenter::addSwitch(QuickSwitch* sw) {
         currentItems.append(item.first->name());
     }
     StatusCenterQuickSwitch* item = new StatusCenterQuickSwitch(sw);
+    connect(item, &StatusCenterQuickSwitch::detailRequested, this, [this, item] {
+        QuickSwitch* sw = item->quickSwitch();
+        if (sw->detail()) d->detail->open(item);
+        else StateManager::statusCenterManager()->setPane(sw->detailPane());
+    });
     int index = Common::getInsertionIndex(d->preferredSwitchOrder, currentItems, sw->name());
     if (index == -1) {
         //Add it at the end

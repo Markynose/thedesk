@@ -190,10 +190,11 @@ namespace {
     // high screen better.
     constexpr int floatInset = 8;
     constexpr double floatCorner = 16; // CornerLarge: a pill while collapsed, gentler expanded (user: 28 was too round)
+    constexpr double shadeCorner = 28; // CornerExtraLarge: the Status Center the bar stretches into
 
-    QPainterPath floatingShape(const QRectF& rect) {
+    QPainterPath floatingShape(const QRectF& rect, double corner = floatCorner) {
         QPainterPath path;
-        double radius = qMin(floatCorner, rect.height() / 2);
+        double radius = qMin(corner, rect.height() / 2);
         path.addRoundedRect(rect, radius, radius);
         return path;
     }
@@ -217,6 +218,11 @@ struct BarWindowPrivate {
         bool statusCenterShown = false;
         bool barPendingShow = false;
         bool covered = false; // a fullscreen window is in front
+        double shade = 0; // 0 the bar, 1 stretched into the Status Center
+
+        double corner() const {
+            return floatCorner + (shadeCorner - floatCorner) * shade;
+        }
 
         GestureInteractionPtr lastGesture;
 
@@ -277,13 +283,15 @@ BarWindow::BarWindow(QWidget* parent) :
         }
     });
 
-    // 0 = bar, 1 = Status Center. A crossfade, so the effects spring (no bounce)
+    // 0 = bar, 1 = Status Center: the bar stretches down into the shade (its
+    // corners going from 16 to 28) and crossfades. Spatial, clamped: no bounce past the screen
     d->barStatusCenterTransitionAnim = new M3SpringAnimation(this);
-    d->barStatusCenterTransitionAnim->setToken(M3Motion::EffectsDefault);
+    d->barStatusCenterTransitionAnim->setToken(M3Motion::SpatialDefault);
     d->barStatusCenterTransitionAnim->setStartValue(0.0);
     d->barStatusCenterTransitionAnim->setEndValue(0.0);
     connect(d->barStatusCenterTransitionAnim, &M3SpringAnimation::valueChanged, this, [=](QVariant value) {
         double percentage = qBound(0.0, value.toDouble(), 1.0);
+        d->shade = percentage;
         if (qFuzzyIsNull(percentage)) { // Fully show bar view
             d->statusCenterWidget->setVisible(false);
             d->mainBarWidget->setVisible(true);
@@ -390,7 +398,7 @@ void BarWindow::applyShape() {
     // following; a rule matches the window title). Without one, cut the
     // window to the toolbar's shape
     if (Compositor::isActive()) this->clearMask();
-    else this->setMask(QRegion(floatingShape(QRectF(this->rect())).toFillPolygon().toPolygon()));
+    else this->setMask(QRegion(floatingShape(QRectF(this->rect()), d->corner()).toFillPolygon().toPolygon()));
 }
 
 void BarWindow::resizeEvent(QResizeEvent* event) {
@@ -423,7 +431,7 @@ void BarWindow::leaveEvent(QEvent* event) {
 void BarWindow::paintEvent(QPaintEvent* event) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.fillPath(floatingShape(QRectF(this->rect())), this->palette().color(QPalette::Window));
+    painter.fillPath(floatingShape(QRectF(this->rect()), d->corner()), this->palette().color(QPalette::Window));
 }
 
 bool BarWindow::event(QEvent* event) {
@@ -541,6 +549,7 @@ void BarWindow::showStatusCenter() {
     }
 
     StateManager::statusCenterManager()->setIsShowingStatusCenter(true);
+    if (d->barStatusCenterTransitionAnim->currentValue().toDouble() < 0.5) d->statusCenterWidget->playEntrance();
     d->barStatusCenterTransitionAnim->animateTo(1.0);
 
     // Tell the window manager that this is now a standard system window
@@ -554,6 +563,7 @@ void BarWindow::showStatusCenter() {
 void BarWindow::hideStatusCenter() {
     const bool wasShown = d->statusCenterShown;
     StateManager::statusCenterManager()->setIsShowingStatusCenter(false);
+    d->statusCenterWidget->closeDetail();
     d->barStatusCenterTransitionAnim->animateTo(0.0);
 
     // Tell the window manager that this is now a "taskbar" type window

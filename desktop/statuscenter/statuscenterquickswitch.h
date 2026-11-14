@@ -36,6 +36,14 @@ class StatusCenterQuickSwitch : public QWidget {
         ~StatusCenterQuickSwitch();
 
         QSize sizeHint() const override;
+        QSize minimumSizeHint() const override;
+
+        bool isBig() const;
+        QuickSwitch* quickSwitch() const;
+        void playEntrance(int delay); // drops in after delay ms, as the shade opens
+
+    signals:
+        void detailRequested();
 
     protected:
         void paintEvent(QPaintEvent* event) override;
@@ -54,6 +62,9 @@ class StatusCenterQuickSwitch : public QWidget {
     private:
         Ui::StatusCenterQuickSwitch* ui;
         StatusCenterQuickSwitchPrivate* d;
+
+        QRectF iconBounds() const;
+        void updateLabels();
 };
 
 #endif // STATUSCENTERQUICKSWITCH_H

@@ -36,6 +36,9 @@ class StatusCenter : public QWidget {
         explicit StatusCenter(QWidget* parent = nullptr);
         ~StatusCenter();
 
+        void playEntrance();
+        void closeDetail();
+
     private slots:
         void on_closeButton_clicked();
 

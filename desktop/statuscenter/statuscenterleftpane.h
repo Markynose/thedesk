@@ -59,10 +59,10 @@ class StatusCenterLeftPane : public QWidget {
         Ui::StatusCenterLeftPane* ui;
         StatusCenterLeftPanePrivate* d;
 
-        void paintEvent(QPaintEvent* event);
         void changeEvent(QEvent* event);
         void resizeEvent(QResizeEvent* event);
         void followRail();
+        void placeRailButton();
 };
 
 #endif // STATUSCENTERLEFTPANE_H

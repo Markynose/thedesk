@@ -34,6 +34,8 @@ class WirelessNetworkSelectionPopover : public QWidget {
         explicit WirelessNetworkSelectionPopover(QString deviceUni, QWidget* parent = nullptr);
         ~WirelessNetworkSelectionPopover();
 
+        void setTitleVisible(bool visible); // off inside a dialog with a headline of its own
+
     signals:
         void done();
 

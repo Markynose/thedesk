@@ -42,6 +42,10 @@
 #include <statuscentermanager.h>
 #include <tapplication.h>
 #include <tsettings.h>
+#include <quickswitch.h>
+#include <quietmodemanager.h>
+#include <QBoxLayout>
+#include <QPushButton>
 
 struct PluginPrivate {
         NotificationTracker* tracker;
@@ -50,6 +54,8 @@ struct PluginPrivate {
         NotificationsStatusCenterPane* statusCenter;
         SystemJobController* jobController;
         MprisChunk* mprisChunk;
+        QuickSwitch* quietSwitch;
+        QWidget* quietModes;
 };
 
 Plugin::Plugin() {
@@ -124,10 +130,52 @@ void Plugin::activate() {
     StateManager::statusCenterManager()->addPane(d->statusCenter, StatusCenterManager::Informational);
 
     d->mprisChunk = new MprisChunk();
+
+    // Do not disturb, as a Status Center tile: no notifications or back to
+    // sound; its detail holds every quiet mode
+    QuietModeManagerTd* quiet = StateManager::quietModeManager();
+    d->quietSwitch = new QuickSwitch(QStringLiteral("NotificationsQuiet"));
+    d->quietSwitch->setTitle(tr("Do not disturb"));
+    d->quietSwitch->setChecked(quiet->currentMode() != QuietModeManagerTd::Sound);
+    connect(quiet, &QuietModeManagerTd::quietModeChanged, d->quietSwitch, [this](QuietModeManagerTd::QuietMode mode) {
+        QSignalBlocker blocker(d->quietSwitch);
+        d->quietSwitch->setChecked(mode != QuietModeManagerTd::Sound);
+    });
+    connect(d->quietSwitch, &QuickSwitch::toggled, quiet, [quiet](bool on) {
+        quiet->setQuietMode(on ? QuietModeManagerTd::NoNotifications : QuietModeManagerTd::Sound);
+    });
+    d->quietModes = new QWidget();
+    d->quietModes->setWindowTitle(tr("Do not disturb"));
+    d->quietModes->setWindowIcon(QIcon::fromTheme(QStringLiteral("do-not-disturb-on-symbolic")));
+    auto* modes = new QVBoxLayout(d->quietModes);
+    modes->setContentsMargins(0, 0, 0, 0);
+    modes->setSpacing(4);
+    for (QuietModeManagerTd::QuietMode mode : quiet->availableQuietModes()) {
+        QPushButton* button = new QPushButton(QIcon::fromTheme(QuietModeManagerTd::icon(mode)), QuietModeManagerTd::name(mode), d->quietModes);
+        button->setToolTip(QuietModeManagerTd::description(mode));
+        button->setProperty("m3NavItem", true);
+        button->setCheckable(true);
+        button->setAutoExclusive(true);
+        button->setChecked(quiet->currentMode() == mode);
+        connect(button, &QPushButton::clicked, quiet, [quiet, mode] {
+            quiet->setQuietMode(mode);
+        });
+        connect(quiet, &QuietModeManagerTd::quietModeChanged, button, [button, mode](QuietModeManagerTd::QuietMode now) {
+            button->setChecked(now == mode);
+        });
+        modes->addWidget(button);
+    }
+    modes->addStretch();
+    d->quietSwitch->setDetail(d->quietModes);
+    d->quietSwitch->setDetailPane(d->statusCenter->name());
+    StateManager::statusCenterManager()->addSwitch(d->quietSwitch);
 }
 
 void Plugin::deactivate() {
     StateManager::statusCenterManager()->removePane(d->statusCenter);
+    StateManager::statusCenterManager()->removeSwitch(d->quietSwitch);
+    d->quietSwitch->deleteLater();
+    d->quietModes->deleteLater();
 
     AssistantTools::instance()->remove(QStringLiteral("recent_notifications"));
     d->tracker->deleteLater();

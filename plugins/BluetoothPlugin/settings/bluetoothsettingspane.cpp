@@ -85,6 +85,7 @@ BluetoothSettingsPane::BluetoothSettingsPane(BluezQt::ManagerPtr manager, BtAgen
 
     d->bluetoothSwitch = new QuickSwitch("Bluetooth");
     d->bluetoothSwitch->setTitle(tr("Bluetooth"));
+    d->bluetoothSwitch->setDetailPane(name()); // the big tile's label opens these settings
     connect(d->bluetoothSwitch, &QuickSwitch::toggled, this, [ = ](bool isEnabled) {
         if (isEnabled) {
             ui->enableBluetoothButton->click();

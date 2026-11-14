@@ -29,7 +29,6 @@
 #include <libcontemporary_global.h>
 #include <m3motion.h>
 #include <m3scheme.h>
-#include <tsettings.h>
 #include <ttitlelabel.h>
 
 namespace {
@@ -66,7 +65,6 @@ struct StatusCenterLeftPanePrivate {
         M3SpringAnimation* rail;
         QToolButton* railButton;
         RailTips* tips;
-        tSettings settings;
 };
 
 StatusCenterLeftPane::StatusCenterLeftPane(QWidget* parent) :
@@ -79,12 +77,12 @@ StatusCenterLeftPane::StatusCenterLeftPane(QWidget* parent) :
     ui->stackedWidget->setCurrentAnimation(tStackedWidget::SlideHorizontal);
     ui->mainList->setItemDelegate(new LeftPaneDelegate(this));
 
-    // Folds into a navigation rail and back (StatusCenter/rail)
+    // A navigation rail; its menu button opens it out into the list for a while
     d->tips = new RailTips(this);
     d->rail = new M3SpringAnimation(this);
     d->rail->setToken(M3Motion::SpatialDefault);
-    d->folded = d->settings.value(QStringLiteral("StatusCenter/rail")).toBool();
-    d->rail->snapTo(d->folded ? 1.0 : 0.0);
+    d->folded = true;
+    d->rail->snapTo(1.0);
     connect(d->rail, &M3SpringAnimation::valueChanged, this, &StatusCenterLeftPane::followRail);
     d->railButton = new QToolButton(this);
     d->railButton->setAutoRaise(true);
@@ -92,10 +90,13 @@ StatusCenterLeftPane::StatusCenterLeftPane(QWidget* parent) :
     d->railButton->setToolTip(tr("Fold the list"));
     connect(d->railButton, &QToolButton::clicked, this, [this] {
         d->folded = !d->folded;
-        d->settings.setValue(QStringLiteral("StatusCenter/rail"), d->folded);
         d->rail->animateTo(d->folded ? 1.0 : 0.0);
     });
-    this->layout()->setContentsMargins(0, 0, 0, 56); // room for the rail button under the lists
+    // The button sits in the title's row, so the title reads after it; sub-lists have a back button there instead
+    ui->label->setContentsMargins(64, 0, 0, 0);
+    connect(ui->stackedWidget, &tStackedWidget::currentChanged, this, [this] {
+        setAttached(d->attached);
+    });
     followRail();
 }
 
@@ -116,6 +117,8 @@ void StatusCenterLeftPane::followRail() {
     for (QAbstractItemView* view : this->findChildren<QAbstractItemView*>()) {
         view->viewport()->installEventFilter(d->tips);
         view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        view->setVerticalScrollBarPolicy(rail > 0.5 ? Qt::ScrollBarAlwaysOff : Qt::ScrollBarAsNeeded); // a rail scrolls without a bar
+        view->viewport()->setAutoFillBackground(false); // on the shade's own surface
         view->doItemsLayout(); // rows ask for less width as it folds
         view->viewport()->update();
     }
@@ -144,35 +147,32 @@ void StatusCenterLeftPane::setSelected(QListWidgetItem* item) {
 
 void StatusCenterLeftPane::setAttached(bool attached) {
     d->attached = attached;
-    if (attached) {
-        if (this->layoutDirection() == Qt::RightToLeft) {
-            this->layout()->setContentsMargins(1, 0, 1, 0);
-        } else {
-            this->layout()->setContentsMargins(0, 0, 1, 0);
-        }
-    } else {
-        this->layout()->setContentsMargins(0, 0, 0, 0);
-    }
-    QMargins margins = this->layout()->contentsMargins();
-    margins.setBottom(56);
-    this->layout()->setContentsMargins(margins);
+    this->layout()->setContentsMargins(0, attached ? 16 : 0, 0, 0);
     // folded, it's a rail (the popover, when detached, stays a list)
     const double rail = attached ? qBound(0.0, d->rail->currentValue().toDouble(), 1.2) : 0.0;
     const int width = qRound(SC_DPI(OpenWidth) + (SC_DPI(RailWidth) - SC_DPI(OpenWidth)) * rail);
-    this->setFixedWidth(width + (attached ? 1 : 0));
-    d->railButton->setVisible(attached);
+    this->setFixedWidth(width);
+    d->railButton->setVisible(attached && ui->stackedWidget->currentIndex() == 0);
     d->railButton->setFixedSize(40, 40);
-    d->railButton->move(this->layoutDirection() == Qt::RightToLeft ? width - 28 - 40 : 28, this->height() - 48);
+    placeRailButton();
 }
 
 void StatusCenterLeftPane::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
-    d->railButton->move(this->layoutDirection() == Qt::RightToLeft ? this->width() - 28 - 40 : 28, this->height() - 48);
+    placeRailButton();
+}
+
+void StatusCenterLeftPane::placeRailButton() {
+    // in the title's top row (a flexible title grows below it)
+    const int y = ui->stackedWidget->y() + ui->label->y() + 12;
+    d->railButton->move(this->layoutDirection() == Qt::RightToLeft ? this->width() - 28 - 40 : 28, y);
+    d->railButton->raise();
 }
 
 void StatusCenterLeftPane::pushMenu(QWidget* menu) {
     ui->stackedWidget->addWidget(menu);
     ui->stackedWidget->setCurrentWidget(menu);
+    followRail(); // its title and list fold too
 }
 
 void StatusCenterLeftPane::popMenu() {
@@ -196,18 +196,6 @@ void StatusCenterLeftPane::popToRoot() {
 
 QWidget* StatusCenterLeftPane::peekMenu() {
     return ui->stackedWidget->currentWidget();
-}
-
-void StatusCenterLeftPane::paintEvent(QPaintEvent* event) {
-    if (d->attached) {
-        QPainter painter(this);
-        painter.setPen(libContemporaryCommon::lineColor(this->palette().color(QPalette::WindowText)));
-        if (this->layoutDirection() == Qt::RightToLeft) {
-            painter.drawLine(0, 0, 0, this->height());
-        } else {
-            painter.drawLine(this->width() - 1, 0, this->width() - 1, this->height());
-        }
-    }
 }
 
 void StatusCenterLeftPane::changeEvent(QEvent* event) {
