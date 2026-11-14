@@ -174,6 +174,7 @@ NotificationsDrawerWidget::NotificationsDrawerWidget(NotificationPtr notificatio
         d->timeout->setDuration(timeout == 0 || needsAnswer() ? -1 : timeout);
     });
 
+    d->rot.eps = 0.05; // degrees: it settles between the turns instead of keeping frames going
     d->turn.setInterval(700);
     connect(&d->turn, &QTimer::timeout, this, [this] {
         if (d->answered || d->gone || !needsAnswer()) return;
@@ -353,8 +354,11 @@ bool NotificationsDrawerWidget::step(double dt) {
     const bool open = d->hovered || needsAnswer() || (d->front && d->born.elapsed() >= 220);
     d->u.target = d->gone || d->folded ? (d->flung ? d->u.target : 0) : (open ? 1 : 0);
     bool moving = false;
-    for (Pebble::Spring* spring : {&d->hk, &d->u, &d->enter, &d->x, &d->morph, &d->rot, &d->alpha}) moving |= spring->step(dt);
+    for (Pebble::Spring* spring : {&d->hk, &d->u, &d->enter, &d->x, &d->morph, &d->alpha}) moving |= spring->step(dt);
     if (d->front && d->born.elapsed() < 220) moving = true; // about to unfurl
+    const bool turning = d->rot.step(dt);
+    const bool onlyTurning = turning && !moving; // a critical one waiting for its answer turns for as long as it waits
+    moving |= turning;
 
     // The words show once it's mostly a card
     const QRectF p = plate();
@@ -366,7 +370,12 @@ bool NotificationsDrawerWidget::step(double dt) {
     d->content->move(qRound(p.left() + TextLeft), qRound(p.top() + 12));
     d->close->setVisible(d->hovered && d->u.value > 0.9 && !d->gone);
     d->close->move(qRound(p.right() - 12 - d->close->width()), qRound(p.top() + 12));
-    this->update();
+    if (onlyTurning) {
+        const QPointF c = coin();
+        this->update(QRectF(c.x() - 40, c.y() - 40, 80, 80).toAlignedRect()); // the shape, turned any way
+    } else {
+        this->update();
+    }
     return moving;
 }
 
@@ -402,8 +411,9 @@ void NotificationsDrawerWidget::paintEvent(QPaintEvent* event) {
     // its shape: a critical one is a soft burst that turns into a check
     if (d->n->urgency() == Notification::Critical) {
         static const m3shapes::Morph answered(MaterialShapes::softBurst(), MaterialShapes::circle());
+        static const QPainterPath waiting = m3shapes::toPath(answered, 0); // turning for as long as it waits: made once
         const double k = qBound(0.0, d->morph.value, 1.0);
-        p.fillPath(Pebble::shapePath(m3shapes::toPath(answered, float(k)), c, ShapeSize * sc, d->rot.value), mix(s.errorContainer, s.primaryContainer, k));
+        p.fillPath(Pebble::shapePath(k == 0 ? waiting : m3shapes::toPath(answered, float(k)), c, ShapeSize * sc, d->rot.value), mix(s.errorContainer, s.primaryContainer, k));
         if (k > 0.5) {
             p.setFont(Pebble::symbols(26 * sc));
             p.setPen(s.onPrimaryContainer);

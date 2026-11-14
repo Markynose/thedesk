@@ -28,6 +28,7 @@ namespace Pebble {
     struct Spring {
             double value = 0, velocity = 0, target = 0;
             M3Motion::Token token = M3Motion::SpatialDefault;
+            double eps = 0.002; // settled within this (and still within ten of it a second): for 0-1 values; degrees and pixels take more
             Spring(double v = 0, M3Motion::Token t = M3Motion::SpatialDefault) :
                 value(v), target(v), token(t) {}
             // true while it still moves
@@ -35,7 +36,7 @@ namespace Pebble {
                 const M3Motion::SpringState s = M3Motion::stepSpring(value, velocity, target, M3Motion::spring(token), dt);
                 value = s.value;
                 velocity = s.velocity;
-                if (qAbs(value - target) < 0.002 && qAbs(velocity) < 0.02) {
+                if (qAbs(value - target) < eps && qAbs(velocity) < eps * 10) {
                     value = target;
                     velocity = 0;
                     return false;

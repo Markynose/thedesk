@@ -251,7 +251,8 @@ void NotificationAppGroup::frame() {
     this->setFixedHeight(qMax(0, qCeil(d->height.value * qBound(0.0, d->kept.value, 1.0))));
     d->deal->move(qRound(c.x() - ShapeSize / 2), qRound(c.y() - ShapeSize / 2));
     d->deal->setVisible(!d->emptied);
-    this->update();
+    if (moving) this->update();
+    else this->update(QRectF(c.x() - 46, c.y() - 46, 92, 92).toAlignedRect()); // only a running job's ring waves
 
     if (d->emptied && d->kept.value < 0.01 && d->kept.target == 0) {
         d->frames.stop();

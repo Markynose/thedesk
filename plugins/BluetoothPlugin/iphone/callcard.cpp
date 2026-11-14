@@ -296,7 +296,7 @@ void CallCard::paintEvent(QPaintEvent* event) {
 
     // Name and what's happening
     p.setPen(s.onSurface);
-    p.setFont(flex(34, d->weight.x, 105));
+    p.setFont(flex(34, std::round(d->weight.x / 20) * 20, 105)); // in steps: each new weight is a new font instance, and it swings with every ring
     p.drawText(QRectF(c.left() + 16, c.top() + 152, Width - 32, 44), Qt::AlignCenter, p.fontMetrics().elidedText(d->caller, Qt::ElideRight, int(Width - 32)));
     QString line = d->phone.isEmpty() ? tr("Incoming call") : tr("%1 · Incoming call").arg(d->phone);
     if (d->state == CallCardPrivate::Answered) line = d->phone.isEmpty() ? tr("Answered") : tr("Answered on %1").arg(d->phone);
