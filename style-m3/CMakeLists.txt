@@ -9,6 +9,7 @@ cntp_define_build_dirs()
 
 add_library(thedesk-style-m3 MODULE
     m3animator.cpp m3animator.h
+    m3settingsgroup.cpp m3settingsgroup.h
     m3style.cpp m3style.h
     m3styleplugin.cpp m3styleplugin.h
     plugin.json)

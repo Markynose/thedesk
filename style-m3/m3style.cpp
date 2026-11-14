@@ -20,6 +20,7 @@
 #include "m3style.h"
 
 #include "m3animator.h"
+#include "m3settingsgroup.h"
 
 #include <QAbstractItemView>
 #include <QAbstractScrollArea>
@@ -27,6 +28,8 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QFontComboBox>
+#include <QScreen>
 #include <QEasingCurve>
 #include <QHeaderView>
 #include <QLabel>
@@ -573,8 +576,81 @@ namespace {
     };
 } // namespace
 
+namespace {
+    /**
+     * Combo box menus open like M3E menus: the menu unrolls from the edge
+     * at its anchor on a spring (a growing mask, so it works without a
+     * compositor). A settings row's menu hangs from the row's end, below
+     * it or, near the bottom of the screen, above it.
+     */
+    class PopupReveal : public QObject {
+        public:
+            static void attach(QWidget* popup) {
+                if (popup->property("m3PopupReveal").toBool()) return;
+                popup->setProperty("m3PopupReveal", true);
+                new PopupReveal(popup);
+            }
+
+            bool eventFilter(QObject* watched, QEvent* event) override {
+                if (watched != popup) return false;
+                if (event->type() == QEvent::Show) {
+                    place();
+                    spring->snapTo(0.0);
+                    apply(0.0);
+                    spring->animateTo(1.0);
+                } else if (event->type() == QEvent::Hide) {
+                    spring->stop();
+                }
+                return false;
+            }
+
+        private:
+            explicit PopupReveal(QWidget* popup) :
+                QObject(popup), popup(popup) {
+                spring = new M3SpringAnimation(this);
+                spring->setToken(M3Motion::SpatialFast);
+                spring->snapTo(1.0);
+                QObject::connect(spring, &M3SpringAnimation::valueChanged, this, [this](QVariant value) {
+                    apply(value.toDouble());
+                });
+                popup->installEventFilter(this);
+            }
+
+            void place() {
+                upward = false;
+                auto* combo = qobject_cast<QComboBox*>(popup->parentWidget());
+                if (!combo || !M3SettingsGroup::rowCombo(combo) || !combo->screen()) return;
+                const QRect screen = combo->screen()->availableGeometry();
+                const QPoint bottomRight = combo->mapToGlobal(QPoint(combo->width(), combo->height()));
+                const QPoint topRight = combo->mapToGlobal(QPoint(combo->width(), 0));
+                const int h = popup->height();
+                upward = bottomRight.y() + 4 + h > screen.bottom() && topRight.y() - 4 - h >= screen.top();
+                const int x = qBound(screen.left(), bottomRight.x() - popup->width(), screen.right() - popup->width());
+                const int y = upward ? topRight.y() - 4 - h : qMin(bottomRight.y() + 4, screen.bottom() - h);
+                popup->move(x, y);
+            }
+
+            void apply(double k) {
+                k = qBound(0.0, k, 1.0);
+                const QRectF full(popup->rect());
+                const double h = qMax(1.0, full.height() * k);
+                const QRectF shown(full.left(), upward ? full.bottom() - h : full.top(), full.width(), h);
+                QPainterPath path;
+                path.addRoundedRect(shown, qMin(16.0, h / 2), qMin(16.0, h / 2));
+                popup->setMask(QRegion(path.toFillPolygon().toPolygon()));
+            }
+
+            QWidget* popup;
+            M3SpringAnimation* spring;
+            bool upward = false;
+    };
+} // namespace
+
 void M3Style::polish(QWidget* widget) {
     QProxyStyle::polish(widget);
+    // Android's settings groups over Designer forms
+    if (M3SettingsGroup::wanted(widget)) M3SettingsGroup::attach(widget, [this](const QPalette& palette) -> const M3::Scheme& { return scheme(palette); });
+    if (widget->inherits("QComboBoxPrivateContainer")) PopupReveal::attach(widget);
     // Button sizes: the label's type and the icon grow with the button
     if (auto* button = qobject_cast<QAbstractButton*>(widget); button && hasButtonSize(button) && !button->property("m3SizePolished").toBool()) {
         button->setProperty("m3SizePolished", true);
@@ -848,6 +924,7 @@ QSize M3Style::sizeFromContents(ContentsType type, const QStyleOption* option, c
     switch (type) {
         case CT_PushButton: {
             auto* button = qstyleoption_cast<const QStyleOptionButton*>(option);
+            if (M3SettingsGroup::rowButton(widget)) return QSize(size.width() + (button && !button->icon.isNull() ? 40 : 0), 56);
             const ButtonSize& bs = buttonSize(widget);
             bool text = button && pushButtonKind(button, widget) == ButtonKind::Text;
             int padding = text ? (bs.height == Button::Height ? Button::TextPadding : bs.padding * 3 / 4) : bs.padding;
@@ -974,8 +1051,15 @@ QRect M3Style::subControlRect(ComplexControl control, const QStyleOptionComplex*
                     return QRect(r.right() - 36, r.top(), 36, r.height());
                 case SC_ComboBoxEditField:
                     return r.adjusted(FieldPadding + 4, 4, -40, -4);
-                case SC_ComboBoxListBoxPopup:
-                    return r;
+                case SC_ComboBoxListBoxPopup: {
+                    // Wide enough for its longest item (menu item padding, the check column)
+                    auto* combo = qobject_cast<const QComboBox*>(widget);
+                    if (!combo || qobject_cast<const QFontComboBox*>(combo)) return r;
+                    const QFontMetrics fm(withWeight(combo->font(), QFont::Medium));
+                    int widest = 0;
+                    for (int i = 0; i < combo->count(); i++) widest = qMax(widest, fm.horizontalAdvance(combo->itemText(i)) + (combo->itemIcon(i).isNull() ? 0 : 20 + 12));
+                    return QRect(r.left(), r.top(), std::max({r.width(), widest + 2 * 12 + 2 * MenuPadding + 20 + 12 + 16, 112 + 2 * MenuPadding}), r.height());
+                }
                 default:
                     break;
             }
@@ -2077,7 +2161,7 @@ void M3Style::drawPrimitive(PrimitiveElement element, const QStyleOption* option
                 const QAbstractItemModel* model = item->index.model();
                 const bool first = item->index.row() == 0, last = item->index.row() == model->rowCount(item->index.parent()) - 1;
                 const bool selected = option->state & State_Selected;
-                const double outer = Shape::Large, inner = Shape::ExtraSmall;
+                const double outer = 20, inner = Shape::ExtraSmall; // as settings groups
                 const QRectF r = QRectF(option->rect).adjusted(0, 1, 0, -1);
                 const double top = selected || first ? outer : inner, bottom = selected || last ? outer : inner;
                 const QPainterPath shape = roundedRect(r, top, top, bottom, bottom);
@@ -2199,10 +2283,34 @@ void M3Style::drawControl(ControlElement element, const QStyleOption* option, QP
     const M3::Scheme& s = scheme(option->palette);
     switch (element) {
         case CE_PushButtonBevel:
+            if (M3SettingsGroup::rowButton(widget)) {
+                // a settings row: the tile under it is the container
+                if (keyboardFocus(option)) drawFocusRing(painter, roundedRect(QRectF(option->rect), Shape::Medium), s);
+                return;
+            }
             return drawButton(option, painter, widget);
         case CE_PushButtonLabel: {
             auto* button = qstyleoption_cast<const QStyleOptionButton*>(option);
             if (!button) break;
+            if (M3SettingsGroup::rowButton(widget)) {
+                // Its title in BodyLarge from the row's start; a destructive one in Error
+                const bool destructive = widget->property("type").toString() == QLatin1String("destructive");
+                const QColor ink = !enabled(option) ? alpha(s.onSurface, Opacity::DisabledContent) : destructive ? s.error : s.onSurface;
+                QRect r = option->rect;
+                painter->save();
+                if (!button->icon.isNull()) {
+                    const QIcon icon = mergeIcon(button->icon, QSize(24, 24), destructive ? s.error : s.onSurfaceVariant);
+                    icon.paint(painter, QRect(r.left(), r.center().y() - 12, 24, 24), Qt::AlignCenter, enabled(option) ? QIcon::Normal : QIcon::Disabled);
+                    r.setLeft(r.left() + 40);
+                }
+                QFont font = painter->font();
+                font.setPixelSize(16);
+                painter->setFont(font);
+                painter->setPen(ink);
+                painter->drawText(r, Qt::AlignVCenter | Qt::AlignLeading, painter->fontMetrics().elidedText(button->text, Qt::ElideRight, r.width()));
+                painter->restore();
+                return;
+            }
             QStyleOptionButton label = *button;
             const double checked = qBound(0.0, animator->checked(widget, option->state & State_On), 1.0);
             ButtonColours colours = buttonColours(button, s, widget, checked);
@@ -2252,6 +2360,9 @@ void M3Style::drawControl(ControlElement element, const QStyleOption* option, QP
             painter->restore();
             return;
         }
+        case CE_ComboBoxLabel:
+            if (M3SettingsGroup::rowCombo(widget)) return; // the value is under the row's title
+            break;
         case CE_ProgressBar:
             drawProgress(option, painter, widget);
             proxy()->drawControl(CE_ProgressBarLabel, option, painter, widget);
@@ -2399,6 +2510,27 @@ void M3Style::drawComplexControl(ComplexControl control, const QStyleOptionCompl
             auto* combo = qstyleoption_cast<const QStyleOptionComboBox*>(option);
             if (!combo) break;
             bool open = option->state & State_On;
+            if (M3SettingsGroup::rowCombo(widget)) {
+                // A settings row's menu button: its value sits under the row's title
+                const QRectF r = centred(QRectF(option->rect), 40, 40);
+                QPainterPath circle;
+                circle.addEllipse(r);
+                painter->save();
+                painter->setRenderHint(QPainter::Antialiasing);
+                if (enabled(option)) {
+                    const double hover = animator->hover(widget, option->state & State_MouseOver);
+                    fill(painter, circle, alpha(s.onSurface, Opacity::Hover * hover + (open ? Opacity::Pressed : 0)));
+                }
+                QFont f(QStringLiteral("Material Symbols Rounded"));
+                f.setPixelSize(20);
+                f.setVariableAxis(QFont::Tag("opsz"), 20);
+                painter->setFont(f);
+                painter->setPen(enabled(option) ? s.onSurfaceVariant : alpha(s.onSurface, Opacity::DisabledContent));
+                painter->drawText(r, Qt::AlignCenter, QStringLiteral("unfold_more"));
+                painter->restore();
+                if (keyboardFocus(option)) drawFocusRing(painter, circle, s);
+                return;
+            }
             if (combo->frame) drawField(QRectF(option->rect), option, painter, widget, (option->state & State_HasFocus) || open);
             QRectF arrow = QRectF(subControlRect(CC_ComboBox, combo, SC_ComboBoxArrow, widget));
             drawChevron(painter, arrow, open ? Qt::UpArrow : Qt::DownArrow, enabled(option) ? s.onSurfaceVariant : alpha(s.onSurface, Opacity::DisabledContent), 10);
