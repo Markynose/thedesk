@@ -1246,20 +1246,6 @@ void LivingTypeView::paintEvent(QPaintEvent* event) {
         painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
     }
 
-    // The opening's rim in primary: the indicator's shape grown huge. With a
-    // window mask its inner half is cut away, so it's drawn twice as wide
-    if (d->holeSide > 0) {
-        const double unit = d->preview ? this->height() / 768.0 : 1.0;
-        const QPainterPath hole = d->preview || d->composited ? d->previewHole : M3LoadingIndicator::indeterminatePath(QRectF(this->width() / 2.0 - d->holeSide / 2, this->height() / 2.0 - d->holeSide / 2, d->holeSide, d->holeSide), d->t);
-        QColor rim = d->scheme.primary;
-        rim.setAlphaF(0.8 * qBound(0.0, 2 - d->holeSide / (1500 * unit), 1.0));
-        painter.setClipping(false);
-        painter.setOpacity(1);
-        painter.setPen(QPen(rim, d->preview || d->composited ? 3 : 6));
-        painter.setBrush(Qt::NoBrush);
-        painter.drawPath(hole);
-    }
-
     if (qEnvironmentVariableIsSet("LIVINGTYPE_STATS")) {
         d->paintTotal += paintTimer.nsecsElapsed() / 1e6;
         d->paintCount++;
