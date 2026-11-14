@@ -11,6 +11,7 @@
 #include "splashsettings.h"
 
 #include <QButtonGroup>
+#include <QComboBox>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -29,7 +30,7 @@ struct SplashSettingsPrivate {
         QWidget* card;
         WallpaperView* wallpaper;
         LivingTypeView* view;
-        QButtonGroup* exits;
+        QComboBox* exits;
         QButtonGroup* colours;
         tSwitch* seasonal;
         QTimer* replay;
@@ -136,18 +137,17 @@ SplashSettings::SplashSettings(QWidget* parent) :
     previewColumn->addLayout(playRow);
     layout->addLayout(previewColumn, 0, 0, 1, 2);
 
-    // The exit
-    d->exits = new QButtonGroup(this);
-    QList<QPair<QString, QString>> exits = {{QStringLiteral("random"), tr("Surprise me")}};
+    // The exit: eight choices don't fit a chip row, so a menu row like the other settings
+    d->exits = new QComboBox(this);
+    d->exits->addItem(tr("Surprise me"), QStringLiteral("random"));
     const QStringList exitLabels = {tr("Vortex"), tr("Bloom"), tr("Ripple"), tr("Drop"), tr("Sweep"), tr("Cascade"), tr("Shove")};
-    for (int style = 0; style < LivingTypeView::ExitStyleCount; style++) exits.append({LivingTypeView::exitStyleName(style), exitLabels.value(style)});
+    for (int style = 0; style < LivingTypeView::ExitStyleCount; style++) d->exits->addItem(exitLabels.value(style), LivingTypeView::exitStyleName(style));
     layout->addWidget(caption(tr("Exit"), this), 1, 0);
-    layout->addWidget(connectedGroup(this, d->exits, exits), 1, 1);
-    connect(d->exits, &QButtonGroup::idClicked, this, [this](int id) {
-        if (d->loading) return;
-        const QString value = d->exits->button(id)->property("value").toString();
+    layout->addWidget(d->exits, 1, 1);
+    connect(d->exits, &QComboBox::activated, this, [this](int index) {
+        const QString value = d->exits->itemData(index).toString();
         d->settings.setValue(QStringLiteral("Splash/exit"), value);
-        d->view->setExitStyle(value == QStringLiteral("random") ? LivingTypeView::RandomExit : LivingTypeView::ExitStyle(id - 1));
+        d->view->setExitStyle(index == 0 ? LivingTypeView::RandomExit : LivingTypeView::ExitStyle(index - 1));
         playPreview();
     });
 
@@ -166,15 +166,15 @@ SplashSettings::SplashSettings(QWidget* parent) :
         d->view->setFlagColours(value == QStringLiteral("mlm"));
     });
 
-    // The seasonal phrases
+    // The seasonal phrases: a switch row with its supporting text under it
     d->seasonal = new tSwitch(this);
     auto* seasonalRow = new QHBoxLayout();
-    auto* seasonalText = new QLabel(tr("Seasonal messages: Movember in November, mental health in May and on 10 October"), this);
-    seasonalText->setWordWrap(true);
-    seasonalRow->addWidget(seasonalText, 1);
+    seasonalRow->addWidget(caption(tr("Seasonal messages"), this), 1);
     seasonalRow->addWidget(d->seasonal);
-    layout->addWidget(caption(tr("Messages"), this), 3, 0);
-    layout->addLayout(seasonalRow, 3, 1);
+    auto* seasonalText = new QLabel(tr("Movember in November, mental health in May and on 10 October"), this);
+    seasonalText->setWordWrap(true);
+    layout->addLayout(seasonalRow, 3, 0, 1, 2);
+    layout->addWidget(seasonalText, 4, 0, 1, 2);
     connect(d->seasonal, &tSwitch::toggled, this, [this](bool on) {
         if (d->loading) return;
         d->settings.setValue(QStringLiteral("Splash/seasonal"), on);
@@ -197,11 +197,11 @@ void SplashSettings::load() {
     const QStringList keys = d->settings.keysInGroup(QStringLiteral("Splash"));
     const QString exit = keys.contains(QStringLiteral("exit")) ? d->settings.value(QStringLiteral("Splash/exit")).toString() : QStringLiteral("shove");
     const QString colours = keys.contains(QStringLiteral("colours")) ? d->settings.value(QStringLiteral("Splash/colours")).toString() : QStringLiteral("scheme");
-    for (QAbstractButton* b : d->exits->buttons()) b->setChecked(b->property("value").toString() == exit);
+    d->exits->setCurrentIndex(qMax(0, d->exits->findData(exit)));
     for (QAbstractButton* b : d->colours->buttons()) b->setChecked(b->property("value").toString() == colours);
     d->seasonal->setChecked(!keys.contains(QStringLiteral("seasonal")) || d->settings.value(QStringLiteral("Splash/seasonal")).toBool());
-    const int exitId = d->exits->checkedId();
-    d->view->setExitStyle(exitId <= 0 ? LivingTypeView::RandomExit : LivingTypeView::ExitStyle(exitId - 1));
+    const int exitIndex = d->exits->currentIndex();
+    d->view->setExitStyle(exitIndex <= 0 ? LivingTypeView::RandomExit : LivingTypeView::ExitStyle(exitIndex - 1));
     d->view->setFlagColours(colours == QStringLiteral("mlm"));
     d->loading = false;
 }

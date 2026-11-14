@@ -511,6 +511,7 @@ void LivingTypeView::setFarewell(QStringList phrases) {
 void LivingTypeView::setPreview(bool preview) {
     d->preview = preview;
     this->setAttribute(Qt::WA_TranslucentBackground, preview); // the hole shows the parent
+    this->setAttribute(Qt::WA_OpaquePaintEvent, !preview);     // or Qt never repaints what's under it
 }
 
 void LivingTypeView::setFlagColours(bool flag) {
@@ -1033,7 +1034,9 @@ void LivingTypeView::paintEvent(QPaintEvent* event) {
         // The exit's hole shows what's behind this view
         QPainterPath kept;
         kept.addRect(QRectF(this->rect()));
-        painter.setClipPath(kept.subtracted(d->previewHole));
+        kept = kept.subtracted(d->previewHole);
+        if (kept.isEmpty() && !d->composited) return; // an empty clip path clips nothing: the whole field would cover the hole
+        painter.setClipPath(kept);
     }
     painter.fillRect(this->rect(), d->scheme.surface);
     painter.setRenderHint(QPainter::Antialiasing);

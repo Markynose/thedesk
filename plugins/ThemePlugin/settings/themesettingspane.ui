@@ -263,6 +263,9 @@
           </item>
           <item row="1" column="1">
            <widget class="QFontComboBox" name="interfaceFont">
+            <property name="editable">
+             <bool>false</bool>
+            </property>
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -286,6 +289,9 @@
           </item>
           <item row="2" column="1">
            <widget class="QFontComboBox" name="fixedFont">
+            <property name="editable">
+             <bool>false</bool>
+            </property>
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
               <horstretch>0</horstretch>

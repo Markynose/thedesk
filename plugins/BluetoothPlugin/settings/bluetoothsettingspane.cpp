@@ -75,6 +75,7 @@ BluetoothSettingsPane::BluetoothSettingsPane(BluezQt::ManagerPtr manager, BtAgen
     });
     ui->discoverabilityWidget->setFixedWidth(contentWidth);
     ui->devicesLabel->setFixedWidth(contentWidth);
+    ui->widget->setFixedWidth(contentWidth); // the devices list sits in the column like the groups above it
 
     ui->bluetoothUnavailableIcon->setPixmap(QIcon::fromTheme("bluetooth").pixmap(SC_DPI_T(QSize(128, 128), QSize)));
     ui->bluetoothUnavailableIcon_2->setPixmap(QIcon::fromTheme("bluetooth").pixmap(SC_DPI_T(QSize(128, 128), QSize)));

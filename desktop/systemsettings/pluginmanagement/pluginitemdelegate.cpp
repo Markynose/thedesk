@@ -20,44 +20,33 @@
 #include "pluginitemdelegate.h"
 
 #include <QPainter>
+#include <QPainterPath>
 #include <libcontemporary_global.h>
+#include <m3scheme.h>
 #include <statemanager.h>
 #include <statuscentermanager.h>
-#include <tpaintcalculator.h>
+
+namespace {
+    // Android 16's segmented list: 72 dp two-line rows 2 dp apart, the
+    // group's outer corners 20 and the inner ones 4
+    constexpr int RowHeight = 72, Gap = 2;
+    constexpr double Outer = 20, Inner = 4;
+
+    QPainterPath tileShape(const QRectF& r, double top, double bottom) {
+        QPainterPath path;
+        path.moveTo(r.left() + top, r.top());
+        path.arcTo(r.right() - 2 * top, r.top(), 2 * top, 2 * top, 90, -90);
+        path.arcTo(r.right() - 2 * bottom, r.bottom() - 2 * bottom, 2 * bottom, 2 * bottom, 0, -90);
+        path.arcTo(r.left(), r.bottom() - 2 * bottom, 2 * bottom, 2 * bottom, 270, -90);
+        path.arcTo(r.left(), r.top(), 2 * top, 2 * top, 180, -90);
+        path.closeSubpath();
+        return path;
+    }
+} // namespace
 
 struct PluginItemDelegatePrivate {
-        struct Rects {
-                QRect iconRect;
-                QRect textRect;
-                QRect descRect;
-                QRect arrowRect;
-
-                Rects(const QStyleOptionViewItem& option) {
-                    QRect newRect = option.rect;
-                    QPoint center = newRect.center();
-                    newRect.setWidth(StateManager::statusCenterManager()->preferredContentWidth());
-                    newRect.moveCenter(center);
-
-                    iconRect.setLeft(newRect.left() + SC_DPI(6));
-                    iconRect.setTop(newRect.top() + SC_DPI(6));
-                    iconRect.setBottom(iconRect.top() + SC_DPI(32));
-                    iconRect.setRight(iconRect.left() + SC_DPI(32));
-
-                    arrowRect.setSize(SC_DPI_T(QSize(16, 16), QSize));
-                    arrowRect.moveCenter(newRect.center());
-                    arrowRect.moveRight(newRect.right() - SC_DPI(6));
-
-                    textRect.setLeft(iconRect.right() + SC_DPI(6));
-                    textRect.setTop(newRect.top() + SC_DPI(6));
-                    textRect.setBottom(newRect.top() + option.fontMetrics.height() + SC_DPI(6));
-                    textRect.setRight(arrowRect.left() - SC_DPI(6));
-
-                    descRect.setLeft(iconRect.right() + SC_DPI(6));
-                    descRect.setTop(newRect.top() + option.fontMetrics.height() + SC_DPI(8));
-                    descRect.setBottom(newRect.top() + option.fontMetrics.height() * 2 + SC_DPI(6));
-                    descRect.setRight(arrowRect.left() - SC_DPI(6));
-                }
-        };
+        M3::Scheme scheme;
+        qint64 paletteKey = -1; // the scheme is read again only when the palette moves on
 };
 
 PluginItemDelegate::PluginItemDelegate(QObject* parent) :
@@ -70,104 +59,68 @@ PluginItemDelegate::~PluginItemDelegate() {
 }
 
 void PluginItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const {
+    if (option.palette.cacheKey() != d->paletteKey) {
+        d->paletteKey = option.palette.cacheKey();
+        d->scheme = M3::currentScheme();
+    }
+    const M3::Scheme& s = d->scheme;
+    const QString text = index.data().toString();
+    const QString desc = index.data(Qt::UserRole).toString();
+    const QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
+    const bool active = index.data(Qt::UserRole + 2).toBool();
+    const bool blacklisted = index.data(Qt::UserRole + 3).toBool();
+    const bool rtl = option.direction == Qt::RightToLeft;
+    const int rows = index.model()->rowCount(index.parent());
+
     painter->save();
+    painter->setRenderHint(QPainter::Antialiasing);
 
-    tPaintCalculator calculator;
-    calculator.setPainter(painter);
-    calculator.setLayoutDirection(option.direction);
-    calculator.setDrawBounds(option.rect);
-
-    painter->setFont(option.font);
-
-    PluginItemDelegatePrivate::Rects rects(option);
-    QString text = index.data().toString();
-    QString desc = index.data(Qt::UserRole).toString();
-    QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
-    bool active = index.data(Qt::UserRole + 2).toBool();
-    bool blacklisted = index.data(Qt::UserRole + 3).toBool();
-
-    if (option.state & QStyle::State_Selected) {
-        calculator.addRect(option.rect, [=](QRectF drawBounds) {
-            painter->setPen(Qt::transparent);
-            painter->setBrush(option.palette.color(QPalette::Highlight));
-            painter->drawRect(drawBounds);
-        });
-
-        calculator.addRect(rects.textRect, [=](QRectF drawBounds) {
-            painter->setBrush(Qt::transparent);
-            painter->setPen(option.palette.color(QPalette::HighlightedText));
-
-            if (!active) painter->setOpacity(0.5);
-            painter->drawText(drawBounds, Qt::AlignLeading, text);
-        });
-
-        calculator.addRect(rects.descRect, [=](QRectF drawBounds) {
-            painter->drawText(drawBounds, Qt::AlignLeading, desc);
-        });
-    } else if (option.state & QStyle::State_MouseOver) {
-        calculator.addRect(option.rect, [=](QRectF drawBounds) {
-            QColor col = option.palette.color(QPalette::Highlight);
-            col.setAlpha(127);
-            painter->setBrush(col);
-            painter->setPen(Qt::transparent);
-            painter->drawRect(drawBounds);
-        });
-
-        calculator.addRect(rects.textRect, [=](QRectF drawBounds) {
-            if (!active) painter->setOpacity(0.5);
-            painter->setBrush(Qt::transparent);
-            painter->setPen(option.palette.color(QPalette::WindowText));
-            painter->drawText(drawBounds, Qt::AlignLeading, text);
-        });
-        calculator.addRect(rects.descRect, [=](QRectF drawBounds) {
-            painter->setPen(option.palette.color(QPalette::Disabled, QPalette::WindowText));
-            painter->drawText(drawBounds, Qt::AlignLeading, desc);
-        });
-    } else {
-        calculator.addRect(rects.textRect, [=](QRectF drawBounds) {
-            if (!active) painter->setOpacity(0.5);
-            painter->setPen(option.palette.color(QPalette::WindowText));
-            painter->drawText(drawBounds, Qt::AlignLeading, text);
-        });
-        calculator.addRect(rects.descRect, [=](QRectF drawBounds) {
-            painter->setPen(option.palette.color(QPalette::Disabled, QPalette::WindowText));
-            painter->drawText(drawBounds, Qt::AlignLeading, desc);
-        });
+    // The tile, in the content column like the other panes' groups
+    const int width = qMin(option.rect.width(), StateManager::statusCenterManager()->preferredContentWidth());
+    const QRectF tile(option.rect.left() + (option.rect.width() - width) / 2.0, option.rect.top(), width, option.rect.height() - Gap);
+    const QPainterPath shape = tileShape(tile, index.row() == 0 ? Outer : Inner, index.row() == rows - 1 ? Outer : Inner);
+    painter->fillPath(shape, s.surfaceContainerHigh);
+    if (option.state & (QStyle::State_MouseOver | QStyle::State_Selected)) {
+        QColor layer = s.onSurface;
+        layer.setAlphaF(option.state & QStyle::State_Selected ? 0.10f : 0.08f);
+        painter->fillPath(shape, layer);
     }
 
+    // The plugin's symbol, crossed out when it's turned off
+    const QRectF iconRect(rtl ? tile.right() - 16 - 24 : tile.left() + 16, tile.center().y() - 12, 24, 24);
     if (!icon.isNull()) {
-        calculator.addRect(rects.iconRect, [=](QRectF drawBounds) {
-            painter->drawPixmap(drawBounds.toRect(), icon.pixmap(drawBounds.toRect().size()));
-        });
-    }
-
-    if (blacklisted) {
-        calculator.addRect(rects.iconRect, [=](QRectF drawBounds) {
-            painter->setOpacity(1);
-            painter->setPen(QPen(option.palette.color(QPalette::WindowText), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-
-            painter->drawLine(drawBounds.topLeft(), drawBounds.bottomRight());
-            painter->drawLine(drawBounds.bottomLeft(), drawBounds.topRight());
-        });
-    }
-
-    calculator.addRect(rects.arrowRect, [=](QRectF drawBounds) {
+        painter->setOpacity(active ? 1 : 0.38);
+        painter->drawPixmap(iconRect.toRect(), icon.pixmap(QSize(24, 24), painter->device()->devicePixelRatioF()));
         painter->setOpacity(1);
-        painter->drawPixmap(drawBounds.toRect(), QIcon::fromTheme("go-next").pixmap(drawBounds.toRect().size()));
-    });
+    }
+    if (blacklisted) {
+        painter->setPen(QPen(s.onSurfaceVariant, 2, Qt::SolidLine, Qt::RoundCap));
+        painter->drawLine(iconRect.topLeft(), iconRect.bottomRight());
+    }
 
-    calculator.performPaint();
+    // Name over its state (BodyLarge over BodyMedium), then the chevron
+    const QRectF chevron(rtl ? tile.left() + 16 : tile.right() - 16 - 18, tile.center().y() - 9, 18, 18);
+    const QRectF words = rtl ? QRectF(chevron.right() + 16, tile.top(), iconRect.left() - 16 - chevron.right() - 16, tile.height())
+                             : QRectF(iconRect.right() + 16, tile.top(), chevron.left() - 16 - iconRect.right() - 16, tile.height());
+    QFont title = option.font;
+    title.setPixelSize(16);
+    QFont supporting = option.font;
+    supporting.setPixelSize(14);
+    const Qt::Alignment side = rtl ? Qt::AlignRight : Qt::AlignLeft;
+    painter->setFont(title);
+    painter->setPen(active ? s.onSurface : s.onSurfaceVariant);
+    painter->drawText(QRectF(words.left(), words.top(), words.width(), words.height() / 2 + 2), side | Qt::AlignBottom, QFontMetrics(title).elidedText(text, Qt::ElideRight, int(words.width())));
+    painter->setFont(supporting);
+    painter->setPen(s.onSurfaceVariant);
+    painter->drawText(QRectF(words.left(), words.center().y() + 2, words.width(), words.height() / 2 - 2), side | Qt::AlignTop, QFontMetrics(supporting).elidedText(desc, Qt::ElideRight, int(words.width())));
+    const QIcon next = QIcon::fromTheme(rtl ? QStringLiteral("go-previous") : QStringLiteral("go-next"));
+    painter->drawPixmap(chevron.toRect(), next.pixmap(QSize(18, 18), painter->device()->devicePixelRatioF()));
 
     painter->restore();
 }
 
 QSize PluginItemDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const {
-    PluginItemDelegatePrivate::Rects rects(option);
-
-    QRect u = rects.iconRect;
-    u = u.united(rects.textRect);
-    u = u.united(rects.descRect);
-    u.adjust(SC_DPI(-6), SC_DPI(-6), SC_DPI(6), SC_DPI(6));
-
-    return u.size();
+    Q_UNUSED(option)
+    Q_UNUSED(index)
+    return QSize(StateManager::statusCenterManager()->preferredContentWidth(), RowHeight + Gap);
 }

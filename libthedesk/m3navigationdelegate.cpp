@@ -30,6 +30,19 @@ namespace {
     constexpr int rowHeight = 52;
     constexpr int railRowHeight = 68; // NavigationRail item: a 56x32 indicator over its label
     constexpr int circle = 36;
+    constexpr int railLabelWidth = 88; // the folded rail's 96 less the label's margins
+
+    QFont railLabelFont(const QFont& base, bool selected) {
+        QFont label = base;
+        label.setPixelSize(12); // LabelMedium
+        label.setWeight(selected ? QFont::Bold : QFont::Medium);
+        return label;
+    }
+
+    // A rail label too long for one line wraps onto a second, as Compose's Text does
+    bool railLabelWraps(const QFont& base, const QString& text) {
+        return QFontMetrics(railLabelFont(base, false)).horizontalAdvance(text) > railLabelWidth;
+    }
 
     QPixmap tinted(const QIcon& icon, int size, qreal dpr, QColor colour, bool filled = false) {
         QPixmap pixmap = icon.pixmap(QSize(size, size), dpr, QIcon::Normal, filled ? QIcon::On : QIcon::Off);
@@ -172,7 +185,8 @@ QSize M3NavigationDelegate::sizeHint(const QStyleOptionViewItem& option, const Q
     QSize size = QStyledItemDelegate::sizeHint(option, index);
     // folding into a rail, a row asks for no more than its circle (else the list scrolls sideways)
     const double rail = railOf(option.widget);
-    return QSize(qRound((size.width() + circle) * (1 - rail) + (circle + 32) * rail), qRound(lerp(rowHeight, railRowHeight, rail)));
+    const int railHeight = railRowHeight + (rail > 0 && railLabelWraps(option.font, index.data(Qt::DisplayRole).toString()) ? 15 : 0);
+    return QSize(qRound((size.width() + circle) * (1 - rail) + (circle + 32) * rail), qRound(lerp(rowHeight, railHeight, rail)));
 }
 
 void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const {
@@ -242,13 +256,13 @@ void M3NavigationDelegate::paint(QPainter* painter, const QStyleOptionViewItem& 
     if (rail > 0.5) {
         painter->save();
         painter->setOpacity(rail * 2 - 1);
-        QFont label = option.font;
-        label.setPixelSize(12); // LabelMedium
-        label.setWeight(selected ? QFont::Bold : QFont::Medium);
+        const QFont label = railLabelFont(option.font, selected);
+        const QString text = index.data(Qt::DisplayRole).toString();
         painter->setFont(label);
         painter->setPen(selected ? s.onSurface : s.onSurfaceVariant);
-        const QRectF under(option.rect.left() + 4, pill.bottom() + 2, option.rect.width() - 8, 18);
-        painter->drawText(under, Qt::AlignHCenter | Qt::AlignTop, QFontMetrics(label).elidedText(index.data(Qt::DisplayRole).toString(), Qt::ElideRight, int(under.width())));
+        const QRectF under(option.rect.left() + 4, pill.bottom() + 2, option.rect.width() - 8, option.rect.bottom() - pill.bottom() - 2);
+        if (railLabelWraps(option.font, text)) painter->drawText(under, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, text);
+        else painter->drawText(under, Qt::AlignHCenter | Qt::AlignTop, QFontMetrics(label).elidedText(text, Qt::ElideRight, int(under.width())));
         painter->restore();
     }
 

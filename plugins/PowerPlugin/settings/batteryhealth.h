@@ -15,6 +15,7 @@ class BatteryHealth : public QWidget {
 
     protected:
         void paintEvent(QPaintEvent* event) override;
+        void changeEvent(QEvent* event) override;
         void showEvent(QShowEvent* event) override;
         void hideEvent(QHideEvent* event) override;
 

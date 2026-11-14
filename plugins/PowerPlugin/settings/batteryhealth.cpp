@@ -6,6 +6,7 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusReply>
 #include <QElapsedTimer>
+#include <QEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QTimer>
@@ -42,6 +43,7 @@ struct BatteryHealth::Private {
         QTimer wave;             // the draining battery's surface moves
         QTimer refresh;          // readings while the page shows
         QElapsedTimer clock;
+        M3::Scheme scheme = M3::currentScheme(); // read on show and when the palette moves, not per frame
 };
 
 BatteryHealth::BatteryHealth(QWidget* parent) :
@@ -52,7 +54,11 @@ BatteryHealth::BatteryHealth(QWidget* parent) :
     d->fill->snapTo(0.0);
     connect(d->fill, &M3SpringAnimation::valueChanged, this, qOverload<>(&QWidget::update));
     d->wave.setInterval(33);
-    connect(&d->wave, &QTimer::timeout, this, qOverload<>(&QWidget::update));
+    connect(&d->wave, &QTimer::timeout, this, [this] {
+        if (this->visibleRegion().isEmpty()) return; // scrolled out of sight
+        // only the tanks move
+        for (int i = 0; i < d->batteries.size(); i++) this->update(QRect(22, Header + i * (CardHeight + Gap) + 22, 52, CardHeight - 44));
+    });
     d->clock.start();
     d->refresh.setInterval(2000);
     connect(&d->refresh, &QTimer::timeout, this, [this] {
@@ -110,8 +116,14 @@ QSize BatteryHealth::sizeHint() const {
     return QSize(400, n == 0 ? 0 : Header + n * CardHeight + (n - 1) * Gap + 8);
 }
 
+void BatteryHealth::changeEvent(QEvent* event) {
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange) d->scheme = M3::currentScheme();
+}
+
 void BatteryHealth::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
+    d->scheme = M3::currentScheme();
     for (const Private::Battery& battery : std::as_const(d->batteries)) read(battery.path);
     d->fill->snapTo(0.0);
     d->fill->animateTo(1.0);
@@ -126,14 +138,15 @@ void BatteryHealth::hideEvent(QHideEvent* event) {
 
 void BatteryHealth::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event)
-    const M3::Scheme s = M3::currentScheme();
+    const M3::Scheme& s = d->scheme;
+    static const QFont header = flex(14, 600), tank = flex(15, 700), name = flex(18, 600), status = flex(13, 450), figureFont = flex(28, 650), chipFont = flex(12, 600), small = flex(12, 450);
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
     const double time = d->clock.elapsed() / 1000.0;
     const double grow = qMax(0.0, d->fill->currentValue().toDouble());
     const bool calm = !M3Motion::expressive();
 
-    p.setFont(flex(14, 600));
+    p.setFont(header);
     p.setPen(s.primary);
     p.drawText(QRectF(4, 0, this->width(), Header - 8), Qt::AlignBottom | Qt::AlignLeft, d->batteries.size() > 1 ? tr("Batteries") : tr("Battery"));
 
@@ -151,7 +164,7 @@ void BatteryHealth::paintEvent(QPaintEvent* event) {
         const bool charging = b.state == Charging;
         QPainterPath shell;
         shell.addRoundedRect(capsule, 16, 16);
-        p.setBrush(s.surfaceContainerHighest.darker(115));
+        p.setBrush(s.secondaryContainer); // the empty part reads as empty, like a progress track
         p.drawPath(shell);
         p.save();
         p.setClipPath(shell);
@@ -166,17 +179,25 @@ void BatteryHealth::paintEvent(QPaintEvent* event) {
         }
         water.lineTo(capsule.right(), capsule.bottom());
         water.closeSubpath();
-        p.setBrush(b.percentage <= 10 && !charging ? s.error : charging ? s.tertiary : s.primary);
+        const bool low = b.percentage <= 10 && !charging;
+        p.setBrush(low ? s.error : charging ? s.tertiary : s.primary);
         p.drawPath(water);
+        // The charge in ink that reads on both the water and the empty part, split along the surface
+        const QRectF labelRect = capsule.adjusted(0, 0, 0, -capsule.height() * 0.45);
+        const QString label = QStringLiteral("%1%").arg(qRound(b.percentage));
+        p.setFont(tank);
+        p.setClipPath(shell.subtracted(water));
+        p.setPen(s.onSecondaryContainer);
+        p.drawText(labelRect, Qt::AlignCenter, label);
+        p.setClipPath(shell.intersected(water));
+        p.setPen(low ? s.onError : charging ? s.onTertiary : s.onPrimary);
+        p.drawText(labelRect, Qt::AlignCenter, label);
         p.restore();
-        p.setPen(b.percentage > 55 ? (b.percentage <= 10 && !charging ? s.onError : charging ? s.onTertiary : s.onPrimary) : s.onSurface);
-        p.setFont(flex(15, 700));
-        p.drawText(capsule.adjusted(0, 0, 0, -capsule.height() * 0.45), Qt::AlignCenter, QStringLiteral("%1%").arg(qRound(b.percentage)));
 
         // The words
         const double left = capsule.right() + 20;
         const double width = card.right() - 22 - left;
-        p.setFont(flex(18, 600));
+        p.setFont(name);
         p.setPen(s.onSurface);
         p.drawText(QRectF(left, card.top() + 18, width, 26), Qt::AlignLeft | Qt::AlignVCenter, b.name);
         QString status;
@@ -185,7 +206,7 @@ void BatteryHealth::paintEvent(QPaintEvent* event) {
         else if (b.state == Full) status = tr("Full");
         else status = tr("Resting");
         if (b.endThreshold > 0 && b.endThreshold < 100) status += QStringLiteral(" · ") + tr("charges to %1%").arg(b.endThreshold);
-        p.setFont(flex(13, 450));
+        p.setFont(status);
         p.setPen(s.onSurfaceVariant);
         p.drawText(QRectF(left, card.top() + 44, width, 20), Qt::AlignLeft | Qt::AlignVCenter, status);
 
@@ -197,12 +218,12 @@ void BatteryHealth::paintEvent(QPaintEvent* event) {
             const QColor chipInk = health >= 0.8 ? s.onSecondaryContainer : health >= 0.5 ? s.onTertiaryContainer : s.onErrorContainer;
             const QColor bar = health >= 0.8 ? s.primary : health >= 0.5 ? s.tertiary : s.error;
 
-            p.setFont(flex(28, 650));
+            p.setFont(figureFont);
             p.setPen(s.onSurface);
             const QString figure = QStringLiteral("%1%").arg(qRound(health * 100));
             const double figureWidth = QFontMetrics(p.font()).horizontalAdvance(figure);
             p.drawText(QRectF(left, card.top() + 70, figureWidth + 4, 36), Qt::AlignLeft | Qt::AlignVCenter, figure);
-            p.setFont(flex(12, 600));
+            p.setFont(chipFont);
             const double chipWidth = QFontMetrics(p.font()).horizontalAdvance(word) + 20;
             const QRectF chipRect(left + figureWidth + 10, card.top() + 77, chipWidth, 24);
             p.setPen(Qt::NoPen);
@@ -210,7 +231,7 @@ void BatteryHealth::paintEvent(QPaintEvent* event) {
             p.drawRoundedRect(chipRect, 12, 12);
             p.setPen(chipInk);
             p.drawText(chipRect, Qt::AlignCenter, word);
-            p.setFont(flex(12, 450));
+            p.setFont(small);
             p.setPen(s.onSurfaceVariant);
             p.drawText(QRectF(chipRect.right() + 10, card.top() + 77, card.right() - 22 - chipRect.right() - 10, 24), Qt::AlignVCenter | Qt::AlignRight,
                 tr("health · holds %1 of %2 Wh").arg(QLocale().toString(b.energyFull, 'f', 1), QLocale().toString(b.energyDesign, 'f', 1)));

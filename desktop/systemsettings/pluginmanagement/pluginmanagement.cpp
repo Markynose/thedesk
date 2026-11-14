@@ -50,6 +50,8 @@ PluginManagement::PluginManagement() :
     d->pluginModel = new PluginModel();
     ui->pluginsList->setModel(d->pluginModel);
     ui->pluginsList->setItemDelegate(new PluginItemDelegate(this));
+    ui->pluginsList->viewport()->setAutoFillBackground(false); // the rows are tiles on the page
+    ui->line->setVisible(false);
 }
 
 PluginManagement::~PluginManagement() {

@@ -96,6 +96,10 @@ StatusCenterLeftPane::StatusCenterLeftPane(QWidget* parent) :
     ui->label->setContentsMargins(64, 0, 0, 0);
     connect(ui->stackedWidget, &tStackedWidget::currentChanged, this, [this] {
         setAttached(d->attached);
+        // A pane's own list inside another's (Users, Input in System Settings) opens out:
+        // a rail has no room for its header and names
+        const double rail = d->folded && ui->stackedWidget->currentIndex() < 2 ? 1.0 : 0.0;
+        if (d->rail->endValue().toDouble() != rail) d->rail->animateTo(rail);
     });
     followRail();
 }

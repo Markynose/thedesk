@@ -321,6 +321,8 @@ namespace {
                 if (!layout || !layout->hasHeightForWidth() || c->width() <= 0) return;
                 const int h = layout->totalHeightForWidth(c->width());
                 if (c->minimumHeight() != h) c->setMinimumHeight(h);
+                // growing to it from inside a resize can leave the layout at the old height (rows squeezed over each other)
+                if (layout->geometry() != c->rect()) layout->setGeometry(c->rect());
             }
 
             const M3::Scheme& scheme() const {

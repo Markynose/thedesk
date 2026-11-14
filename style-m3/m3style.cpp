@@ -297,6 +297,7 @@ namespace {
             letters.remove(QRegularExpression(QStringLiteral("[^\\p{L}0-9]")));
             if (acronyms.contains(letters)) continue;
             w = w.toLower();
+            w.replace(QStringLiteral("thedesk"), QStringLiteral("theDesk")); // the name keeps its own casing
             if (i == 0 && !w.isEmpty()) w[0] = w[0].toUpper();
         }
         return words.join(QLatin1Char(' '));
@@ -890,6 +891,8 @@ int M3Style::styleHint(StyleHint hint, const QStyleOption* option, const QWidget
             return 1; // M3: an exposed dropdown opens a menu
         case SH_ComboBox_PopupFrameStyle:
             return QFrame::NoFrame;
+        case SH_ComboBox_AllowWheelScrolling:
+            return 0; // scrolling a settings page over a menu mustn't change its value (Android's menus don't)
         case SH_DialogButtonBox_ButtonsHaveIcons:
             return 0;
         case SH_Slider_AbsoluteSetButtons:
