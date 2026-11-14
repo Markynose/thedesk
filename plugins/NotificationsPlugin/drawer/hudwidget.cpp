@@ -314,6 +314,21 @@ HudWidget::HudWidget(QWidget* parent) :
 
     ui->iconValuePage->installEventFilter(this);
     ui->iconTextPage->installEventFilter(this);
+
+    // Testing: stand-in volume, brightness and snackbar HUDs a few seconds
+    // after starting, without touching the real levels
+    if (qEnvironmentVariableIsSet("TD_HUD_TEST")) {
+        const int at = qEnvironmentVariableIntValue("TD_HUD_TEST") * 1000;
+        QTimer::singleShot(at, this, [] {
+            StateManager::hudManager()->showHud({{"icon", "audio-volume-high"}, {"value", 0.62}, {"actionId", "hud-test"}, {"timeout", 6000}});
+        });
+        QTimer::singleShot(at + 7000, this, [] {
+            StateManager::hudManager()->showHud({{"icon", "video-display-brightness"}, {"value", 0.2}, {"timeout", 4000}});
+        });
+        QTimer::singleShot(at + 8000, this, [] {
+            StateManager::hudManager()->showHud({{"icon", "dialog-information"}, {"title", "Test"}, {"text", "A snackbar with an action"}, {"action", "Show"}, {"timeout", 6000}});
+        });
+    }
 }
 
 HudWidget::~HudWidget() {

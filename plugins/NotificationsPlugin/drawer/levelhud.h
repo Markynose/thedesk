@@ -18,9 +18,9 @@ struct LevelHudPrivate;
 
 /**
  * Volume and brightness as an M3 Expressive slider (size L) in a pill at the
- * right edge of the screen, as Android 16 does: the active track Primary
- * with the symbol inside it, a thin handle with gaps, the level in Roboto
- * Flex above. Comes in on a spring, goes after a moment untouched. With an
+ * right edge of the screen, as Android 16 does: one rounded track, the
+ * active part Primary from the bottom with the symbol and a short handle
+ * inside it, the level in Roboto Flex above. Comes in on a spring, goes after a moment untouched. With an
  * "actionId" it has a tune button under the slider that reports it.
  */
 class LevelHud : public QWidget {

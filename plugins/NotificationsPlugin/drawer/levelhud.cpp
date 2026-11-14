@@ -28,9 +28,9 @@ namespace {
     constexpr int PanelHeight = 360;
     constexpr int TunedHeight = 400; // with the tune button under the slider
     constexpr int EdgeMargin = 24;
-    constexpr int Track = 56;      // M3E slider, size L
+    constexpr int Track = 56; // M3E slider, size L
     constexpr int TrackLength = 270;
-    constexpr double Gap = 6, Handle = 4, OuterCorner = 16, InnerCorner = 4;
+    constexpr double TrackCorner = 20, ActiveMin = Track; // the active part always holds the symbol
 
     // A freedesktop icon name from the callers to a Material Symbol
     QString symbolFor(const QString& icon, bool muted) {
@@ -50,26 +50,6 @@ namespace {
         font.setVariableAxis(QFont::Tag("wdth"), float(wdth));
         font.setVariableAxis(QFont::Tag("opsz"), float(qBound(8.0, px, 144.0)));
         return font;
-    }
-
-    // A track segment: big corners at the track's own end, small ones by the
-    // handle (vertical: `from`/`to` measured up from the bottom)
-    QPainterPath segment(const QRectF& track, double from, double to, bool bottomEnd) {
-        QRectF r(track.left(), track.bottom() - to, track.width(), to - from);
-        const double bottom = bottomEnd ? OuterCorner : InnerCorner;
-        const double top = bottomEnd ? InnerCorner : OuterCorner;
-        QPainterPath path;
-        path.moveTo(r.left() + top, r.top());
-        path.lineTo(r.right() - top, r.top());
-        path.quadTo(r.right(), r.top(), r.right(), r.top() + top);
-        path.lineTo(r.right(), r.bottom() - bottom);
-        path.quadTo(r.right(), r.bottom(), r.right() - bottom, r.bottom());
-        path.lineTo(r.left() + bottom, r.bottom());
-        path.quadTo(r.left(), r.bottom(), r.left(), r.bottom() - bottom);
-        path.lineTo(r.left(), r.top() + top);
-        path.quadTo(r.left(), r.top(), r.left() + top, r.top());
-        path.closeSubpath();
-        return path;
     }
 } // namespace
 
@@ -209,29 +189,31 @@ void LevelHud::paintEvent(QPaintEvent* event) {
     p.setFont(d->muted ? flex(16, 750) : flex(26, 750, 112));
     p.drawText(QRectF(panel.left(), panel.top() + 14, panel.width(), 40), Qt::AlignCenter, d->muted ? tr("Muted") : QLocale().toString(qRound(d->target * 100)));
 
-    // The slider
+    // The slider, as Android's volume dialog: one rounded track, the active
+    // part filled up from the bottom with the symbol at its foot and a short
+    // handle bar inside its top end; nothing leaves the track
     const QRectF track(panel.center().x() - Track / 2.0, panel.top() + 66, Track, TrackLength);
-    const double usable = TrackLength - Handle - 2 * Gap;
-    const double pos = qBound(0.0, level, 1.0) * usable;
+    const double length = ActiveMin + qBound(0.0, level, 1.0) * (TrackLength - ActiveMin);
     const QColor active = d->muted ? s.outline : boosted ? s.tertiary : s.primary;
-    if (pos > 1) p.fillPath(segment(track, 0, pos, true), active);
-    if (pos + 2 * Gap + Handle < TrackLength - 1) p.fillPath(segment(track, pos + 2 * Gap + Handle, TrackLength, false), s.secondaryContainer);
+    const QColor onActive = d->muted ? s.surface : boosted ? s.onTertiary : s.onPrimary;
+    QPainterPath trackPath;
+    trackPath.addRoundedRect(track, TrackCorner, TrackCorner);
+    p.fillPath(trackPath, s.secondaryContainer);
+    QPainterPath filled;
+    filled.addRoundedRect(QRectF(track.left(), track.bottom() - length, Track, length), 8, 8);
+    p.fillPath(filled.intersected(trackPath), active);
     QPainterPath handle;
-    handle.addRoundedRect(QRectF(track.left() - 6, track.bottom() - pos - Gap - Handle, Track + 12, Handle), 2, 2);
-    p.fillPath(handle, active);
+    handle.addRoundedRect(QRectF(track.center().x() - 12, track.bottom() - length + 8, 24, 4), 2, 2);
+    p.fillPath(handle, onActive);
 
-    // The symbol: inside the active track, or in the inactive one when the
-    // level is too low to hold it
-    const bool inside = pos > 44;
-    const QPointF centre(track.center().x(), inside ? track.bottom() - 24 : track.bottom() - pos - 2 * Gap - Handle - 24);
     QFont symbol(QStringLiteral("Material Symbols Rounded"));
     symbol.setPixelSize(24);
     symbol.setVariableAxis(QFont::Tag("FILL"), 1);
     symbol.setVariableAxis(QFont::Tag("wght"), 500);
     symbol.setVariableAxis(QFont::Tag("opsz"), 24);
     p.setFont(symbol);
-    p.setPen(inside ? (d->muted ? s.surface : boosted ? s.onTertiary : s.onPrimary) : s.onSecondaryContainer);
-    p.drawText(QRectF(centre.x() - 20, centre.y() - 20, 40, 40), Qt::AlignCenter, d->symbol);
+    p.setPen(onActive);
+    p.drawText(QRectF(track.center().x() - 20, track.bottom() - 46, 40, 40), Qt::AlignCenter, d->symbol);
 
     // Android's tune button: opens the whole panel
     if (!d->action.isEmpty()) {
