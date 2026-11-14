@@ -29,8 +29,8 @@ SOURCES += \
     eventhandler.cpp \
     micchunk.cpp \
     plugin.cpp \
-    quickwidgetsink.cpp \
-    quickwidgetsinkinput.cpp
+    quickwidgetsinkinput.cpp \
+    volumecolumn.cpp
 
 HEADERS += \
     audiochunk.h \
@@ -39,8 +39,8 @@ HEADERS += \
     eventhandler.h \
     micchunk.h \
     plugin.h \
-    quickwidgetsink.h \
-    quickwidgetsinkinput.h
+    quickwidgetsinkinput.h \
+    volumecolumn.h
 
 DISTFILES += \
     Plugin.json \

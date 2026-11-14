@@ -20,6 +20,7 @@
 #include "common.h"
 
 #include <PulseAudioQt/Port>
+#include <QCoreApplication>
 #include <QVariantMap>
 
 Common::DevicePort Common::portForSink(PulseAudioQt::Sink* sink) {
@@ -68,5 +69,40 @@ QString Common::nameForSink(PulseAudioQt::Sink* sink) {
         return properties.value("bluez.alias").toString();
     } else {
         return sink->description();
+    }
+}
+
+QString Common::titleForSink(PulseAudioQt::Sink* sink) {
+    switch (portForSink(sink)) {
+        case Speakers:
+            return QCoreApplication::translate("Common", "Speakers");
+        case Headphones:
+            return QCoreApplication::translate("Common", "Headphones");
+        case LineOut:
+            return QCoreApplication::translate("Common", "Line Out");
+        default:
+            return nameForSink(sink);
+    }
+}
+
+QString Common::symbolForSink(PulseAudioQt::Sink* sink) {
+    switch (portForSink(sink)) {
+        case Headphones:
+            return QStringLiteral("headphones");
+        case Bluetooth:
+            return QStringLiteral("bluetooth");
+        default:
+            return QStringLiteral("speaker");
+    }
+}
+
+QString Common::iconForSink(PulseAudioQt::Sink* sink) {
+    switch (portForSink(sink)) {
+        case Headphones:
+            return QStringLiteral("audio-headphones");
+        case Bluetooth:
+            return QStringLiteral("bluetooth");
+        default:
+            return QStringLiteral("audio-speakers");
     }
 }

@@ -23,6 +23,7 @@
 
 #include <algorithm>
 
+#include "audioquickwidget.h"
 #include "common.h"
 #include <QKeySequence>
 #include <hudmanager.h>
@@ -160,6 +161,9 @@ void EventHandler::showHud(PulseAudioQt::Sink* sink, qint64 volume) {
         return;
     }
 
+    // The open panel already shows the change
+    if (AudioQuickWidget::isOpen()) return;
+
     double displayVolume;
     if (volume == -1) {
         displayVolume = sink->volume() / static_cast<double>(PulseAudioQt::normalVolume());
@@ -168,6 +172,7 @@ void EventHandler::showHud(PulseAudioQt::Sink* sink, qint64 volume) {
     }
     QVariantMap hudData;
     hudData.insert("value", displayVolume);
+    hudData.insert("actionId", QStringLiteral("audio-panel")); // the HUD's tune button opens the panel
     switch (Common::portForSink(sink)) {
         case Common::Speakers:
             hudData.insert("icon", "audio-volume-high");

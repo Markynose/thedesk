@@ -22,30 +22,21 @@
 
 #include <PulseAudioQt/Sink>
 #include <PulseAudioQt/SinkInput>
-#include <QWidget>
-
-namespace Ui {
-    class QuickWidgetSinkInput;
-}
+#include "volumecolumn.h"
 
 struct QuickWidgetSinkInputPrivate;
-class QuickWidgetSinkInput : public QWidget {
+class QuickWidgetSinkInput : public VolumeColumn {
         Q_OBJECT
 
     public:
         explicit QuickWidgetSinkInput(PulseAudioQt::SinkInput* sinkInput, QWidget* parent = nullptr);
         ~QuickWidgetSinkInput();
 
-    private slots:
-        void on_volumeSlider_sliderPressed();
-
-        void on_volumeSlider_sliderReleased();
-
-        void on_volumeSlider_valueChanged(int value);
-
     private:
-        Ui::QuickWidgetSinkInput* ui;
         QuickWidgetSinkInputPrivate* d;
+
+        void volumeSet(int value);
+        void updateDevice();
 
         void sinkAdded(PulseAudioQt::Sink* sink);
         void sinkRemoved(PulseAudioQt::Sink* sink);

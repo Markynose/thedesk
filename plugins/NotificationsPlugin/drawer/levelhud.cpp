@@ -11,18 +11,22 @@
 #include "levelhud.h"
 
 #include <QGuiApplication>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QScreen>
 #include <QTimer>
 #include <Wm/desktopwm.h>
 #include <compositor.h>
+#include <hudmanager.h>
+#include <statemanager.h>
 #include <m3motion.h>
 #include <m3scheme.h>
 
 namespace {
     constexpr int PanelWidth = 96;
     constexpr int PanelHeight = 360;
+    constexpr int TunedHeight = 400; // with the tune button under the slider
     constexpr int EdgeMargin = 24;
     constexpr int Track = 56;      // M3E slider, size L
     constexpr int TrackLength = 270;
@@ -74,6 +78,7 @@ struct LevelHudPrivate {
         M3SpringAnimation* level;
         QTimer* hide;
         QString symbol;
+        QString action;
         bool muted = false;
         double target = 0;
         bool hiding = false;
@@ -86,7 +91,7 @@ LevelHud::LevelHud(QWidget* parent) :
     this->setAttribute(Qt::WA_TranslucentBackground);
     this->setAttribute(Qt::WA_ShowWithoutActivating);
     this->setWindowTitle(QStringLiteral("theDesk level"));
-    this->setFixedSize(PanelWidth + EdgeMargin + 16, PanelHeight + 32); // room to slide and for the shadow
+    this->setFixedSize(PanelWidth + EdgeMargin + 16, TunedHeight + 32); // room to slide and for the shadow
 
     d->shown = new M3SpringAnimation(this);
     d->shown->setToken(M3Motion::SpatialDefault);
@@ -121,12 +126,13 @@ void LevelHud::showLevel(const QVariantMap& parameters) {
     d->muted = icon.contains(QStringLiteral("muted"));
     d->symbol = symbolFor(icon, d->muted);
     d->target = parameters.value(QStringLiteral("value")).toDouble();
+    d->action = parameters.value(QStringLiteral("actionId")).toString();
+    place();
 
     if (!this->isVisible() || d->hiding) {
         // From where it is, or from the right value if it was gone
         if (!this->isVisible()) d->level->snapTo(d->target);
         d->hiding = false;
-        place();
         this->show();
         this->raise();
         DesktopWm::setSystemWindow(this, DesktopWm::SystemWindowTypeNotification);
@@ -145,12 +151,29 @@ void LevelHud::place() {
 
     // No compositor: the window is the panel's shape
     if (!Compositor::isActive()) {
-        QPainterPath panel;
-        panel.addRoundedRect(QRectF(this->width() - EdgeMargin - PanelWidth, 16, PanelWidth, PanelHeight), 28, 28);
-        this->setMask(QRegion(panel.toFillPolygon().toPolygon()));
+        QPainterPath shape;
+        shape.addRoundedRect(panel(), 28, 28);
+        this->setMask(QRegion(shape.toFillPolygon().toPolygon()));
     } else {
         this->clearMask();
     }
+}
+
+QRectF LevelHud::panel() const {
+    const int height = d->action.isEmpty() ? PanelHeight : TunedHeight;
+    return QRectF(this->width() - EdgeMargin - PanelWidth, 16 + (TunedHeight - height) / 2, PanelWidth, height);
+}
+
+QRectF LevelHud::tune() const {
+    const QRectF p = panel();
+    return d->action.isEmpty() ? QRectF() : QRectF(p.center().x() - 20, p.top() + 346, 40, 40);
+}
+
+void LevelHud::mouseReleaseEvent(QMouseEvent* event) {
+    if (!tune().contains(event->position())) return;
+    d->hide->stop();
+    this->hide();
+    StateManager::hudManager()->triggerAction(d->action);
 }
 
 void LevelHud::paintEvent(QPaintEvent* event) {
@@ -167,7 +190,7 @@ void LevelHud::paintEvent(QPaintEvent* event) {
 
     // In from the edge (without a compositor the mask holds it in place)
     const double slide = composited ? (1 - qBound(0.0, shown, 1.2)) * 60 : 0;
-    const QRectF panel(this->width() - EdgeMargin - PanelWidth + slide, 16, PanelWidth, PanelHeight);
+    const QRectF panel = this->panel().translated(slide, 0);
     if (composited) {
         for (int i = 6; i >= 1; i--) {
             QPainterPath shadow;
@@ -209,4 +232,17 @@ void LevelHud::paintEvent(QPaintEvent* event) {
     p.setFont(symbol);
     p.setPen(inside ? (d->muted ? s.surface : boosted ? s.onTertiary : s.onPrimary) : s.onSecondaryContainer);
     p.drawText(QRectF(centre.x() - 20, centre.y() - 20, 40, 40), Qt::AlignCenter, d->symbol);
+
+    // Android's tune button: opens the whole panel
+    if (!d->action.isEmpty()) {
+        const QRectF button = tune().translated(slide, 0);
+        p.setPen(Qt::NoPen);
+        p.setBrush(s.secondaryContainer);
+        p.drawEllipse(button);
+        symbol.setPixelSize(20);
+        symbol.setVariableAxis(QFont::Tag("opsz"), 20);
+        p.setFont(symbol);
+        p.setPen(s.onSecondaryContainer);
+        p.drawText(button, Qt::AlignCenter, QStringLiteral("tune"));
+    }
 }

@@ -11,8 +11,8 @@ set(SOURCES
     eventhandler.cpp
     micchunk.cpp
     plugin.cpp
-    quickwidgetsink.cpp
     quickwidgetsinkinput.cpp
+    volumecolumn.cpp
 )
 
 set(HEADERS
@@ -22,8 +22,8 @@ set(HEADERS
     eventhandler.h
     micchunk.h
     plugin.h
-    quickwidgetsink.h
     quickwidgetsinkinput.h
+    volumecolumn.h
 )
 
 set(PLUGIN_NAME pulseaudio)

@@ -30,6 +30,7 @@
 #include <PulseAudioQt/Sink>
 #include <assistanttools.h>
 #include <barmanager.h>
+#include <hudmanager.h>
 #include <localemanager.h>
 #include <statemanager.h>
 #include <statuscentermanager.h>
@@ -60,6 +61,9 @@ void Plugin::activate() {
 
     d->chunk = new AudioChunk();
     StateManager::barManager()->addChunk(d->chunk);
+    connect(StateManager::hudManager(), &HudManager::actionTriggered, d->chunk, [this](QString actionId) {
+        if (actionId == QLatin1String("audio-panel")) d->chunk->showQuickWidget();
+    });
 
     d->micChunk = new MicChunk();
 

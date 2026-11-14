@@ -33,6 +33,10 @@ namespace Common {
 
     DevicePort portForSink(PulseAudioQt::Sink* sink);
     QString nameForSink(PulseAudioQt::Sink* sink);
+    // What people call it: the port (Speakers, Headphones), else the device's name
+    QString titleForSink(PulseAudioQt::Sink* sink);
+    QString symbolForSink(PulseAudioQt::Sink* sink); // a Material Symbol
+    QString iconForSink(PulseAudioQt::Sink* sink);   // a freedesktop icon name
 } // namespace Common
 
 #endif // COMMON_H

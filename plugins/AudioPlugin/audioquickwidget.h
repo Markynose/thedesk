@@ -24,10 +24,6 @@
 #include <PulseAudioQt/SinkInput>
 #include <QWidget>
 
-namespace Ui {
-    class AudioQuickWidget;
-}
-
 struct AudioQuickWidgetPrivate;
 class AudioQuickWidget : public QWidget {
         Q_OBJECT
@@ -38,20 +34,22 @@ class AudioQuickWidget : public QWidget {
 
         QSize sizeHint() const;
 
-        void sinkAdded(PulseAudioQt::Sink* sink);
-        void sinkRemoved(PulseAudioQt::Sink* sink);
+        // The panel is up (the level HUD stays away meanwhile)
+        static bool isOpen();
 
         void sinkInputAdded(PulseAudioQt::SinkInput* sinkInput);
         void sinkInputRemoved(PulseAudioQt::SinkInput* sinkInput);
 
     private:
-        Ui::AudioQuickWidget* ui;
         AudioQuickWidgetPrivate* d;
 
         bool eventFilter(QObject* watched, QEvent* event);
 
         void updatePrimaryScreen();
         void updateMaxHeight();
+        void trackSink(PulseAudioQt::Sink* sink);
+        void updateMaster();
+        void updateQuietMode();
 };
 
 #endif // AUDIOQUICKWIDGET_H

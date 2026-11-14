@@ -44,6 +44,8 @@ AudioChunk::AudioChunk() : IconTextChunk("audio") {
     d->volumeShown.setSingleShot(true);
     d->volumeShown.setInterval(1500);
     connect(&d->volumeShown, &QTimer::timeout, this, [this] {
+        // Not while the panel is open: the chunk it grew from stays put
+        if (AudioQuickWidget::isOpen()) return d->volumeShown.start();
         this->setShortText({});
     });
     connect(PulseAudioQt::Context::instance()->server(), &PulseAudioQt::Server::defaultSinkChanged, this, &AudioChunk::trackSink);
@@ -63,6 +65,7 @@ void AudioChunk::trackSink(PulseAudioQt::Sink* sink) {
     d->sink = sink;
     if (sink) connect(sink, &PulseAudioQt::Sink::volumeChanged, this, [this] {
         updateData();
+        if (AudioQuickWidget::isOpen()) return; // the panel shows it
         this->setShortText(QStringLiteral("%1%").arg(qRound(100.0 * d->sink->volume() / PulseAudioQt::normalVolume())));
         d->volumeShown.start();
     });

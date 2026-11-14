@@ -18,10 +18,10 @@
  *
  * *************************************/
 #include "quickwidgetsinkinput.h"
-#include "ui_quickwidgetsinkinput.h"
 
 #include "common.h"
 #include <PulseAudioQt/Context>
+#include <PulseAudioQt/Server>
 #include <QActionGroup>
 #include <QMenu>
 #include <QPointer>
@@ -34,7 +34,6 @@ struct QuickWidgetSinkInputPrivate {
         QString pid;
         static QMultiMap<QString, QuickWidgetSinkInput*> sinkInputsByPid;
 
-        QMenu* menu;
         QMenu* devicesMenu;
         QMap<PulseAudioQt::Sink*, QAction*> sinkActions;
         QActionGroup* devicesGroup;
@@ -43,12 +42,16 @@ struct QuickWidgetSinkInputPrivate {
 QMultiMap<QString, QuickWidgetSinkInput*> QuickWidgetSinkInputPrivate::sinkInputsByPid = QMultiMap<QString, QuickWidgetSinkInput*>();
 
 QuickWidgetSinkInput::QuickWidgetSinkInput(PulseAudioQt::SinkInput* sinkInput, QWidget* parent) :
-    QWidget(parent),
-    ui(new Ui::QuickWidgetSinkInput) {
-    ui->setupUi(this);
-    ui->volumeSlider->setRange(0, 100);
+    VolumeColumn(false, parent) {
     d = new QuickWidgetSinkInputPrivate();
     d->sinkInput = sinkInput;
+    connect(this, &QAbstractSlider::sliderPressed, this, [this] {
+        d->changingVolume = true;
+    });
+    connect(this, &QAbstractSlider::sliderReleased, this, [this] {
+        d->changingVolume = false;
+    });
+    connect(this, &QAbstractSlider::valueChanged, this, &QuickWidgetSinkInput::volumeSet);
 
     connect(sinkInput, &PulseAudioQt::SinkInput::nameChanged, this, &QuickWidgetSinkInput::updateClient);
     connect(sinkInput, &PulseAudioQt::SinkInput::clientChanged, this, &QuickWidgetSinkInput::updateClient);
@@ -65,30 +68,30 @@ QuickWidgetSinkInput::QuickWidgetSinkInput(PulseAudioQt::SinkInput* sinkInput, Q
     d->devicesMenu->setTitle(tr("Play on"));
     d->devicesMenu->setIcon(QIcon::fromTheme("audio-headphones"));
 
-    d->menu = new QMenu();
-    d->menu->addMenu(d->devicesMenu);
-    ui->menuButton->setMenu(d->menu);
+    this->setMenu(d->devicesMenu);
 
     connect(PulseAudioQt::Context::instance(), &PulseAudioQt::Context::sinkAdded, this, &QuickWidgetSinkInput::sinkAdded);
     connect(PulseAudioQt::Context::instance(), &PulseAudioQt::Context::sinkRemoved, this, &QuickWidgetSinkInput::sinkRemoved);
     for (PulseAudioQt::Sink* sink : PulseAudioQt::Context::instance()->sinks()) sinkAdded(sink);
 
-    this->setFixedWidth(SC_DPI(600));
-    ui->nameLabel->setFixedWidth(SC_DPI(200));
+    // Not on the output everything else uses: say where it plays
+    connect(sinkInput, &PulseAudioQt::SinkInput::deviceIndexChanged, this, &QuickWidgetSinkInput::updateDevice);
+    connect(PulseAudioQt::Context::instance()->server(), &PulseAudioQt::Server::defaultSinkChanged, this, &QuickWidgetSinkInput::updateDevice);
+    updateDevice();
 }
 
 QuickWidgetSinkInput::~QuickWidgetSinkInput() {
     d->sinkInputsByPid.remove(d->pid, this);
     for (QuickWidgetSinkInput* sinkInputWidget : d->sinkInputsByPid.values(d->pid)) sinkInputWidget->updateVisibility();
+    delete d->devicesMenu;
     delete d;
-    delete ui;
 }
 
 void QuickWidgetSinkInput::updateVolume() {
     if (d->changingVolume) return;
     int volume = d->sinkInput->volume() / static_cast<double>(PulseAudioQt::normalVolume()) * 100 + 0.5;
-    QSignalBlocker blocker(ui->volumeSlider);
-    ui->volumeSlider->setValue(volume);
+    QSignalBlocker blocker(this);
+    this->setValue(volume);
 }
 
 void QuickWidgetSinkInput::updateClient() {
@@ -98,7 +101,11 @@ void QuickWidgetSinkInput::updateClient() {
     //    } else {
     //        name = d->sinkInput->name();
     //    }
-    ui->nameLabel->setText(this->fontMetrics().elidedText(name, Qt::ElideRight, SC_DPI(200)));
+    this->setName(name);
+    // shortcut: a browser or a generic note, until apps tell us more than their name
+    const QString app = (name + d->sinkInput->properties().value("application.process.binary").toString()).toLower();
+    const bool browser = app.contains("firefox") || app.contains("chrom") || app.contains("browser") || app.contains("brave") || app.contains("edge");
+    this->setSymbol(browser ? QStringLiteral("public") : QStringLiteral("music_note"));
 }
 
 void QuickWidgetSinkInput::updateProperties() {
@@ -114,15 +121,18 @@ void QuickWidgetSinkInput::updateVisibility() {
     this->setVisible(d->sinkInputsByPid.values(d->pid).first() == this);
 }
 
-void QuickWidgetSinkInput::on_volumeSlider_sliderPressed() {
-    d->changingVolume = true;
+void QuickWidgetSinkInput::updateDevice() {
+    PulseAudioQt::Sink* defaultSink = PulseAudioQt::Context::instance()->server()->defaultSink();
+    QString subtitle;
+    if (defaultSink && d->sinkInput->deviceIndex() != defaultSink->index()) {
+        for (PulseAudioQt::Sink* sink : PulseAudioQt::Context::instance()->sinks()) {
+            if (sink->index() == d->sinkInput->deviceIndex()) subtitle = tr("on %1").arg(Common::titleForSink(sink));
+        }
+    }
+    this->setSubtitle(subtitle);
 }
 
-void QuickWidgetSinkInput::on_volumeSlider_sliderReleased() {
-    d->changingVolume = false;
-}
-
-void QuickWidgetSinkInput::on_volumeSlider_valueChanged(int value) {
+void QuickWidgetSinkInput::volumeSet(int value) {
     qint64 newVolume = PulseAudioQt::normalVolume() * value / 100;
 
     for (QuickWidgetSinkInput* sinkInputWidget : d->sinkInputsByPid.values(d->pid)) sinkInputWidget->d->sinkInput->setVolume(newVolume);
@@ -133,9 +143,9 @@ void QuickWidgetSinkInput::sinkAdded(PulseAudioQt::Sink* sink) {
     action->setCheckable(true);
 
     connect(sink, &PulseAudioQt::Sink::propertiesChanged, action, [=] {
-        action->setText(Common::nameForSink(sink));
+        action->setText(Common::titleForSink(sink));
     });
-    action->setText(Common::nameForSink(sink));
+    action->setText(Common::titleForSink(sink));
 
     connect(d->sinkInput, &PulseAudioQt::SinkInput::deviceIndexChanged, action, [=] {
         action->setChecked(sink->index() == d->sinkInput->deviceIndex());
