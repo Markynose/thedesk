@@ -17,6 +17,8 @@
 #include <QTimer>
 #include <barmanager.h>
 #include <claude/claudeusage.h>
+#include <cmath>
+#include <m3circularprogress.h>
 #include <m3motion.h>
 #include <m3scheme.h>
 #include <statemanager.h>
@@ -190,15 +192,9 @@ void ClaudeChunk::paintEvent(QPaintEvent* event) {
     // A ring each: this session, this week
     if (waiting < 1) {
         p.setOpacity(1 - waiting);
+        // M3's circular progress, as the battery's; whole pixels so the 3 px stroke's edges land on pixel edges
         auto ring = [&](double x, const ClaudeUsage::Limit& limit, QColor colour) {
-            const QRectF r(x - 7, cy - 7, 14, 14);
-            p.setBrush(Qt::NoBrush);
-            p.setPen(QPen(s.outlineVariant, 3, Qt::SolidLine, Qt::RoundCap));
-            p.drawEllipse(r);
-            if (limit.percent > 0.5) {
-                p.setPen(QPen(colourFor(s, limit, colour), 3, Qt::SolidLine, Qt::RoundCap));
-                p.drawArc(r, 90 * 16, int(-360 * 16 * qMin(1.0, limit.percent / 100)));
-            }
+            M3CircularProgress::paint(p, QPointF(x, std::round(cy)), 6.5, limit.percent / 100, colourFor(s, limit, colour), s.outlineVariant);
         };
         ring(6 + 18 + 10 + 8, usage->session(), s.primary);
         ring(6 + 18 + 10 + 16 + 4 + 8, usage->week(), s.tertiary);

@@ -19,6 +19,7 @@
 #include <QtMath>
 #include <Wm/desktopwm.h>
 #include <barmanager.h>
+#include <m3circularprogress.h>
 #include <m3motion.h>
 #include <m3rollinglabel.h>
 #include <m3scheme.h>
@@ -58,36 +59,6 @@ namespace {
         t = clamp01(t);
         return QColor::fromRgbF(float(a.redF() + (b.redF() - a.redF()) * t), float(a.greenF() + (b.greenF() - a.greenF()) * t),
             float(a.blueF() + (b.blueF() - a.blueF()) * t), float(a.alphaF() + (b.alphaF() - a.alphaF()) * t));
-    }
-
-    // Compose's CircularProgressIndicator / CircularWavyProgressIndicator (determinate), at bar size:
-    // the active arc clockwise from the top with round caps, the track after a gap (gap + stroke) at
-    // both ends; wavy, the arc's radius waves (Compose flattens it at 10% and under, 95% and over)
-    constexpr double Stroke = 3, TrackGap = 2.5, Amplitude = 0.8, Waves = 10;
-    void ring(QPainter& p, QPointF c, double r, double level, double amplitude, double phase, const QColor& active, const QColor& track) {
-        level = clamp01(level);
-        const double sweep = 360 * level, gap = qMin(sweep, qRadiansToDegrees((TrackGap + Stroke) / r));
-        const QRectF box(c.x() - r, c.y() - r, 2 * r, 2 * r);
-        p.setBrush(Qt::NoBrush);
-        if (sweep + 2 * gap < 360) {
-            p.setPen(QPen(track, Stroke, Qt::SolidLine, Qt::RoundCap));
-            p.drawArc(box, int((90 - sweep - gap) * 16), int(-(360 - sweep - 2 * gap) * 16));
-        }
-        p.setPen(QPen(active, Stroke, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-        if (amplitude <= 0) {
-            p.drawArc(box, 90 * 16, int(-qMax(sweep, 0.1) * 16));
-        } else {
-            QPainterPath path;
-            const int steps = qMax(4, int(std::ceil(sweep / 3)));
-            for (int i = 0; i <= steps; i++) {
-                const double a = qDegreesToRadians(sweep * i / steps);
-                const QPointF point = c + QPointF(std::sin(a), -std::cos(a)) * (r + amplitude * std::sin(Waves * a + phase));
-                if (i == 0) path.moveTo(point);
-                else path.lineTo(point);
-            }
-            p.drawPath(path);
-        }
-        p.setPen(Qt::NoPen);
     }
 
     M3SpringAnimation* spring(QObject* parent, M3Motion::Token token) {
@@ -326,7 +297,7 @@ void BatteryChunk::paintEvent(QPaintEvent* event) {
     const QColor track = mix(mix(s.secondaryContainer, mix(s.errorContainer, s.onErrorContainer, 0.3), low), mix(s.primaryContainer, s.onPrimaryContainer, 0.3), plugged);
     const bool wavy = d->onBattery && d->percentage > 10 && d->percentage <= 20;
     // the wave drifts back toward the start, a wavelength a second
-    ring(p, lead, r, d->percentage / 100.0, wavy ? Amplitude : 0, t * 2 * M_PI, mix(mix(s.primary, s.error, low), s.primary, plugged), track);
+    M3CircularProgress::paint(p, lead, r, d->percentage / 100.0, mix(mix(s.primary, s.error, low), s.primary, plugged), track, wavy ? M3CircularProgress::WavyAmplitude : 0, t * 2 * M_PI);
 
     // Critical: a turning SoftBurst grows out of the ring, beating, the plug in it
     const double critical = qMax(0.0, d->critical->currentValue().toDouble());
@@ -339,7 +310,7 @@ void BatteryChunk::paintEvent(QPaintEvent* event) {
         }
         const double since = std::fmod(t, 1.1);
         const double beat = since < 0.3 ? std::sin(M_PI * since / 0.3) : 0;
-        const double size = (2 * r + Stroke + 1) * critical * (1 + 0.14 * beat);
+        const double size = (2 * r + M3CircularProgress::Stroke + 1) * critical * (1 + 0.14 * beat);
         p.save();
         p.translate(lead);
         p.rotate(t * 40);

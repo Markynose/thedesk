@@ -12,6 +12,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/shapes/sources.cmake)
 add_library(thedesk-m3 STATIC
     ${M3_SHAPES_SOURCES}
     horizonclock.cpp horizonclock.h
+    m3circularprogress.cpp m3circularprogress.h
     m3cursor.cpp m3cursor.h
     m3motion.cpp m3motion.h
     m3scheme.cpp m3scheme.h)
