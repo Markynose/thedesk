@@ -5,6 +5,7 @@
 #include "assistantface.h"
 #include "selectionbutton.h"
 #include "pebblenudges.h"
+#include "pebblelive.h"
 #include "claudebrain.h"
 #include "demobrain.h"
 #include "pebblesettings.h"
@@ -52,6 +53,8 @@
 #include <mpris/mprisengine.h>
 #include <mpris/mprisplayer.h>
 #include <QPointer>
+#include <csignal>
+#include <unistd.h>
 
 namespace {
     constexpr double PillWidth = 640, PillHeight = 64, StageWidth = 760;
@@ -360,6 +363,66 @@ namespace {
         if (kind == "storm") shape(MaterialShapes::boom(), at(0.22, 0.26, 0.42), s.tertiary);
     }
 
+    // Live numbers for the "what's busy" tiles, measured between paints (a second or so apart)
+    struct Usage {
+            qint64 busy = 0, total = 0, at = 0;
+            double value = -1;
+    };
+    double cpuOfProcess(int pid) {
+        static QHash<int, Usage> last;
+        QFile stat(QStringLiteral("/proc/%1/stat").arg(pid));
+        if (!stat.open(QFile::ReadOnly)) return -1;
+        const QByteArray all = stat.readAll();
+        const QList<QByteArray> fields = all.mid(all.lastIndexOf(')') + 2).split(' '); // after "pid (name) "
+        if (fields.size() < 13) return -1;
+        const qint64 ticks = fields.at(11).toLongLong() + fields.at(12).toLongLong(), now = QDateTime::currentMSecsSinceEpoch();
+        Usage& u = last[pid];
+        if (u.at > 0 && now - u.at >= 400) {
+            u.value = 100.0 * (ticks - u.busy) / sysconf(_SC_CLK_TCK) / ((now - u.at) / 1000.0);
+            u.busy = ticks;
+            u.at = now;
+        } else if (u.at == 0) {
+            u.busy = ticks;
+            u.at = now;
+        }
+        return u.value;
+    }
+    qint64 memoryOfProcess(int pid) {
+        QFile statm(QStringLiteral("/proc/%1/statm").arg(pid));
+        if (!statm.open(QFile::ReadOnly)) return -1;
+        return statm.readAll().split(' ').value(1).toLongLong() * sysconf(_SC_PAGESIZE);
+    }
+    double cpuOfSystem() {
+        static Usage last;
+        QFile stat(QStringLiteral("/proc/stat"));
+        if (!stat.open(QFile::ReadOnly)) return -1;
+        const QList<QByteArray> f = stat.readLine().simplified().split(' '); // cpu user nice system idle iowait irq softirq steal
+        qint64 total = 0;
+        for (int i = 1; i < f.size() && i <= 8; i++) total += f.at(i).toLongLong();
+        const qint64 idle = f.value(4).toLongLong() + f.value(5).toLongLong(), now = QDateTime::currentMSecsSinceEpoch();
+        if (last.at > 0 && now - last.at >= 400 && total > last.total) {
+            last.value = 100.0 * (1 - double(idle - last.busy) / (total - last.total));
+            last.busy = idle;
+            last.total = total;
+            last.at = now;
+        } else if (last.at == 0) {
+            last.busy = idle;
+            last.total = total;
+            last.at = now;
+        }
+        return last.value;
+    }
+    QPair<qint64, qint64> memoryOfSystem() { // used, total
+        QFile info(QStringLiteral("/proc/meminfo"));
+        if (!info.open(QFile::ReadOnly)) return {0, 0};
+        qint64 total = 0, available = 0;
+        for (const QByteArray& line : info.readAll().split('\n')) {
+            if (line.startsWith("MemTotal:")) total = line.simplified().split(' ').value(1).toLongLong() * 1024;
+            if (line.startsWith("MemAvailable:")) available = line.simplified().split(' ').value(1).toLongLong() * 1024;
+        }
+        return {total - available, total};
+    }
+
     void rise(QPainter& p, const QRectF& r, double since) {
         const double s = springAt(M3Motion::SpatialDefault, since);
         p.translate(r.center());
@@ -456,6 +519,9 @@ struct AssistantPanel::Private {
         qint64 sendPressedAt = -1;
         QList<QRectF> solid;           // what's drawn; a click anywhere else closes
         bool secondTick = false;       // a countdown asked for the next second's frame
+        int armedPid = -1;             // "what's busy": a Close pressed once, waiting for the second press
+        qint64 armedAt = -1;
+        QSet<int> closedPids;
         QVariantAnimation* leave;
 
         double scroll = 0, scrollVelocity = 0, scrollTarget = 0;
@@ -498,6 +564,9 @@ void AssistantPanel::setUp() {
         QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("PropertiesChanged"), instance(), SLOT(batteryChanged()));
     PebbleSelectionButton::setUp();
     PebbleNudges::setUp();
+    PebbleLive::setUp([] {
+        instance()->open();
+    });
     // the screenshot editor's Ask Pebble
     connect(AssistantTools::instance(), &AssistantTools::askRequested, instance(), &AssistantPanel::openWithScreenshot);
     StateManager::statusCenterManager()->addPane(new PebbleSettings(), StatusCenterManager::SystemSettings);
@@ -1537,7 +1606,10 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
         lineBorn = first.wordBorn;
         lineFrom = first.countFrom;
         // once it's all there the Read card says it all: the line folds away
-        if (long_ && first.doneAt >= 0) {
+        // (unless there are other cards: then they lead and the line stays to say what they are)
+        bool otherCards = false;
+        for (int c : std::as_const(cards)) otherCards = otherCards || c != pendingAsk;
+        if (long_ && first.doneAt >= 0 && !otherCards) {
             const qint64 from = qMax(first.doneAt, first.wordBorn.isEmpty() ? first.doneAt : first.wordBorn.last()) + LineGoesAfterMs;
             lineGone = c01(springAt(M3Motion::SpatialDefault, (d->now() - from) / 1000.0));
         }
@@ -1586,7 +1658,8 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
     };
     QList<Slot> tiles;
     if (pendingAsk >= 0) tiles.append({pendingAsk, d->items.at(pendingAsk).born});
-    if (long_) tiles.append({-1, d->items.at(answers.first()).born + 300});
+    const bool readFirst = std::all_of(cards.begin(), cards.end(), [pendingAsk](int c) { return c == pendingAsk; });
+    if (long_ && readFirst) tiles.append({-1, d->items.at(answers.first()).born + 300});
     for (int i : std::as_const(cards)) {
         if (i == pendingAsk) continue;
         const AssistantCard& c = d->items.at(i).card;
@@ -1595,10 +1668,11 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             continue;
         }
         tiles.append({i, d->items.at(i).born});
-        if (d->items.at(i).card.kind == AssistantCard::Storage)
-            for (int f = 0; f < d->items.at(i).card.lines.size(); f++) tiles.append({i, d->items.at(i).born + 90 * (f + 1), f});
+        if (c.kind == AssistantCard::Storage || c.kind == AssistantCard::Processes) // the whole first, then its parts
+            for (int f = 0; f < c.lines.size(); f++) tiles.append({i, d->items.at(i).born + 90 * (f + 1), f});
     }
 
+    if (long_ && !readFirst) tiles.append({-1, d->items.at(answers.first()).born + 300}); // the cards lead, the words follow
     const double readPx = 16;
     auto readHeight = [&](double w) {
         double h = 40;
@@ -1622,6 +1696,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             case AssistantCard::Level: return 140;
             case AssistantCard::Storage: return 200;
             case AssistantCard::Battery: return 170;
+            case AssistantCard::Processes: return 190;
             case AssistantCard::Media: return 160;
             case AssistantCard::Timer: return 170;
             case AssistantCard::Weather: return 230;
@@ -1784,6 +1859,37 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             p.setBrush(s.onSecondaryContainer);
             p.drawEllipse(QPointF(bar.right() - 8, bar.center().y()), 2, 2);
             text(p, QRectF(bar.left(), bar.top() - 24, bar.width(), 20), tr("%1% used").arg(qRound(c01(card.value) * 100)), flex(13, 500), s.onSurfaceVariant, Qt::AlignRight | Qt::AlignVCenter);
+        } else if (card.kind == AssistantCard::Processes) {
+            // the whole computer, live: CPU and memory as bars that glide
+            p.setPen(Qt::NoPen);
+            p.setBrush(s.surfaceContainerHigh);
+            p.drawRect(r);
+            const double cpu = cpuOfSystem();
+            const auto [used, total] = memoryOfSystem();
+            const double memory = total > 0 ? double(used) / total : 0;
+            icon(p, QRectF(r.left() + 22, r.top() + 20, 28, 28), QStringLiteral("memory"), s.primary, 24, true);
+            text(p, QRectF(r.left() + 58, r.top() + 20, r.width() - 80, 28), card.title, flex(16, 600), s.onSurface);
+            auto meter = [&](double y, const QString& label, const QString& value, double fraction, const QString& glideKey) {
+                const double shown = c01(glide(key + glideKey, c01(fraction), M3Motion::SpatialSlow));
+                text(p, QRectF(r.left() + 22, y, 120, 24), label, flex(14, 500), s.onSurfaceVariant);
+                text(p, QRectF(r.left() + 22, y, r.width() - 44, 24), value, flex(18, 700, 110), s.onSurface, Qt::AlignRight | Qt::AlignVCenter);
+                const QRectF bar(r.left() + 22, y + 30, r.width() - 44, 12);
+                const double edge = bar.left() + bar.width() * shown;
+                p.setBrush(shown > 0.85 ? s.error : s.primary);
+                p.drawRoundedRect(QRectF(bar.left(), bar.top(), qMax(bar.height(), edge - bar.left() - 3), bar.height()), 6, 6);
+                p.setBrush(s.secondaryContainer);
+                if (bar.right() - edge > 10) p.drawRoundedRect(QRectF(edge + 3, bar.top(), bar.right() - edge - 3, bar.height()), 6, 6);
+            };
+            meter(r.top() + 62, tr("CPU"), cpu < 0 ? QStringLiteral("…") : QStringLiteral("%1%").arg(qRound(cpu)), qMax(0.0, cpu) / 100, QStringLiteral("cpu"));
+            const QLocale locale;
+            meter(r.top() + 118, tr("Memory"), QStringLiteral("%1 / %2").arg(locale.formattedDataSize(used, 1, QLocale::DataSizeTraditionalFormat), locale.formattedDataSize(total, 0, QLocale::DataSizeTraditionalFormat)), memory, QStringLiteral("memory"));
+            if (!d->secondTick) {
+                d->secondTick = true;
+                QTimer::singleShot(1000, this, [this] {
+                    d->secondTick = false;
+                    redraw();
+                });
+            }
         } else if (card.kind == AssistantCard::Battery) {
             // the charge as a ring (wavy while it charges), what it's doing, the time left
             p.setPen(Qt::NoPen);
@@ -2044,7 +2150,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
         if (slot.item >= 0) {
             const AssistantCard& card = d->items.at(slot.item).card;
             title = card.title;
-            ic = card.kind == AssistantCard::Ask ? QStringLiteral("shield_question") : card.kind == AssistantCard::Code ? QStringLiteral("code") : card.kind == AssistantCard::Image ? QStringLiteral("image") : card.kind == AssistantCard::Storage ? QStringLiteral("hard_drive") : card.kind == AssistantCard::Battery ? QStringLiteral("battery_full") : card.kind == AssistantCard::Media ? QStringLiteral("music_note") : card.kind == AssistantCard::Timer ? QStringLiteral("alarm") : card.kind == AssistantCard::Weather ? QStringLiteral("partly_cloudy_day") : card.kind == AssistantCard::Level ? (card.icon.isEmpty() ? QStringLiteral("tune") : card.icon) : card.kind == AssistantCard::Switch ? (card.icon.isEmpty() ? QStringLiteral("toggle_on") : card.icon) : QStringLiteral("description");
+            ic = card.kind == AssistantCard::Ask ? QStringLiteral("shield_question") : card.kind == AssistantCard::Code ? QStringLiteral("code") : card.kind == AssistantCard::Image ? QStringLiteral("image") : card.kind == AssistantCard::Storage ? QStringLiteral("hard_drive") : card.kind == AssistantCard::Processes ? QStringLiteral("memory") : card.kind == AssistantCard::Battery ? QStringLiteral("battery_full") : card.kind == AssistantCard::Media ? QStringLiteral("music_note") : card.kind == AssistantCard::Timer ? QStringLiteral("alarm") : card.kind == AssistantCard::Weather ? QStringLiteral("partly_cloudy_day") : card.kind == AssistantCard::Level ? (card.icon.isEmpty() ? QStringLiteral("tune") : card.icon) : card.kind == AssistantCard::Switch ? (card.icon.isEmpty() ? QStringLiteral("toggle_on") : card.icon) : QStringLiteral("description");
         }
         if (r.width() < 110) {
             icon(p, QRectF(r.center().x() - 16, r.center().y() - 16, 32, 32), ic, ink, 26);
@@ -2132,6 +2238,65 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
                     hit(r, [app](QPointF) {
                         if (AssistantTools::instance()->has(QStringLiteral("open_app"))) AssistantTools::instance()->tool(QStringLiteral("open_app")).run(QJsonObject{{"name", app}});
                     });
+                } else if (slot.folder >= 0 && partOf == AssistantCard::Processes) {
+                    // one busy program, live: its CPU big, its memory, Close (pressed twice)
+                    const QStringList f = d->items.at(slot.item).card.lines.at(slot.folder).split('\t');
+                    const int pid = f.value(0).toInt();
+                    const QString name = f.value(1);
+                    const bool gone = d->closedPids.contains(pid) || !QFileInfo::exists(QStringLiteral("/proc/%1").arg(pid));
+                    const double cpu = gone ? 0 : cpuOfProcess(pid);
+                    const qint64 memory = gone ? 0 : memoryOfProcess(pid);
+                    p.setPen(Qt::NoPen);
+                    p.setBrush(s.surfaceContainerHigh);
+                    p.drawRect(r);
+                    const QIcon appIcon = QIcon::fromTheme(name, QIcon::fromTheme(QStringLiteral("application-x-executable")));
+                    if (r.width() < 140) {
+                        p.drawPixmap(QRectF(r.center().x() - 16, r.top() + 20, 32, 32).toRect(), appIcon.pixmap(64));
+                    } else {
+                        p.drawPixmap(QRectF(r.left() + 20, r.top() + 20, 28, 28).toRect(), appIcon.pixmap(56));
+                        text(p, QRectF(r.left() + 56, r.top() + 20, r.width() - 76, 28), QFontMetricsF(flex(16, 650)).elidedText(name, Qt::ElideRight, r.width() - 76), flex(16, 650), gone ? s.onSurfaceVariant : s.onSurface);
+                        if (gone) {
+                            icon(p, QRectF(r.left() + 20, r.top() + 64, 32, 40), QStringLiteral("check_circle"), s.primary, 28, true);
+                            text(p, QRectF(r.left() + 58, r.top() + 64, r.width() - 80, 40), tr("Closed"), flex(22, 650), s.onSurfaceVariant);
+                        } else {
+                            QFont big = flex(34, 700, 110);
+                            big.setFeature(QFont::Tag("tnum"), 1);
+                            text(p, QRectF(r.left() + 20, r.top() + 58, r.width() - 40, 48), cpu < 0 ? QStringLiteral("…") : QStringLiteral("%1%").arg(qRound(cpu)), big, s.onSurface);
+                            text(p, QRectF(r.left() + 22, r.top() + 104, r.width() - 44, 20), tr("CPU · %1").arg(QLocale().formattedDataSize(memory, 0, QLocale::DataSizeTraditionalFormat)), flex(13, 500), s.onSurfaceVariant);
+                            const double shown = c01(glide(key + QString::number(pid), c01(qMax(0.0, cpu) / 100), M3Motion::SpatialSlow));
+                            const QRectF bar(r.left() + 20, r.bottom() - 62, r.width() - 40, 8);
+                            p.setBrush(s.secondaryContainer);
+                            p.drawRoundedRect(bar, 4, 4);
+                            p.setBrush(shown > 0.5 ? s.tertiary : s.primary);
+                            p.drawRoundedRect(QRectF(bar.left(), bar.top(), qMax(8.0, bar.width() * shown), bar.height()), 4, 4);
+                            // Close: once to arm, again within a few seconds to really close it
+                            const bool armed = d->armedPid == pid && d->since(d->armedAt) < 4;
+                            const QRectF close(r.right() - (armed ? 128 : 92), r.bottom() - 46, armed ? 108 : 72, 32);
+                            p.setPen(armed ? Qt::NoPen : QPen(s.outlineVariant, 1));
+                            p.setBrush(armed ? s.errorContainer : hovered(close) ? mix(s.surfaceContainerHigh, s.primary, 0.08) : QColor(Qt::transparent));
+                            p.drawRoundedRect(close.adjusted(0.5, 0.5, -0.5, -0.5), 16, 16);
+                            p.setPen(Qt::NoPen);
+                            text(p, close, armed ? tr("Close it?") : tr("Close"), flex(13, 650), armed ? s.onErrorContainer : s.primary, Qt::AlignCenter);
+                            hit(close, [this, pid](QPointF) {
+                                if (d->armedPid == pid && d->since(d->armedAt) < 4) {
+                                    ::kill(pid, SIGTERM); // the user's own program, asked to quit
+                                    d->closedPids.insert(pid);
+                                    d->armedPid = -1;
+                                } else {
+                                    d->armedPid = pid;
+                                    d->armedAt = d->now();
+                                }
+                                animateFor(4200);
+                            });
+                        }
+                    }
+                    if (!d->secondTick && !gone) {
+                        d->secondTick = true;
+                        QTimer::singleShot(1000, this, [this] {
+                            d->secondTick = false;
+                            redraw();
+                        });
+                    }
                 } else if (slot.folder >= 0 && partOf == AssistantCard::Files) {
                     // a file it found: a look inside (pictures, a PDF's first page), its name, where it is
                     const QString path = d->items.at(slot.item).card.lines.at(slot.folder);

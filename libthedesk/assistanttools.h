@@ -14,7 +14,8 @@ struct LIBTHEDESK_EXPORT AssistantToolResult {
         // An optional card in the panel: "level" (a slider, value 0..1),
         // "switch" (value 0/1), "image" (path is a file or a URL), "battery"
         // (value 0..1), "media" (path: the player), "notifications" (lines),
-        // "timer" (value: when it's due, ms since the epoch; lines: when it was set)
+        // "timer" (value: when it's due, ms since the epoch; lines: when it was set),
+        // "processes" (lines: "pid\tname", the panel measures them live)
         QString card, icon, title, subtitle, path;
         QStringList lines;
         double value = 0;

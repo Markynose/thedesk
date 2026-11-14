@@ -1,4 +1,8 @@
 #include "desktools.h"
+#include "pebblelive.h"
+#include <algorithm>
+#include <unistd.h>
+#include <QThread>
 #include "../clipboard/clipboardhistory.h"
 
 #include <QCoreApplication>
@@ -326,6 +330,8 @@ void DeskTools::setUp() {
             }
             auto* timer = new QTimer();
             timer->setInterval(2000);
+            const int live = PebbleLive::add(kind == "download" ? tr("Watching downloads") : kind == "process" ? tr("Watching %1").arg(name) : tr("Watching %1").arg(QFileInfo(path).fileName()));
+            QObject::connect(timer, &QTimer::destroyed, [live] { PebbleLive::remove(live); });
             QElapsedTimer* age = new QElapsedTimer();
             age->start();
             QObject::connect(timer, &QTimer::timeout, [timer, age, done, say] {
@@ -348,12 +354,51 @@ void DeskTools::setUp() {
             result.subtitle = say;
             result.value = 1;
             result.setValue = [guard](double on) {
-                if (guard && on < 0.5) guard->stop();
-                else if (guard) guard->start();
+                if (guard && on < 0.5) guard->deleteLater(); // stopped: gone from the bar too
             };
             result.undo = [guard] {
-                if (guard) guard->stop();
+                if (guard) guard->deleteLater();
             };
+            return result;
+        }});
+
+    tools->add({QStringLiteral("whats_slow"),
+        QStringLiteral("Why the computer is slow: how busy the CPU and memory are and the user's programs using the most, shown as live tiles the user can close programs from. Use it for slow, laggy, hot or loud fan questions."),
+        AssistantTools::schemaOf({}), false, [](QJsonObject) {
+            AssistantToolResult result;
+            // the user's own programs, busiest first (ps's CPU is since each started; the tiles measure it live)
+            QProcess ps;
+            ps.start(QStringLiteral("ps"), {QStringLiteral("-u"), QString::number(getuid()), QStringLiteral("-o"), QStringLiteral("pid=,comm=,%cpu=,rss="), QStringLiteral("--sort=-%cpu")});
+            ps.waitForFinished(2000);
+            struct Program {
+                    int pid;
+                    QString name;
+                    double cpu;
+                    qint64 rss;
+            };
+            QList<Program> programs;
+            for (const QString& line : QString::fromUtf8(ps.readAllStandardOutput()).split('\n', Qt::SkipEmptyParts)) {
+                const QStringList f = line.simplified().split(' ');
+                if (f.size() < 4 || f.at(0).toInt() == QCoreApplication::applicationPid()) continue;
+                programs.append({f.at(0).toInt(), f.at(1), f.at(2).toDouble(), f.at(3).toLongLong() * 1024});
+            }
+            QList<Program> picked = programs.mid(0, 3);
+            std::sort(programs.begin(), programs.end(), [](const Program& a, const Program& b) { return a.rss > b.rss; });
+            for (const Program& program : programs.mid(0, 4)) {
+                if (picked.size() >= 5) break;
+                if (std::none_of(picked.begin(), picked.end(), [&](const Program& p) { return p.pid == program.pid; })) picked.append(program);
+            }
+            QFile loadavg(QStringLiteral("/proc/loadavg"));
+            loadavg.open(QFile::ReadOnly);
+            QStringList told{QStringLiteral("Load average (1, 5, 15 min): %1, on %2 cores.").arg(QString::fromUtf8(loadavg.readAll()).section(' ', 0, 2)).arg(QThread::idealThreadCount())};
+            for (const Program& program : picked) {
+                result.lines.append(QStringLiteral("%1\t%2").arg(program.pid).arg(program.name));
+                told.append(QStringLiteral("- %1 (pid %2): %3% CPU on average, %4 MB").arg(program.name).arg(program.pid).arg(program.cpu).arg(program.rss / 1048576));
+            }
+            told.append(QStringLiteral("The tiles show these live with a Close button; say what's likely the cause in a sentence."));
+            result.text = told.join('\n');
+            result.card = QStringLiteral("processes");
+            result.title = tr("What's busy");
             return result;
         }});
 
@@ -433,6 +478,8 @@ void DeskTools::setUp() {
             // shortcut: reminders live in memory; logging out loses them (store them if that bites)
             auto* timer = new QTimer();
             timer->setSingleShot(true);
+            const int live = PebbleLive::add(text, when.toMSecsSinceEpoch());
+            QObject::connect(timer, &QTimer::destroyed, [live] { PebbleLive::remove(live); });
             QObject::connect(timer, &QTimer::timeout, [timer, text] {
                 QDBusInterface(QStringLiteral("org.freedesktop.Notifications"), QStringLiteral("/org/freedesktop/Notifications"), QStringLiteral("org.freedesktop.Notifications"))
                     .call(QStringLiteral("Notify"), QStringLiteral("Pebble"), uint(0), QStringLiteral("alarm"), tr("Reminder"), text, QStringList(), QVariantMap{{QStringLiteral("urgency"), QVariant::fromValue(uchar(1))}}, -1);
@@ -449,7 +496,7 @@ void DeskTools::setUp() {
             result.value = double(when.toMSecsSinceEpoch());
             result.lines = {QString::number(QDateTime::currentMSecsSinceEpoch())};
             result.setValue = [guard](double on) {
-                if (guard && on < 0.5) guard->stop();
+                if (guard && on < 0.5) guard->deleteLater(); // cancelled: gone from the bar too
             };
             result.undo = [guard] {
                 if (guard) guard->deleteLater();

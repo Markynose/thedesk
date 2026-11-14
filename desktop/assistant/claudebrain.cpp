@@ -8,6 +8,7 @@
 #include <QNetworkReply>
 #include <QTimeZone>
 #include <QUrlQuery>
+#include <tsettings.h>
 #include <QLocale>
 #include <QStorageInfo>
 
@@ -468,6 +469,7 @@ QString ClaudeBrain::stepText(const QString& tool, const QJsonObject& input, boo
             {"media", {QT_TR_NOOP("Talking to the player"), QT_TR_NOOP("Player")}},
             {"window_layout", {QT_TR_NOOP("Arranging windows"), QT_TR_NOOP("Arranged windows")}},
             {"watch", {QT_TR_NOOP("Setting up a watch"), QT_TR_NOOP("Watching")}},
+            {"whats_slow", {QT_TR_NOOP("Seeing what's busy"), QT_TR_NOOP("Saw what's busy")}},
         };
         const QString subject = input.value("name").toString(input.value("window").toString());
         if (words.contains(name)) {
@@ -589,7 +591,9 @@ void ClaudeBrain::handleControl(const QJsonObject& message) {
         }
         if (mcp.value("method") == "tools/call" && params.value("name") == "weather") {
             // Open-Meteo (no key): where the user is comes from their time zone's city, unless a place is named
-            const QString place = params.value("arguments").toObject().value("place").toString().trimmed();
+            // a place named, else the home place in Pebble's settings, else the time zone's city
+            QString place = params.value("arguments").toObject().value("place").toString().trimmed();
+            if (place.isEmpty()) place = tSettings().value(QStringLiteral("Assistant/weatherPlace")).toString().trimmed();
             auto* network = new QNetworkAccessManager(this);
             auto answer = [this, network, mcp, requestId](const QString& text) {
                 const QJsonObject reply{{"jsonrpc", "2.0"}, {"id", mcp.value("id")}, {"result", QJsonObject{{"content", QJsonArray{QJsonObject{{"type", "text"}, {"text", text}}}}}}};
@@ -922,7 +926,7 @@ QJsonObject ClaudeBrain::handleMcp(const QJsonObject& message) {
             if (!done.card.isEmpty()) {
                 AssistantCard shown;
                 shown.id = QStringLiteral("desk%1").arg(d->nextRequest++);
-                static const QHash<QString, AssistantCard::Kind> kinds{{"image", AssistantCard::Image}, {"switch", AssistantCard::Switch}, {"battery", AssistantCard::Battery}, {"media", AssistantCard::Media}, {"notifications", AssistantCard::Notifications}, {"timer", AssistantCard::Timer}};
+                static const QHash<QString, AssistantCard::Kind> kinds{{"image", AssistantCard::Image}, {"switch", AssistantCard::Switch}, {"battery", AssistantCard::Battery}, {"media", AssistantCard::Media}, {"notifications", AssistantCard::Notifications}, {"timer", AssistantCard::Timer}, {"processes", AssistantCard::Processes}};
                 shown.kind = kinds.value(done.card, AssistantCard::Level);
                 shown.lines = done.lines;
                 shown.title = done.title;

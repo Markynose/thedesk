@@ -22,6 +22,7 @@ struct AssistantCard {
             Notifications, // lines: "app\ticon\tsummary\tbody\tHH:mm", one tile each
             Files,         // lines: paths, one tile each with a preview
             Timer,         // title: what for, value: when it's due (ms since the epoch), lines: [when it was set]
+            Processes,     // lines: "pid\tname"; the panel measures CPU and memory live, a System tile first
             Weather        // title: the place, subtitle: the sky, value: °C now, icon: the sky's kind,
                            // lines: the next hours ("HH\t°C\tkind")
         };
