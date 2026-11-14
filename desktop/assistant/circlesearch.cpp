@@ -2,7 +2,12 @@
 
 #include "assistantface.h"
 #include "assistantpanel.h"
+#include <QClipboard>
+#include <QCoreApplication>
+#include <QDir>
 #include <QElapsedTimer>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QGuiApplication>
 #include <QKeyEvent>
 #include <QLineEdit>
@@ -141,6 +146,29 @@ struct CircleSearch::Private {
         QList<QPair<QRectF, std::function<void()>>> hits;
         QPointF mouse;
 
+        // The text on the frozen screen (Tesseract, read as it opens): words, and the lines they make
+        struct Word {
+                QRectF box;
+                QString text;
+                int line;
+        };
+        struct Line {
+                QRectF box;
+                QString text, translated;
+                QColor background, ink;
+        };
+        QList<Word> words;
+        QList<Line> lines;
+        QProcess* reader = nullptr;
+        bool read = false;
+        enum Mode { Circling, Picking, Translated } mode = Circling;
+        int pickFrom = -1, pickTo = -1; // words picked, in reading order
+        bool picking = false;
+        qint64 copiedAt = -1, modeAt = -1;
+        QProcess* translator = nullptr;
+        bool translating = false, translateFailed = false;
+        qint64 translatedAt = -1;
+
         qint64 now() const { return clock.elapsed(); }
         double since(qint64 t) const { return t < 0 ? -1 : (now() - t) / 1000.0; }
 };
@@ -199,12 +227,17 @@ void CircleSearch::start() {
     d->dragging = -1;
     d->answering = false;
     d->field->clear();
+    d->mode = Private::Circling;
+    d->pickFrom = d->pickTo = -1;
+    d->copiedAt = d->translatedAt = -1;
+    d->translating = d->translateFailed = false;
     const M3::Scheme s = M3::currentScheme();
     QPalette palette = d->field->palette();
     palette.setColor(QPalette::Text, s.onSurface);
     palette.setColor(QPalette::PlaceholderText, s.onSurfaceVariant);
     d->field->setPalette(palette);
     this->setGeometry(screen->geometry());
+    readText(); // once it has its size: the words are placed by it
     this->show();
     this->raise();
     this->activateWindow();
@@ -219,6 +252,145 @@ void CircleSearch::finish() {
     d->answering = false;
     this->hide();
     d->shot = QImage();
+}
+
+void CircleSearch::readText() {
+    // Tesseract reads the frozen screen at twice the size (small screen text reads better), in the background
+    d->words.clear();
+    d->lines.clear();
+    d->read = false;
+    if (d->reader) {
+        d->reader->disconnect(this);
+        d->reader->kill();
+        d->reader->deleteLater();
+    }
+    const QString path = QDir::temp().filePath(QStringLiteral("thedesk-circle-%1.bmp").arg(QCoreApplication::applicationPid()));
+    d->shot.scaled(d->shot.size() * 2, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).save(path, "BMP");
+    d->reader = new QProcess(this);
+    const double k = this->width() > 0 ? this->width() / (2.0 * d->shot.width()) : 0.5; // read pixels -> window
+    connect(d->reader, &QProcess::finished, this, [this, path, k] {
+        QFile::remove(path);
+        QHash<QString, int> lineOf;
+        const QList<QByteArray> rows = d->reader->readAllStandardOutput().split('\n');
+        for (const QByteArray& row : rows) {
+            const QList<QByteArray> f = row.split('\t');
+            // level 5 = a word: level page block par line word left top width height conf text
+            if (f.size() < 12 || f.at(0) != "5") continue;
+            const QString text = QString::fromUtf8(f.at(11)).trimmed();
+            if (text.isEmpty() || f.at(10).toDouble() < 10) continue; // only the near-certain misreads go
+            const QRectF box(f.at(6).toDouble() * k, f.at(7).toDouble() * k, f.at(8).toDouble() * k, f.at(9).toDouble() * k);
+            const QString key = QString::fromUtf8(f.at(2) + '.' + f.at(3) + '.' + f.at(4));
+            if (!lineOf.contains(key)) {
+                lineOf.insert(key, int(d->lines.size()));
+                d->lines.append({box, text, {}, {}, {}});
+            } else {
+                Private::Line& line = d->lines[lineOf.value(key)];
+                line.box = line.box.united(box);
+                line.text += ' ' + text;
+            }
+            d->words.append({box, text, lineOf.value(key)});
+        }
+        d->read = true;
+        d->reader->deleteLater();
+        d->reader = nullptr;
+        if (d->mode == Private::Translated && d->translatedAt < 0 && !d->translating) translate();
+        this->update();
+    });
+    connect(d->reader, &QProcess::errorOccurred, this, [this, path](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart) return;
+        QFile::remove(path);
+        d->read = true; // nothing to read with: no text
+        this->update();
+    });
+    d->reader->start(QStringLiteral("tesseract"), {path, QStringLiteral("stdout"), QStringLiteral("-l"), QStringLiteral("eng+ukr"), QStringLiteral("tsv")});
+}
+
+void CircleSearch::translate() {
+    // the lines (words only, no picture) to Pebble's quick model; each comes back numbered
+    QStringList numbered;
+    for (int i = 0; i < d->lines.size() && i < 160; i++) numbered.append(QStringLiteral("%1\t%2").arg(i + 1).arg(d->lines.at(i).text));
+    if (numbered.isEmpty()) {
+        d->translatedAt = d->now();
+        return;
+    }
+    QString claude = QStandardPaths::findExecutable(QStringLiteral("claude"));
+    if (claude.isEmpty()) claude = QStandardPaths::findExecutable(QStringLiteral("claude"), {QDir::homePath() + "/.local/bin", QDir::homePath() + "/.claude/local"});
+    d->translating = true;
+    d->translateFailed = false;
+    d->translator = new QProcess(this);
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.remove(QStringLiteral("CLAUDECODE"));
+    env.remove(QStringLiteral("CLAUDE_CODE_ENTRYPOINT"));
+    d->translator->setProcessEnvironment(env);
+    d->translator->setWorkingDirectory(QDir::tempPath());
+    connect(d->translator, &QProcess::finished, this, [this](int code) {
+        const QString out = QString::fromUtf8(d->translator->readAllStandardOutput());
+        d->translator->deleteLater();
+        d->translator = nullptr;
+        d->translating = false;
+        int got = 0;
+        for (const QString& row : out.split('\n')) {
+            const int tab = int(row.indexOf('\t'));
+            const int n = row.left(tab).trimmed().toInt();
+            if (tab < 0 || n < 1 || n > d->lines.size()) continue;
+            Private::Line& line = d->lines[n - 1];
+            line.translated = row.mid(tab + 1).trimmed();
+            // what's behind the line, from its edges, and an ink that reads on it
+            double r = 0, g = 0, b = 0;
+            int count = 0;
+            const double k = d->shot.width() / double(qMax(1, this->width()));
+            const QRect edge = QRectF(line.box.topLeft() * k, line.box.size() * k).toAlignedRect().adjusted(-3, -3, 3, 3).intersected(d->shot.rect());
+            for (int x = edge.left(); x <= edge.right(); x += 2) {
+                for (int y : {edge.top(), edge.bottom()}) {
+                    const QColor c = d->shot.pixelColor(x, y);
+                    r += c.redF();
+                    g += c.greenF();
+                    b += c.blueF();
+                    count++;
+                }
+            }
+            line.background = count ? QColor::fromRgbF(r / count, g / count, b / count) : Qt::white;
+            line.ink = line.background.lightnessF() < 0.5 ? QColor(245, 245, 245) : QColor(20, 20, 20);
+            got++;
+        }
+        if (code != 0 || got == 0) d->translateFailed = true;
+        else d->translatedAt = d->now();
+        this->update();
+    });
+    d->translator->start(claude, {QStringLiteral("-p"), QStringLiteral("--model"), QStringLiteral("haiku"), QStringLiteral("--setting-sources"), QString(), QStringLiteral("--strict-mcp-config"), QStringLiteral("--disable-slash-commands"), QStringLiteral("--no-session-persistence"), QStringLiteral("--tools"), QString(),
+        QStringLiteral("--system-prompt"), QStringLiteral("You translate the text of a screenshot, line by line. You answer with nothing but the translated lines.")});
+    d->translator->write(QStringLiteral("Translate each numbered line into English. If a line is already English, or is a name, a number, a path or code, repeat it unchanged. Keep the numbers. Answer with only the lines, each as NUMBER<TAB>TEXT.\n\n%1\n").arg(numbered.join('\n')).toUtf8());
+    d->translator->closeWriteChannel();
+}
+
+int CircleSearch::wordAt(const QPointF& at) const {
+    // the word under the pointer, else the nearest one close by
+    int best = -1;
+    double nearest = 40;
+    for (int i = 0; i < d->words.size(); i++) {
+        const QRectF box = d->words.at(i).box;
+        if (box.adjusted(-3, -3, 3, 3).contains(at)) return i;
+        const double dx = qMax(0.0, qMax(box.left() - at.x(), at.x() - box.right())), dy = qMax(0.0, qMax(box.top() - at.y(), at.y() - box.bottom()));
+        if (std::hypot(dx, dy) < nearest) {
+            nearest = std::hypot(dx, dy);
+            best = i;
+        }
+    }
+    return best;
+}
+
+void CircleSearch::copyPicked(bool all) {
+    // the words in reading order; a new line where the line changes
+    const int from = all ? 0 : qMin(d->pickFrom, d->pickTo), to = all ? int(d->words.size()) - 1 : qMax(d->pickFrom, d->pickTo);
+    if (from < 0 || to < from) return;
+    QString text;
+    for (int i = from; i <= to; i++) {
+        if (i > from) text += d->words.at(i).line != d->words.at(i - 1).line ? '\n' : ' ';
+        text += d->words.at(i).text;
+    }
+    QGuiApplication::clipboard()->setText(text);
+    d->copiedAt = d->now();
+    this->update();
 }
 
 QRectF CircleSearch::pillRect() const {
@@ -247,6 +419,32 @@ void CircleSearch::paintEvent(QPaintEvent* event) {
     d->hits.clear();
     const QSizeF size = this->size();
     p.drawImage(this->rect(), d->shot);
+    // Translated (under the scrim, so it sits in the page like the words it covers): each line replaced in place by its translation, on its own background, squeezed to fit
+    if (d->mode == Private::Translated && d->translatedAt >= 0) {
+        for (int i = 0; i < d->lines.size(); i++) {
+            const Private::Line& line = d->lines.at(i);
+            if (line.translated.isEmpty() || line.translated == line.text) continue;
+            const double k = c01(springAt(M3Motion::EffectsDefault, d->since(d->translatedAt) - i * 0.012));
+            if (k <= 0) continue;
+            const QRectF box = line.box.adjusted(-3, -2, 3, 2);
+            p.setPen(Qt::NoPen);
+            p.setBrush(alpha(line.background, k));
+            p.drawRoundedRect(box, 3, 3);
+            double px = qMax(8.0, line.box.height() * 0.86), width = 100;
+            QFont font = flex(px, 500);
+            // narrower first (Roboto Flex's width axis), then smaller
+            while (QFontMetricsF(font).horizontalAdvance(line.translated) > box.width() && (width > 70 || px > 8)) {
+                if (width > 70) width -= 5;
+                else px -= 0.5;
+                font = flex(px, 500);
+                font.setVariableAxis(QFont::Tag("wdth"), float(width));
+            }
+            p.setFont(font);
+            p.setPen(alpha(line.ink, k));
+            p.drawText(box.adjusted(3, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, line.translated);
+        }
+    }
+
 
     const double open = d->since(d->openedAt);
     const double appear = c01(springAt(M3Motion::EffectsDefault, open));
@@ -264,7 +462,22 @@ void CircleSearch::paintEvent(QPaintEvent* event) {
         p.fillPath(all.subtracted(inside), alpha(s.scrim, 0.25 + 0.2 * picked));
         p.fillPath(inside, alpha(s.scrim, 0.25 * (1 - picked)));
     } else {
-        p.fillRect(this->rect(), alpha(s.scrim, 0.25 * appear));
+        // lighter while picking text or reading a translation
+        const double modeK = c01(springAt(M3Motion::EffectsDefault, d->since(d->modeAt)));
+        const double clear = d->mode == Private::Circling ? 1 - modeK : modeK;
+        p.fillRect(this->rect(), alpha(s.scrim, 0.25 * appear * (1 - 0.7 * (d->modeAt < 0 ? 0 : clear))));
+    }
+
+    // Picking text: every word it found faintly marked, the picked ones in Pebble's colour
+    if (d->mode == Private::Picking) {
+        const double k = c01(springAt(M3Motion::EffectsDefault, d->since(d->modeAt)));
+        p.setPen(Qt::NoPen);
+        const int from = qMin(d->pickFrom, d->pickTo), to = qMax(d->pickFrom, d->pickTo);
+        for (int i = 0; i < d->words.size(); i++) {
+            const bool picked = from >= 0 && i >= from && i <= to;
+            p.setBrush(alpha(picked ? s.primary : s.primaryContainer, (picked ? 0.45 : 0.18) * k));
+            p.drawRoundedRect(d->words.at(i).box.adjusted(-2, -1, 2, 1), 4, 4);
+        }
     }
 
     // the shimmer: a soft band in Pebble's colours sweeping bottom to top as it opens
@@ -360,7 +573,7 @@ void CircleSearch::paintEvent(QPaintEvent* event) {
     d->hits.append({close, [this] { finish(); }});
 
     // the hint, until they start
-    const double hint = c01(springAt(M3Motion::EffectsDefault, open - 0.5)) * (d->stroke.isEmpty() && d->selectedAt < 0 ? 1 : 0);
+    const double hint = c01(springAt(M3Motion::EffectsDefault, open - 0.5)) * (d->stroke.isEmpty() && d->selectedAt < 0 && d->mode == Private::Circling ? 1 : 0);
     if (hint > 0.01) {
         const QString label = tr("Circle, scribble or tap");
         const double w = QFontMetricsF(flex(14, 500)).horizontalAdvance(label) + 64;
@@ -385,19 +598,71 @@ void CircleSearch::paintEvent(QPaintEvent* event) {
         p.setBrush(s.surfaceContainerHigh);
         p.drawRoundedRect(shown, shown.height() / 2, shown.height() / 2);
         const auto [ink, fill] = pebbleFaceColours(s, false);
-        M3LoadingIndicator::paintDeterminate(&p, QRectF(shown.left() + 12, shown.center().y() - 22, 44, 44), float(lerp(0.1, 1, c01(d->field->text().size() / 40.0))), ink, fill);
+        const bool working = (d->mode != Private::Circling && !d->read) || d->translating;
+        const QRectF face(shown.left() + 12, shown.center().y() - 22, 44, 44);
+        if (working) M3LoadingIndicator::paint(&p, face, d->now(), ink, fill);
+        else M3LoadingIndicator::paintDeterminate(&p, face, float(lerp(0.1, 1, c01(d->field->text().size() / 40.0))), ink, fill);
         const bool settled = rise > 0.95;
-        d->field->setVisible(settled);
+        d->field->setVisible(settled && d->mode == Private::Circling);
         if (settled) {
-            d->field->setGeometry(QRectF(pill.left() + 68, pill.center().y() - 20, pill.width() - 68 - 120, 40).toRect());
-            const QList<QPair<QString, QString>> buttons{{QStringLiteral("translate"), tr("Translate all the text in this into English, keeping the layout's order.")}, {QStringLiteral("text_fields"), tr("Write out all the text in this, as it is, and copy it to my clipboard.")}};
+            const QRectF words(pill.left() + 70, pill.top(), pill.width() - 70 - 124, pill.height());
+            if (d->mode == Private::Circling) d->field->setGeometry(QRectF(pill.left() + 68, pill.center().y() - 20, pill.width() - 68 - 120, 40).toRect());
+            else {
+                // what the mode is doing, and its own buttons
+                QString status;
+                QList<QPair<QString, std::function<void()>>> actions;
+                if (!d->read) status = tr("Reading the text…");
+                else if (d->words.isEmpty()) status = tr("No text here");
+                else if (d->mode == Private::Translated) status = d->translating ? tr("Translating…") : d->translateFailed ? tr("Couldn't translate it") : tr("Translated to English · tap again for the original");
+                else if (d->since(d->copiedAt) >= 0 && d->since(d->copiedAt) < 1.6) status = tr("Copied");
+                else if (d->pickFrom >= 0) {
+                    const int count = qAbs(d->pickTo - d->pickFrom) + 1;
+                    status = count == 1 ? tr("1 word") : tr("%1 words").arg(count);
+                    actions.append({tr("Copy"), [this] { copyPicked(false); }});
+                } else {
+                    status = tr("Drag over text to pick it");
+                    actions.append({tr("Copy all"), [this] { copyPicked(true); }});
+                }
+                p.setFont(flex(16, 500));
+                p.setPen(s.onSurface);
+                double right = words.right();
+                for (int i = int(actions.size()) - 1; i >= 0; i--) {
+                    const double w = QFontMetricsF(flex(14, 600)).horizontalAdvance(actions.at(i).first) + 32;
+                    const QRectF b(right - w, pill.center().y() - 18, w, 36);
+                    p.setBrush(b.contains(d->mouse) ? mix(s.primary, s.onPrimary, 0.08) : s.primary);
+                    p.setPen(Qt::NoPen);
+                    p.drawRoundedRect(b, 18, 18);
+                    p.setFont(flex(14, 600));
+                    p.setPen(s.onPrimary);
+                    p.drawText(b, Qt::AlignCenter, actions.at(i).first);
+                    d->hits.append({b, actions.at(i).second});
+                    right = b.left() - 8;
+                }
+                p.setFont(flex(16, 500));
+                p.setPen(s.onSurface);
+                p.drawText(QRectF(words.left(), words.top(), right - words.left(), words.height()), Qt::AlignVCenter | Qt::AlignLeft, QFontMetricsF(flex(16, 500)).elidedText(status, Qt::ElideRight, right - words.left()));
+                if (working) d->frame.start();
+            }
+            // translate the screen in place; pick text on it
+            const QList<QPair<QString, Private::Mode>> buttons{{QStringLiteral("translate"), Private::Translated}, {QStringLiteral("text_fields"), Private::Picking}};
             for (int i = 0; i < buttons.size(); i++) {
                 const QRectF b(pill.right() - 52 - (buttons.size() - 1 - i) * 48, pill.center().y() - 20, 40, 40);
-                p.setBrush(b.contains(d->mouse) ? mix(s.secondaryContainer, s.onSecondaryContainer, 0.08) : s.secondaryContainer);
+                const bool on = d->mode == buttons.at(i).second;
+                const QColor bg = on ? s.primary : s.secondaryContainer, fg = on ? s.onPrimary : s.onSecondaryContainer;
+                p.setPen(Qt::NoPen);
+                p.setBrush(b.contains(d->mouse) ? mix(bg, fg, 0.08) : bg);
                 p.drawEllipse(b);
-                icon(p, b, buttons.at(i).first, s.onSecondaryContainer, 20);
-                const QString question = buttons.at(i).second;
-                d->hits.append({b, [this, question] { ask(question); }});
+                icon(p, b, buttons.at(i).first, fg, 20);
+                const Private::Mode mode = buttons.at(i).second;
+                d->hits.append({b, [this, mode] {
+                    d->mode = d->mode == mode ? Private::Circling : mode; // again: back to circling
+                    d->modeAt = d->now();
+                    d->pickFrom = d->pickTo = -1;
+                    if (d->mode == Private::Translated && d->read && d->translatedAt < 0 && !d->translating) translate();
+                    if (d->mode == Private::Circling) d->field->setFocus();
+                    else this->setFocus(); // keys (Ctrl+C, Esc) to the overlay, not the hidden field
+                    this->update();
+                }});
             }
         }
         d->hits.append({shown, [] {}}); // the pill itself isn't for drawing on
@@ -415,6 +680,14 @@ void CircleSearch::mousePressEvent(QMouseEvent* event) {
         hit.second();
         return;
     }
+    // picking text: from the word pressed on
+    if (d->mode == Private::Picking) {
+        d->pickFrom = d->pickTo = wordAt(at);
+        d->picking = d->pickFrom >= 0;
+        this->update();
+        return;
+    }
+    if (d->mode == Private::Translated) return; // reading: nothing to draw
     // a corner of what's picked: drag it to pick a different part
     if (d->selectedAt >= 0) {
         const QList<QPointF> corners{d->selection.topLeft(), d->selection.topRight(), d->selection.bottomRight(), d->selection.bottomLeft()};
@@ -432,7 +705,10 @@ void CircleSearch::mousePressEvent(QMouseEvent* event) {
 
 void CircleSearch::mouseMoveEvent(QMouseEvent* event) {
     d->mouse = event->position();
-    if (d->drawing) {
+    if (d->picking) {
+        const int word = wordAt(d->mouse);
+        if (word >= 0) d->pickTo = word;
+    } else if (d->drawing) {
         d->stroke.append(d->mouse);
     } else if (d->dragging >= 0) {
         QRectF r = d->selection;
@@ -447,8 +723,16 @@ void CircleSearch::mouseMoveEvent(QMouseEvent* event) {
     this->update();
 }
 
+void CircleSearch::mouseDoubleClickEvent(QMouseEvent* event) {
+    // a double click picks the word under it
+    if (d->mode != Private::Picking) return QDialog::mouseDoubleClickEvent(event);
+    d->pickFrom = d->pickTo = wordAt(event->position());
+    this->update();
+}
+
 void CircleSearch::mouseReleaseEvent(QMouseEvent* event) {
     Q_UNUSED(event)
+    d->picking = false;
     if (d->dragging >= 0) {
         d->dragging = -1;
         ask(tr("What's in this part?"));
@@ -469,7 +753,13 @@ void CircleSearch::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void CircleSearch::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Escape) finish();
+    if (event->key() == Qt::Key_Escape && d->mode != Private::Circling) {
+        d->mode = Private::Circling;
+        d->modeAt = d->now();
+        d->field->setFocus();
+        this->update();
+    } else if (event->key() == Qt::Key_Escape) finish();
+    else if (event->matches(QKeySequence::Copy) && d->mode == Private::Picking) copyPicked(d->pickFrom < 0);
     // not QDialog's: its Escape would only hide it, past finish()
 }
 

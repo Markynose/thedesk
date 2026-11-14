@@ -21,6 +21,7 @@ class CircleSearch : public QDialog { // a dialog: the window manager floats it,
         void mousePressEvent(QMouseEvent* event) override;
         void mouseMoveEvent(QMouseEvent* event) override;
         void mouseReleaseEvent(QMouseEvent* event) override;
+        void mouseDoubleClickEvent(QMouseEvent* event) override;
         void keyPressEvent(QKeyEvent* event) override;
         bool eventFilter(QObject* watched, QEvent* event) override;
 
@@ -30,6 +31,10 @@ class CircleSearch : public QDialog { // a dialog: the window manager floats it,
         Private* d;
 
         void ask(const QString& question);
+        void readText();
+        void translate();
+        int wordAt(const QPointF& at) const;
+        void copyPicked(bool all);
         QRectF pillRect() const;
 };
 
