@@ -237,7 +237,7 @@ bool QuickWidgetContainer::eventFilter(QObject* watched, QEvent* event) {
         }
         return false;
     }
-    if (event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest) {
+    if (d->isShowing && (event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)) { // closed: its chunk's widget changes don't move it
         QTimer::singleShot(0, this, &QuickWidgetContainer::calculatePosition);
     }
     return false;

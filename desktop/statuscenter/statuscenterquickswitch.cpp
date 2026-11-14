@@ -21,6 +21,7 @@
 #include "ui_statuscenterquickswitch.h"
 
 #include <QEvent>
+#include <QHash>
 #include <QIcon>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -73,10 +74,18 @@ namespace {
 
     // Symbolic icons take the tile's content colour (filled when on)
     QPixmap tinted(const QIcon& icon, int size, qreal dpr, QColor colour, bool filled = false) {
+        // made once per look: every tile repaints on each frame of the shade opening
+        static QHash<QString, QPixmap> made;
+        const QString key = QStringLiteral("%1 %2 %3 %4 %5").arg(icon.name()).arg(size).arg(dpr).arg(colour.rgba()).arg(filled);
+        const bool named = !icon.name().isEmpty(); // a theme icon: known by its name
+        if (named && made.contains(key)) return made.value(key);
         QPixmap pixmap = icon.pixmap(QSize(size, size), dpr, QIcon::Normal, filled ? QIcon::On : QIcon::Off);
         QPainter p(&pixmap);
         p.setCompositionMode(QPainter::CompositionMode_SourceIn);
         p.fillRect(pixmap.rect(), colour);
+        p.end();
+        if (made.size() > 200) made.clear();
+        if (named) made.insert(key, pixmap);
         return pixmap;
     }
 

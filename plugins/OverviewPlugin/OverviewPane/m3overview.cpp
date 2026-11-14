@@ -69,8 +69,9 @@ namespace {
         font.setFamily(QStringLiteral("Roboto Flex"));
         font.setPixelSize(qRound(px));
         font.setVariableAxis(QFont::Tag("opsz"), float(qBound(8.0, px, 144.0)));
-        font.setVariableAxis(QFont::Tag("wght"), float(qBound(100.0, wght, 1000.0)));
-        font.setVariableAxis(QFont::Tag("wdth"), float(qBound(25.0, wdth, 151.0)));
+        // in steps: the counting numbers and the clock move their axes each frame, and each new value is a new font instance
+        font.setVariableAxis(QFont::Tag("wght"), float(qBound(100.0, std::round(wght / 10) * 10, 1000.0)));
+        font.setVariableAxis(QFont::Tag("wdth"), float(qBound(25.0, std::round(wdth), 151.0)));
         return font;
     }
 
@@ -256,7 +257,7 @@ namespace {
                     drift.setInterval(50);
                     QObject::connect(&drift, &QTimer::timeout, this, [this] {
                         phase += 0.02; // the wave flows back towards the start
-                        this->update();
+                        this->update(QRect(76 - 8, this->height() - 18 - 10, this->width() - 76 - 24 + 16, 8 + 20)); // only the wave
                     });
                 }
             }
@@ -864,16 +865,22 @@ namespace {
                 frame.setInterval(33);
                 QObject::connect(&frame, &QTimer::timeout, this, [this] {
                     double dt = clock.restart() / 1000.0;
-                    if (playing()) {
-                        phase += dt * 0.9; // the wave flows back towards the start
-                        spin += dt * 8;
-                        positionMicro += qint64(dt * 1e6);
+                    if (!playing()) {
+                        frame.stop(); // nothing moves until it plays (statusChanged starts it again)
+                        return;
                     }
+                    phase += dt * 0.9; // the wave flows back towards the start
+                    spin += dt * 8;
+                    positionMicro += qint64(dt * 1e6);
                     this->update();
                 });
                 poll.setInterval(1000);
                 QObject::connect(&poll, &QTimer::timeout, this, [this] {
-                    if (player) positionMicro = player->position();
+                    if (!player) return;
+                    const qint64 position = player->position();
+                    if (position == positionMicro) return;
+                    positionMicro = position;
+                    if (!frame.isActive()) this->update();
                 });
 
                 QObject::connect(MprisEngine::instance(), &MprisEngine::newPlayer, this, [this] {
@@ -916,9 +923,15 @@ namespace {
                 if (!art.isNull()) {
                     p->save();
                     p->setClipPath(shape);
-                    QImage scaled = art.scaled(artRect.size().toSize() * this->devicePixelRatioF(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-                    scaled.setDevicePixelRatio(this->devicePixelRatioF());
-                    p->drawImage(artRect.topLeft(), scaled);
+                    // scaled once per cover, not on every frame of the turn
+                    const QSize want = artRect.size().toSize() * this->devicePixelRatioF();
+                    if (scaledArtKey != art.cacheKey() || scaledArtSize != want) {
+                        scaledArt = art.scaled(want, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+                        scaledArt.setDevicePixelRatio(this->devicePixelRatioF());
+                        scaledArtKey = art.cacheKey();
+                        scaledArtSize = want;
+                    }
+                    p->drawImage(artRect.topLeft(), scaledArt);
                     p->restore();
                 } else {
                     p->fillPath(shape, s.primary);
@@ -987,7 +1000,9 @@ namespace {
         private:
             MprisPlayerPtr player;
             QString title, artist, artUrl;
-            QImage art;
+            QImage art, scaledArt;
+            qint64 scaledArtKey = 0;
+            QSize scaledArtSize;
             qint64 lengthMicro = 0, positionMicro = 0, seekMicro = 0;
             bool seeking = false;
             double phase = 0, spin = 0;
@@ -1037,6 +1052,7 @@ namespace {
                     });
                     QObject::connect(player.data(), &MprisPlayerInterface::seeked, this, [this](qint64 position) {
                         positionMicro = position;
+                        this->update();
                     });
                     positionMicro = player->position();
                 }
@@ -1071,6 +1087,10 @@ namespace {
                 amplitude->animateTo(playing() ? 1.0 : 0.0);
                 playShape->animateTo(playing() ? 1.0 : 0.0);
                 if (player) positionMicro = player->position();
+                if (playing() && this->isVisible() && !frame.isActive()) {
+                    clock.restart();
+                    frame.start();
+                }
                 this->update();
             }
     };
@@ -1146,7 +1166,9 @@ namespace {
                 drift.setInterval(50);
                 QObject::connect(&drift, &QTimer::timeout, this, [this] {
                     phase += 0.12; // the waves flow back towards the start
-                    this->update();
+                    // only the rings (as paintContent places them)
+                    const double outer = qMin(60.0, this->height() / 2.0 - 26), cx = 20 + outer + 6, cy = this->height() / 2.0;
+                    this->update(QRectF(cx - outer - 12, cy - outer - 12, 2 * outer + 24, 2 * outer + 24).toAlignedRect());
                 });
                 QObject::connect(ClaudeUsage::instance(), &ClaudeUsage::changed, this, [this] {
                     this->setVisible(ClaudeUsage::instance()->available());

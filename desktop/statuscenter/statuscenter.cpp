@@ -120,7 +120,13 @@ namespace {
                 fade = new M3SpringAnimation(this);
                 fade->setToken(M3Motion::EffectsDefault);
                 fade->snapTo(0.0);
-                for (auto* spring : {grow, fade}) QObject::connect(spring, &M3SpringAnimation::valueChanged, this, &DetailDialog::apply);
+                // the mask follows the box only (the fade, ticking alongside, would set the same one again)
+                QObject::connect(grow, &M3SpringAnimation::valueChanged, this, &DetailDialog::apply);
+                QObject::connect(fade, &M3SpringAnimation::valueChanged, this, [this] {
+                    veil->setVisible(fade->currentValue().toDouble() < 0.99);
+                    veil->update();
+                    this->update();
+                });
                 QObject::connect(fade, &M3SpringAnimation::finished, this, [this] {
                     if (fade->endValue().toDouble() < 0.5) release();
                 });
