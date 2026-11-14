@@ -20,17 +20,20 @@
 #ifndef NOTIFICATIONSDRAWERWIDGET_H
 #define NOTIFICATIONSDRAWERWIDGET_H
 
+#include <QPainterPath>
 #include <QWidget>
-
-namespace Ui {
-    class NotificationsDrawerWidget;
-}
 
 class Notification;
 typedef QPointer<Notification> NotificationPtr;
 
 struct NotificationsDrawerWidgetPrivate;
 class NotificationTracker;
+
+/**
+ * A pop-up as a pebble: it pops in as its app's shape, unfurls into a card
+ * (the shape riding its leading edge) and folds back into a pebble in the
+ * rail, a countdown ring round it. The drawer steps it from its frame timer.
+ */
 class NotificationsDrawerWidget : public QWidget {
         Q_OBJECT
 
@@ -38,32 +41,43 @@ class NotificationsDrawerWidget : public QWidget {
         explicit NotificationsDrawerWidget(NotificationPtr notification, NotificationTracker* tracker, QWidget* parent = nullptr);
         ~NotificationsDrawerWidget();
 
-        void show();
+        static constexpr int CardWidth = 420;
+        static constexpr int Edge = 8; // room beside the plate, inside the window
+
         void animateDismiss();
 
-        QSize sizeHint() const;
+        // The newest one is unfurled; the rest fold into the rail
+        void setFront(bool front);
+        bool leaving() const;
+        bool done() const;
+
+        // Steps its springs; true while anything moves
+        bool step(double dt);
+        int plateHeight() const;
+        double slot() const;
+        // What shows, in its own coordinates (the window's mask)
+        QPainterPath outline() const;
 
     signals:
-        void dismiss();
+        void animate();
 
-    private slots:
-        void on_closeButton_clicked();
-
-        void on_dismissButton_clicked();
+    protected:
+        void paintEvent(QPaintEvent* event) override;
+        void enterEvent(QEnterEvent* event) override;
+        void leaveEvent(QEvent* event) override;
+        void mousePressEvent(QMouseEvent* event) override;
+        void mouseMoveEvent(QMouseEvent* event) override;
+        void mouseReleaseEvent(QMouseEvent* event) override;
 
     private:
-        Ui::NotificationsDrawerWidget* ui;
         NotificationsDrawerWidgetPrivate* d;
 
-        void resizeEvent(QResizeEvent* event);
-        void slideSpring();
-        bool eventFilter(QObject* watched, QEvent* event);
-
         void setupActions();
-
-        void showButtons();
-        void hideButtons();
-        bool needsAnswer();
+        void updateApplication();
+        void measure();
+        bool needsAnswer() const;
+        QRectF plate() const;
+        QPointF coin() const;
 };
 
 #endif // NOTIFICATIONSDRAWERWIDGET_H

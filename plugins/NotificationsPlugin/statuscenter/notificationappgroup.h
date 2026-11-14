@@ -25,10 +25,11 @@
 #include <QWidget>
 #include <SystemJob/systemjob.h>
 
-namespace Ui {
-    class NotificationAppGroup;
-}
-
+/**
+ * An app's notifications as its shape and a deck of cards: the newer ones
+ * peek out under the top card. Tapping the shape deals the deck out; a card
+ * that goes is pulled back into the shape, and an empty group spins away.
+ */
 struct NotificationAppGroupPrivate;
 class NotificationAppGroup : public QWidget {
         Q_OBJECT
@@ -41,15 +42,22 @@ class NotificationAppGroup : public QWidget {
         void pushJob(SystemJobPtr job);
         void dismissAll();
 
-    private slots:
-        void on_dismissAllButton_clicked();
+    signals:
+        // nothing left: it's on its way out
+        void emptied();
+
+    protected:
+        void paintEvent(QPaintEvent* event) override;
+        void resizeEvent(QResizeEvent* event) override;
+        void showEvent(QShowEvent* event) override;
 
     private:
-        Ui::NotificationAppGroup* ui;
         NotificationAppGroupPrivate* d;
 
-        void setOrdering();
-        void dismissOrReorder();
+        void animate();
+        void frame();
+        void restack();
+        QPointF shapeCentre() const;
 };
 
 #endif // NOTIFICATIONAPPGROUP_H

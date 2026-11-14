@@ -35,17 +35,23 @@ class NotificationWidget : public QWidget {
         explicit NotificationWidget(NotificationPtr notification, QWidget* parent = nullptr);
         ~NotificationWidget();
 
-        void setIsLast(bool isLast);
+        // 0 while it's tucked under the deck's top card, 1 dealt out
+        void setDealt(double dealt);
+
+    signals:
+        void closeRequested();
+
+    protected:
+        void paintEvent(QPaintEvent* event) override;
+        void resizeEvent(QResizeEvent* event) override;
+        void enterEvent(QEnterEvent* event) override;
+        void leaveEvent(QEvent* event) override;
 
     private:
         Ui::NotificationWidget* ui;
         NotificationWidgetPrivate* d;
 
         void setupActions();
-
-        void resizeEvent(QResizeEvent* event);
-        void enterEvent(QEvent* event);
-        void leaveEvent(QEvent* event);
 };
 
 #endif // NOTIFICATIONWIDGET_H

@@ -16,7 +16,11 @@ class JobWidget : public QWidget {
         explicit JobWidget(SystemJobPtr job, QWidget* parent = nullptr);
         ~JobWidget();
 
-        void setIsLast(bool isLast);
+        // done, 0 to 1 (its app's shape wears it as a wavy ring)
+        double progress() const;
+
+    protected:
+        void paintEvent(QPaintEvent* event) override;
 
     private:
         Ui::JobWidget* ui;

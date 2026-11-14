@@ -21,8 +21,6 @@ set(SOURCES
     chunks/mprischunk.ui
     drawer/hudwidget.ui
     drawer/notificationsdrawer.ui
-    drawer/notificationsdrawerwidget.ui
-    statuscenter/notificationappgroup.ui
     statuscenter/notificationsstatuscenterpane.ui
     statuscenter/notificationwidget.ui
 
@@ -39,6 +37,7 @@ set(HEADERS
     drawer/notificationsdrawerwidget.h
     notification.h
     notificationtracker.h
+    pebble.h
     plugin.h
     statuscenter/notificationappgroup.h
     statuscenter/notificationsstatuscenterpane.h

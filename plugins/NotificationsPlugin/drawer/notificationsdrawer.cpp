@@ -24,6 +24,7 @@
 
 #include "notificationsdrawerwidget.h"
 #include "notificationtracker.h"
+#include <QElapsedTimer>
 #include <QScreen>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -42,6 +43,11 @@ struct NotificationsDrawerPrivate {
         QList<NotificationsDrawerWidget*> widgets;
 
         QScreen* oldPrimaryScreen = nullptr;
+
+        // The pop-ups (newest first), stepped from one frame timer
+        QTimer frames;
+        QElapsedTimer clock;
+        qint64 lastFrame = 0;
 
         // M3 snackbars sit at the bottom centre, in a window of their own
         QDialog* snackbarWindow = nullptr;
@@ -90,6 +96,9 @@ NotificationsDrawer::NotificationsDrawer(NotificationTracker* tracker) :
     connect(ui->hudWidget, &HudWidget::shouldShowChanged, this, &NotificationsDrawer::updateSnackbarGeometry);
 
     connect(qApp, &QApplication::primaryScreenChanged, this, &NotificationsDrawer::updateGeometry);
+    d->frames.setInterval(16);
+    d->clock.start();
+    connect(&d->frames, &QTimer::timeout, this, &NotificationsDrawer::frame);
     updateGeometry();
 }
 
@@ -138,18 +147,6 @@ void NotificationsDrawer::setFixedWidth(int width) {
     this->windowHandle()->setGeometry(this->geometry());
 }
 
-bool NotificationsDrawer::eventFilter(QObject* watched, QEvent* event) {
-    // Cards slide in by moving inside their widget: follow them with the mask
-    if ((event->type() == QEvent::Move || event->type() == QEvent::Resize) && watched->objectName() == QStringLiteral("mainFrame")) {
-        this->updateGeometry();
-        return false;
-    }
-    if (event->type() == QEvent::LayoutRequest) {
-        this->updateGeometry();
-    }
-    return false;
-}
-
 void NotificationsDrawer::updateGeometry() {
     QScreen* primaryScreen = qApp->primaryScreen();
     if (d->oldPrimaryScreen != primaryScreen && d->oldPrimaryScreen) {
@@ -161,43 +158,54 @@ void NotificationsDrawer::updateGeometry() {
     }
     d->oldPrimaryScreen = primaryScreen;
 
-    this->setFixedWidth(400);
-    this->setFixedHeight(this->sizeHint().height());
-
-    QRect geometry;
-    geometry.setSize(this->size());
+    // The pebbles' rail runs down the right edge, under the bar; the window
+    // is cut down to them (no compositor: the "translucent" rest is black)
+    const QRect screen = primaryScreen->geometry();
+    const int top = StateManager::barManager()->barHeight() + 16;
+    this->setFixedWidth(NotificationsDrawerWidget::CardWidth + 2 * NotificationsDrawerWidget::Edge);
+    this->setFixedHeight(qMax(1, screen.height() - top - 16));
     if (this->layoutDirection() == Qt::RightToLeft) {
-        geometry.moveTopRight(primaryScreen->geometry().topRight() + QPoint(-StateManager::gatewayManager()->gatewayWidth(), StateManager::barManager()->barHeight() + 16));
+        this->move(screen.left() + 8, screen.top() + top);
     } else {
-        geometry.moveTopLeft(primaryScreen->geometry().topLeft() + QPoint(StateManager::gatewayManager()->gatewayWidth() + 8, StateManager::barManager()->barHeight() + 16));
+        this->move(screen.right() + 1 - 8 - this->width(), screen.top() + top);
+    }
+    frame();
+}
+
+void NotificationsDrawer::frame() {
+    const qint64 now = d->clock.elapsed();
+    const double dt = qBound(0.001, (now - d->lastFrame) / 1000.0, 0.05);
+    d->lastFrame = now;
+
+    // The newest one is a card; the ones before fold into the rail
+    bool moving = false, front = true;
+    double y = 0;
+    QRegion shown;
+    for (NotificationsDrawerWidget* w : std::as_const(d->widgets)) {
+        w->setFront(front && !w->leaving());
+        if (!w->leaving()) front = false;
+        moving |= w->step(dt);
+        w->setGeometry(0, qRound(y), this->width(), w->plateHeight());
+        y += w->slot();
+        const QPainterPath outline = w->outline();
+        if (!outline.isEmpty()) shown += QRegion(outline.translated(w->pos()).toFillPolygon().toPolygon());
+    }
+    for (NotificationsDrawerWidget* w : QList(d->widgets)) {
+        if (!w->done()) continue;
+        d->widgets.removeOne(w);
+        w->deleteLater();
     }
 
-    if (geometry.bottom() > primaryScreen->geometry().bottom()) geometry.moveBottom(primaryScreen->geometry().bottom());
-
-    this->move(geometry.topLeft());
-
-    // No compositor, so the "translucent" background would be black: cut
-    // the window down to its cards (the snackbar and each notification)
-    QRegion cards;
-    auto addCard = [&cards](QRect rect, double radius) {
-        if (rect.isEmpty()) return;
-        QPainterPath path;
-        path.addRoundedRect(QRectF(rect), radius, radius);
-        cards += QRegion(path.toFillPolygon().toPolygon());
-    };
-    for (QWidget* w : d->widgets) {
-        // The card itself (mainFrame) sits inside the widget's margin
-        QWidget* card = w->findChild<QWidget*>(QStringLiteral("mainFrame"));
-        if (!card) card = w;
-        if (w->isVisible()) addCard(QRect(card->mapTo(this, QPoint(0, 0)), card->size()), 12);
-    }
-    if (!cards.isEmpty()) this->setMask(cards);
-
-    if (d->widgets.count() == 0) {
+    if (shown.isEmpty()) {
         this->hide();
     } else {
-        this->show();
+        this->setMask(shown);
+        if (!this->isVisible()) {
+            this->show();
+            this->raise();
+        }
     }
+    if (!moving || d->widgets.isEmpty()) d->frames.stop();
 }
 
 void NotificationsDrawer::showNotification(NotificationPtr notification) {
@@ -231,21 +239,13 @@ void NotificationsDrawer::showNotification(NotificationPtr notification) {
     QTimer::singleShot(0, this, [this] {
         this->raise(); // a new one comes up on top, even if the window was already up
     });
-    w->installEventFilter(this);
-    if (QWidget* card = w->findChild<QWidget*>(QStringLiteral("mainFrame"))) card->installEventFilter(this);
-    d->widgets.append(w);
-    ui->notificationsLayout->addWidget(w);
-
-    this->updateGeometry();
-
-    connect(w, &NotificationsDrawerWidget::dismiss, this, [=] {
-        d->widgets.removeOne(w);
-        ui->notificationsLayout->removeWidget(w);
-        w->deleteLater();
-
-        this->updateGeometry();
+    d->widgets.prepend(w);
+    connect(w, &NotificationsDrawerWidget::animate, this, [this] {
+        if (!d->frames.isActive()) {
+            d->lastFrame = d->clock.elapsed() - 16;
+            d->frames.start();
+        }
     });
-
     w->show();
-    this->updateGeometry();
+    emit w->animate();
 }

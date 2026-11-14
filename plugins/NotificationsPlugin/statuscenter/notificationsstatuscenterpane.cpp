@@ -23,6 +23,7 @@
 #include "notification.h"
 #include "notificationappgroup.h"
 #include "notificationtracker.h"
+#include "pebble.h"
 
 #include <quietmodemanager.h>
 #include <statemanager.h>
@@ -30,12 +31,17 @@
 
 #include <SystemJob/systemjobcontroller.h>
 
+#include <QHBoxLayout>
 #include <QPushButton>
+#include <m3motion.h>
 
 struct NotificationsStatusCenterPanePrivate {
         NotificationTracker* tracker;
         SystemJobController* jobController;
         QMap<QString, NotificationAppGroup*> groups;
+        QMap<QuietModeManagerTd::QuietMode, QPushButton*> quietButtons;
+        QList<M3SpringAnimation*> quietGrow;
+        QHBoxLayout* quietLayout;
 };
 
 NotificationsStatusCenterPane::NotificationsStatusCenterPane(NotificationTracker* tracker, SystemJobController* jobController) :
@@ -57,12 +63,8 @@ NotificationsStatusCenterPane::NotificationsStatusCenterPane(NotificationTracker
 
     connect(d->tracker, &NotificationTracker::newNotification, this, [=](NotificationPtr notification) {
         auto application = notification->application();
-        QString desktopEntry;
-        if (application) {
-            desktopEntry = application->desktopEntry();
-        }
-
-        auto group = appGroupForDesktopEntry(desktopEntry, application);
+        // without a desktop entry, apps are told apart by the name they gave
+        auto group = appGroupForDesktopEntry(Pebble::key(application), application);
         group->pushNotification(notification);
 
         ui->stackedWidget->setCurrentWidget(ui->notificationsPage);
@@ -76,25 +78,59 @@ NotificationsStatusCenterPane::NotificationsStatusCenterPane(NotificationTracker
     ui->stackedWidget->setCurrentAnimation(tStackedWidget::Fade);
     ui->notificationSplash->setPixmap(QIcon::fromTheme("notifications").pixmap(QSize(128, 128)));
 
-    for (QuietModeManagerTd::QuietMode mode : StateManager::quietModeManager()->availableQuietModes()) {
-        QuietModeManagerTd::QuietMode m = mode;
-        QPushButton* button = new QPushButton(this);
-        button->setText(StateManager::quietModeManager()->name(m));
-        button->setIcon(QIcon::fromTheme(StateManager::quietModeManager()->icon(m)));
+    ui->titleLayout->setStretch(0, 1);
+    ui->clearAllButton->setProperty("m3ButtonSize", QStringLiteral("xs"));
+    ui->clearAllButton->setProperty("m3ButtonStyle", QStringLiteral("tonal"));
+    ui->clearAllButton->hide();
+    connect(ui->clearAllButton, &QPushButton::clicked, this, [this] {
+        for (NotificationAppGroup* group : d->groups) group->dismissAll();
+    });
+
+    // Quiet modes as a connected button group: the selected one widens to
+    // show its name
+    QuietModeManagerTd* quiet = StateManager::quietModeManager();
+    auto* quietGroup = new QWidget(this);
+    quietGroup->setProperty("m3ButtonGroup", QStringLiteral("connected"));
+    d->quietLayout = new QHBoxLayout(quietGroup);
+    d->quietLayout->setContentsMargins(0, 0, 0, 0);
+    d->quietLayout->setSpacing(2);
+    ui->quietModesLayout->addWidget(quietGroup);
+    ui->horizontalSpacer->changeSize(0, 0);
+    for (QuietModeManagerTd::QuietMode mode : quiet->availableQuietModes()) {
+        QPushButton* button = new QPushButton(QIcon::fromTheme(QuietModeManagerTd::icon(mode)), QString(), quietGroup);
+        button->setToolTip(QStringLiteral("%1: %2").arg(QuietModeManagerTd::name(mode), QuietModeManagerTd::description(mode)));
+        button->setAccessibleName(QuietModeManagerTd::name(mode));
+        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         button->setCheckable(true);
         button->setAutoExclusive(true);
-        button->setChecked(StateManager::quietModeManager()->currentMode() == m);
-        connect(button, &QPushButton::toggled, this, [=](bool checked) {
-            if (checked) {
-                StateManager::quietModeManager()->setQuietMode(m);
-            }
+        connect(button, &QPushButton::clicked, quiet, [quiet, mode] {
+            quiet->setQuietMode(mode);
         });
-        connect(StateManager::quietModeManager(), &QuietModeManagerTd::quietModeChanged, this, [=](QuietModeManagerTd::QuietMode newMode, QuietModeManagerTd::QuietMode oldMode) {
-            Q_UNUSED(oldMode);
-            button->setChecked(newMode == m);
+        d->quietLayout->addWidget(button);
+        d->quietButtons.insert(mode, button);
+
+        auto* grow = new M3SpringAnimation(this);
+        grow->setToken(M3Motion::SpatialFast);
+        grow->snapTo(0.0);
+        const int index = d->quietGrow.count();
+        connect(grow, &M3SpringAnimation::valueChanged, this, [this, index](QVariant value) {
+            d->quietLayout->setStretch(index, 100 + qRound(150 * value.toDouble()));
         });
-        ui->quietModesLayout->addWidget(button);
+        d->quietGrow.append(grow);
     }
+    auto updateQuietMode = [this] {
+        const QuietModeManagerTd::QuietMode mode = StateManager::quietModeManager()->currentMode();
+        int i = 0;
+        for (auto button = d->quietButtons.cbegin(); button != d->quietButtons.cend(); ++button, ++i) {
+            const bool selected = button.key() == mode;
+            if (selected) button.value()->setChecked(true);
+            button.value()->setText(selected ? QuietModeManagerTd::name(button.key()) : QString());
+            d->quietGrow.at(d->quietLayout->indexOf(button.value()))->animateTo(selected ? 1.0 : 0.0);
+        }
+    };
+    connect(quiet, &QuietModeManagerTd::quietModeChanged, this, updateQuietMode);
+    updateQuietMode();
+    for (M3SpringAnimation* grow : d->quietGrow) grow->snapTo(grow->endValue());
 }
 
 NotificationsStatusCenterPane::~NotificationsStatusCenterPane() {
@@ -111,16 +147,23 @@ NotificationAppGroup* NotificationsStatusCenterPane::appGroupForDesktopEntry(QSt
         return d->groups.value(desktopEntry);
     } else {
         auto group = new NotificationAppGroup(application, this);
+        // Emptied, it spins away; a new notification from the app gets a new group
+        connect(group, &NotificationAppGroup::emptied, this, [=] {
+            if (d->groups.value(desktopEntry) == group) d->groups.remove(desktopEntry);
+            ui->clearAllButton->setVisible(!d->groups.isEmpty());
+        });
         connect(
             group, &NotificationAppGroup::destroyed, this, [=] {
                 ui->notificationsLayout->removeWidget(group);
-                d->groups.remove(desktopEntry);
+                if (d->groups.value(desktopEntry) == group) d->groups.remove(desktopEntry);
 
                 if (d->groups.isEmpty()) ui->stackedWidget->setCurrentWidget(ui->noNotificationsPage);
+                ui->clearAllButton->setVisible(!d->groups.isEmpty());
             },
             Qt::QueuedConnection);
         ui->notificationsLayout->insertWidget(0, group);
         d->groups.insert(desktopEntry, group);
+        ui->clearAllButton->show();
 
         return group;
     }
@@ -128,9 +171,11 @@ NotificationAppGroup* NotificationsStatusCenterPane::appGroupForDesktopEntry(QSt
 
 void NotificationsStatusCenterPane::registerJob(SystemJobPtr job) {
     auto desktopEntry = d->jobController->desktopEntryForService(job->service());
-    auto app = ApplicationPointer(new Application(desktopEntry));
+    // without a desktop entry, it joins the notifications under its app's name
+    auto app = desktopEntry.isEmpty() ? ApplicationPointer(new Application(QVariantMap{{"Icon", "generic-app"}, {"Name", d->jobController->applicationNameForService(job->service())}}))
+                                      : ApplicationPointer(new Application(desktopEntry));
 
-    auto group = appGroupForDesktopEntry(desktopEntry, app);
+    auto group = appGroupForDesktopEntry(Pebble::key(app), app);
     group->pushJob(job);
 
     ui->stackedWidget->setCurrentWidget(ui->notificationsPage);

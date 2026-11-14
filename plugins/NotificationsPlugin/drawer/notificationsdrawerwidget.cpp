@@ -18,389 +18,468 @@
  *
  * *************************************/
 #include "notificationsdrawerwidget.h"
-#include <QCursor>
 
-#include <m3motion.h>
-#include "ui_notificationsdrawerwidget.h"
-
-#include <tvariantanimation.h>
-#include <QIcon>
-#include <QGraphicsOpacityEffect>
-#include <QPushButton>
-#include "notificationtracker.h"
 #include "notification.h"
-#include <m3scheme.h>
-#include <QPainterPath>
-#include <QPainter>
-#include <QMouseEvent>
-#include <QTimer>
+#include "notificationtracker.h"
+#include "pebble.h"
+#include <QCursor>
 #include <QElapsedTimer>
+#include <QGraphicsOpacityEffect>
+#include <QLabel>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QPushButton>
+#include <QTimer>
+#include <QToolButton>
+#include <QVBoxLayout>
+#include <shapes/morph.h>
+#include <tvariantanimation.h>
+
+namespace {
+    constexpr double Folded = 72;   // a pebble in the rail
+    constexpr double ShapeSize = 56;
+    constexpr double TextLeft = 86; // the card's words, right of the shape
+    constexpr double Gap = 10;      // between pebbles
+
+    double lerp(double a, double b, double t) {
+        return a + (b - a) * t;
+    }
+    QColor mix(const QColor& a, const QColor& b, double t) {
+        t = qBound(0.0, t, 1.0);
+        return QColor::fromRgbF(float(lerp(a.redF(), b.redF(), t)), float(lerp(a.greenF(), b.greenF(), t)), float(lerp(a.blueF(), b.blueF(), t)));
+    }
+    QPainterPath rounded(const QRectF& r, double radius) {
+        QPainterPath path;
+        path.addRoundedRect(r, radius, radius);
+        return path;
+    }
+} // namespace
 
 struct NotificationsDrawerWidgetPrivate {
-    NotificationTracker* tracker;
-    tVariantAnimation* timeout;
-    tVariantAnimation* actionsWidgetHeight;
-    NotificationPtr n;
+        NotificationTracker* tracker;
+        tVariantAnimation* timeout;
+        NotificationPtr n;
+        bool shouldTimeoutRun = false;
 
-    QList<QPushButton*> actions;
+        QWidget* content;
+        QLabel *app, *summary, *body;
+        QWidget* actions;
+        QList<QPushButton*> buttons;
+        QGraphicsOpacityEffect* contentOpacity;
+        QToolButton* close;
+        double cardHeight = 88;
 
-    QGraphicsOpacityEffect* effect;
-    bool shouldTimeoutRun = false;
+        QString key;
+        QPainterPath shape; // the app's, normalised
+        QImage glyph;
+        QColor bg, fg;
 
-    // The card's sideways position: springs in, follows a swipe, flings out
-    M3SpringAnimation* slide = nullptr;
-    bool pressed = false, swiping = false, flung = false;
-    double pressX = 0;          // global x where the press started
-    double lastX = 0, velocity = 0; // px/s, for a flick
-    QElapsedTimer moveClock;
+        Pebble::Spring hk{0}, u{0}, enter{0}, x{0}, morph{0};
+        Pebble::Spring rot{-120, M3Motion::SpatialSlow}, alpha{0, M3Motion::EffectsDefault};
+        QElapsedTimer born;
+        bool front = false, hovered = false;
+        bool gone = false, answered = false, folded = false;
+        QTimer turn; // a critical one keeps turning while it waits
+
+        // swipe sideways to dismiss
+        bool pressed = false, swiping = false, flung = false;
+        double pressX = 0, lastX = 0, velocity = 0;
+        QElapsedTimer moveClock;
 };
 
 NotificationsDrawerWidget::NotificationsDrawerWidget(NotificationPtr notification, NotificationTracker* tracker, QWidget* parent) :
-    QWidget(parent),
-    ui(new Ui::NotificationsDrawerWidget) {
-    ui->setupUi(this);
-
+    QWidget(parent) {
     d = new NotificationsDrawerWidgetPrivate();
     d->n = notification;
     d->tracker = tracker;
+    const M3::Scheme s = M3::currentScheme();
 
-    ui->summaryLabel->setText(notification->summary());
-    ui->bodyLabel->setText(notification->body());
-    connect(notification, &Notification::summaryChanged, ui->summaryLabel, &QLabel::setText);
-    connect(notification, &Notification::bodyChanged, ui->bodyLabel, &QLabel::setText);
+    // The card's words and actions are real widgets; the rest is painted
+    d->content = new QWidget(this);
+    auto* layout = new QVBoxLayout(d->content);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(2);
+    auto label = [&](const QFont& font, const QColor& colour) {
+        auto* l = new QLabel(d->content);
+        l->setFont(font);
+        QPalette pal = l->palette();
+        for (auto group : {QPalette::Active, QPalette::Inactive}) pal.setColor(group, QPalette::WindowText, colour);
+        l->setPalette(pal);
+        l->setWordWrap(true);
+        layout->addWidget(l);
+        return l;
+    };
+    d->app = label(Pebble::flex(12, 500), s.onSurfaceVariant);
+    d->summary = label(Pebble::flex(16, 600), s.onSurface);
+    d->body = label(Pebble::flex(14, 400), s.onSurfaceVariant);
+    d->app->setContentsMargins(0, 0, 36, 0); // the close button's corner
+    d->summary->setContentsMargins(0, 0, 36, 0);
+    d->actions = new QWidget(d->content);
+    d->actions->setProperty("m3ButtonGroup", QStringLiteral("connected"));
+    auto* actionsLayout = new QHBoxLayout(d->actions);
+    actionsLayout->setContentsMargins(0, 0, 0, 0);
+    actionsLayout->setSpacing(2);
+    layout->addSpacing(8);
+    layout->addWidget(d->actions, 0, Qt::AlignLeft);
+    d->contentOpacity = new QGraphicsOpacityEffect(d->content);
+    d->content->setGraphicsEffect(d->contentOpacity);
+    d->content->hide();
 
-    connect(notification, &Notification::dismissed, this, &NotificationsDrawerWidget::animateDismiss);
+    d->close = new QToolButton(this);
+    d->close->setIcon(QIcon::fromTheme(QStringLiteral("window-close")));
+    d->close->setAutoRaise(true);
+    d->close->setProperty("m3ButtonSize", QStringLiteral("xs"));
+    d->close->setProperty("m3IconButtonStyle", QStringLiteral("tonal"));
+    d->close->setToolTip(tr("Dismiss"));
+    d->close->hide();
+    connect(d->close, &QToolButton::clicked, this, [this] {
+        d->n->dismiss(Notification::NotificationUserDismissed);
+    });
+
+    d->summary->setText(notification->summary());
+    d->body->setText(notification->body());
+    d->body->setVisible(!notification->body().isEmpty());
+    connect(notification, &Notification::summaryChanged, this, [this](QString summary) {
+        d->summary->setText(summary);
+        measure();
+    });
+    connect(notification, &Notification::bodyChanged, this, [this](QString body) {
+        d->body->setText(body);
+        d->body->setVisible(!body.isEmpty());
+        measure();
+    });
+    connect(notification, &Notification::dismissed, this, [this] {
+        if (!d->answered) animateDismiss(); // answered: it leaves once the check has shown
+    });
 
     d->timeout = new tVariantAnimation(this);
     d->timeout->setStartValue(1.0);
     d->timeout->setEndValue(0.0);
     d->timeout->setEasingCurve(QEasingCurve::Linear);
     d->timeout->setForceAnimation(true);
-    if (notification->timeout() == 0) {
-        d->timeout->setDuration(-1);
-    } else {
-        d->timeout->setDuration(notification->timeout());
-    }
+    d->timeout->setDuration(notification->timeout() == 0 ? -1 : notification->timeout());
     connect(d->timeout, &tVariantAnimation::finished, this, &NotificationsDrawerWidget::animateDismiss);
-    connect(d->tracker, &NotificationTracker::pauseTimeouts, this, [ = ] {
+    connect(d->timeout, &tVariantAnimation::valueChanged, this, [this] {
+        // only the countdown ring moves
+        const QPointF c = coin();
+        this->update(QRectF(c.x() - 36, c.y() - 36, 72, 72).toAlignedRect());
+    });
+    connect(d->tracker, &NotificationTracker::pauseTimeouts, this, [this] {
         d->timeout->pause();
     });
-    connect(d->tracker, &NotificationTracker::resumeTimeouts, this, [ = ] {
-        if (d->shouldTimeoutRun && d->n->timeout() != 0 && !needsAnswer()) {
-            d->timeout->start();
-        }
+    connect(d->tracker, &NotificationTracker::resumeTimeouts, this, [this] {
+        if (d->shouldTimeoutRun && d->n->timeout() != 0 && !needsAnswer()) d->timeout->start();
+    });
+    connect(notification, &Notification::timeoutChanged, this, [this](qint32 timeout) {
+        d->timeout->setDuration(timeout == 0 || needsAnswer() ? -1 : timeout);
     });
 
-    connect(notification, &Notification::timeoutChanged, this, [ = ](qint32 timeout) {
-        if (timeout == 0) {
-            d->timeout->setDuration(-1);
-        } else {
-            d->timeout->setDuration(timeout);
-        }
+    d->turn.setInterval(700);
+    connect(&d->turn, &QTimer::timeout, this, [this] {
+        if (d->answered || d->gone || !needsAnswer()) return;
+        d->rot.target += 45;
+        emit animate();
     });
-
-    ui->appIconLabel->setPixmap(QIcon::fromTheme(notification->application()->getProperty("Icon").toString()).pixmap(SC_DPI_T(QSize(16, 16), QSize)));
-    ui->appNameLabel->setText(notification->application()->getProperty("Name").toString());
-    connect(notification, &Notification::applicationChanged, this, [ = ] {
-        ui->appIconLabel->setPixmap(QIcon::fromTheme(notification->application()->getProperty("Icon").toString()).pixmap(SC_DPI_T(QSize(16, 16), QSize)));
-        ui->appNameLabel->setText(notification->application()->getProperty("Name").toString());
-    });
-
-    ui->actionsWidget->setFixedHeight(0);
+    connect(notification, &Notification::applicationChanged, this, &NotificationsDrawerWidget::updateApplication);
     connect(notification, &Notification::actionsChanged, this, &NotificationsDrawerWidget::setupActions);
     setupActions();
-    // A critical notification with actions (a pairing code, a call) waits
-    // for its answer: it stays, its buttons showing
-    if (needsAnswer()) d->timeout->setDuration(-1);
 
-    d->actionsWidgetHeight = new tVariantAnimation(this);
-    d->actionsWidgetHeight->setDuration(M3Motion::duration(M3Motion::SpatialDefault));
-    d->actionsWidgetHeight->setEasingCurve(M3Motion::easing(M3Motion::SpatialDefault));
-    connect(d->actionsWidgetHeight, &tVariantAnimation::valueChanged, this, [ = ](QVariant value) {
-        ui->actionsWidget->setFixedHeight(value.toInt());
-        ui->mainFrame->setFixedHeight(ui->mainFrame->sizeHint().height());
-        this->updateGeometry();
+    // It pops in as its shape (a scale and a spin), then unfurls
+    d->hk.target = 1;
+    d->enter.target = 1;
+    d->alpha.target = 1;
+    d->rot.target = 0;
+    d->born.start();
+    QTimer::singleShot(220, this, [this] {
+        emit animate();
     });
-    connect(d->actionsWidgetHeight, &tVariantAnimation::finished, this, [ = ] {
-        ui->mainFrame->setFixedHeight(ui->mainFrame->sizeHint().height());
-        this->updateGeometry();
+    QTimer::singleShot(500, this, [this] {
+        d->shouldTimeoutRun = true;
+        if (d->n->timeout() != 0 && !needsAnswer() && !d->swiping && !d->flung && !d->gone && !d->hovered) d->timeout->start();
     });
-
-    ui->buttonBox->setParent(ui->mainFrame);
-    ui->buttonBox->move(this->layoutDirection() == Qt::RightToLeft ? 0 : ui->mainFrame->width() - ui->buttonBox->width(), 0);
-    ui->buttonBox->setVisible(false);
-
-    ui->mainFrame->installEventFilter(this);
-
-    // M3 card: painted in the event filter (SurfaceContainerHigh, CornerMedium)
-    ui->mainFrame->setAutoFillBackground(false);
-    ui->mainFrame->setFrameShape(QFrame::NoFrame);
-    {
-        M3::Scheme s = M3::currentScheme();
-        auto recolour = [](QWidget* w, QColor c) {
-            QPalette pal = w->palette();
-            for (auto group : {QPalette::Active, QPalette::Inactive}) pal.setColor(group, QPalette::WindowText, c);
-            w->setPalette(pal);
-        };
-        QFont app = ui->appNameLabel->font();
-        app.setBold(false);
-        app.setWeight(QFont::Medium);
-        app.setPixelSize(12); // LabelMedium
-        ui->appNameLabel->setFont(app);
-        recolour(ui->appNameLabel, s.onSurfaceVariant);
-        QFont summary = ui->summaryLabel->font();
-        summary.setBold(false);
-        summary.setWeight(QFont::DemiBold);
-        summary.setPixelSize(15);
-        ui->summaryLabel->setFont(summary);
-        recolour(ui->summaryLabel, s.onSurface);
-        QFont body = ui->bodyLabel->font();
-        body.setPixelSize(14); // BodyMedium
-        ui->bodyLabel->setFont(body);
-        recolour(ui->bodyLabel, s.onSurfaceVariant);
-    }
-    connect(d->timeout, &tVariantAnimation::valueChanged, ui->mainFrame, [this] {
-        // only the countdown line moves: repaint its strip, not the card and its labels
-        ui->mainFrame->update(QRect(14, ui->mainFrame->height() - 8, ui->mainFrame->width() - 28, 7));
-    });
-    ui->actionsLayout->setContentsMargins(12, 0, 12, 14);
-    ui->actionsLayout->setSpacing(8);
-
-    d->effect = new QGraphicsOpacityEffect(this);
-    d->effect->setEnabled(false);
-    this->setGraphicsEffect(d->effect);
 }
 
 NotificationsDrawerWidget::~NotificationsDrawerWidget() {
-    delete ui;
+    // ~QWidget can still send enter events (and with them the tracker's
+    // pause) after this: nothing may reach d once it's gone
+    d->tracker->disconnect(this);
+    if (d->n) d->n->disconnect(this);
     delete d;
 }
 
-void NotificationsDrawerWidget::slideSpring() {
-    if (d->slide) return;
-    d->slide = new M3SpringAnimation(this);
-    d->slide->setToken(M3Motion::SpatialDefault); // expressive: a little overshoot
-    connect(d->slide, &M3SpringAnimation::valueChanged, this, [this](QVariant value) {
-        const double x = value.toDouble();
-        ui->mainFrame->move(qRound(x), SC_DPI(9));
-        // Swiped away: fading with the distance
-        const double away = qAbs(x - SC_DPI(9)) / qMax(1, ui->mainFrame->width());
-        if (d->swiping || d->flung) {
-            d->effect->setEnabled(true);
-            d->effect->setOpacity(qBound(0.0, 1 - away * 1.2, 1.0));
-        }
-    });
-}
-
-void NotificationsDrawerWidget::show() {
-    QWidget::show();
-
-    // Springs in from the side
-    slideSpring();
-    d->slide->snapTo(double(this->layoutDirection() == Qt::RightToLeft ? ui->mainFrame->width() : -ui->mainFrame->width()));
-    d->slide->animateTo(double(SC_DPI(9)));
-    QTimer::singleShot(M3Motion::duration(M3Motion::SpatialDefault), this, [this] {
-        d->shouldTimeoutRun = true;
-        if (d->n->timeout() != 0 && !needsAnswer() && !d->swiping && !d->flung) {
-            d->timeout->start();
-        }
-    });
-}
-
-void NotificationsDrawerWidget::animateDismiss() {
-    d->shouldTimeoutRun = false;
-
-    tVariantAnimation* opacityAnim = new tVariantAnimation(this);
-    opacityAnim->setStartValue(d->effect->isEnabled() ? d->effect->opacity() : 1.0); // (a swipe already faded it)
-    opacityAnim->setEndValue(0.0);
-    opacityAnim->setEasingCurve(M3Motion::easing(M3Motion::EffectsDefault));
-    opacityAnim->setDuration(M3Motion::duration(M3Motion::EffectsDefault));
-    connect(opacityAnim, &tVariantAnimation::valueChanged, this, [ = ](QVariant value) {
-        d->effect->setOpacity(value.toDouble());
-    });
-    connect(opacityAnim, &tVariantAnimation::finished, this, [ = ] {
-        opacityAnim->deleteLater();
-
-        tVariantAnimation* anim = new tVariantAnimation(this);
-        anim->setStartValue(this->height());
-        anim->setEndValue(0);
-        anim->setEasingCurve(M3Motion::easing(M3Motion::SpatialDefault));
-        anim->setDuration(M3Motion::duration(M3Motion::SpatialDefault));
-        connect(anim, &tVariantAnimation::valueChanged, this, [ = ](QVariant value) {
-            this->setFixedHeight(value.toInt());
-        });
-        connect(anim, &tVariantAnimation::finished, this, [ = ] {
-            anim->deleteLater();
-            emit dismiss();
-        });
-        anim->start();
-    });
-    d->effect->setEnabled(true);
-    opacityAnim->start();
-}
-
-QSize NotificationsDrawerWidget::sizeHint() const {
-    QSize sizeHint = QWidget::sizeHint();
-    sizeHint.setHeight(ui->mainFrame->sizeHint().height() + SC_DPI(9));
-    return sizeHint;
-}
-
-void NotificationsDrawerWidget::resizeEvent(QResizeEvent* event) {
-    ui->mainFrame->setFixedWidth(this->width() - SC_DPI(18));
-    ui->mainFrame->setFixedHeight(ui->mainFrame->sizeHint().height());
-    ui->buttonBox->move(this->layoutDirection() == Qt::RightToLeft ? 0 : ui->mainFrame->width() - ui->buttonBox->width(), 0);
-}
-
-bool NotificationsDrawerWidget::eventFilter(QObject* watched, QEvent* event) {
-    if (watched == ui->mainFrame && event->type() == QEvent::Paint) {
-        QPainter painter(ui->mainFrame);
-        painter.setRenderHint(QPainter::Antialiasing);
-        M3::Scheme s = M3::currentScheme();
-        QPainterPath card;
-        card.addRoundedRect(QRectF(ui->mainFrame->rect()), 12, 12);
-        painter.fillPath(card, s.surfaceContainerHigh);
-        // Time left before it goes: a thin Primary line along the bottom
-        if (d->n->timeout() != 0 && d->timeout->state() != QAbstractAnimation::Stopped) {
-            double left = qBound(0.0, d->timeout->currentValue().toDouble(), 1.0);
-            QRectF track(16, ui->mainFrame->height() - 6, ui->mainFrame->width() - 32, 3);
-            QPainterPath line;
-            line.addRoundedRect(QRectF(track.left(), track.top(), track.width() * left, track.height()), 1.5, 1.5);
-            painter.fillPath(line, s.primary);
-        }
-        return true;
+void NotificationsDrawerWidget::updateApplication() {
+    const M3::Scheme s = M3::currentScheme();
+    const bool critical = d->n->urgency() == Notification::Critical;
+    d->key = Pebble::key(d->n->application());
+    d->shape = m3shapes::toPath(Pebble::shape(d->key));
+    if (critical) {
+        d->bg = s.errorContainer;
+        d->fg = s.onErrorContainer;
+    } else {
+        Pebble::colours(d->key, s, &d->bg, &d->fg);
     }
-    if (watched == ui->mainFrame && !d->flung) {
-        // Swipe sideways to dismiss: the card follows the pointer and fades;
-        // let go past a third of its width (or flick it) and it flies off,
-        // otherwise it springs back
-        switch (event->type()) {
-            case QEvent::MouseButtonPress: {
-                auto* mouse = static_cast<QMouseEvent*>(event);
-                if (mouse->button() != Qt::LeftButton) break;
-                slideSpring();
-                d->pressed = true;
-                d->swiping = false;
-                d->pressX = d->lastX = mouse->globalPosition().x();
-                d->velocity = 0;
-                d->moveClock.start();
-                event->accept();
-                return true; // the card takes the drag
-            }
-            case QEvent::MouseMove: {
-                if (!d->pressed) break;
-                auto* mouse = static_cast<QMouseEvent*>(event);
-                const double x = mouse->globalPosition().x();
-                const double dx = x - d->pressX;
-                if (!d->swiping && qAbs(dx) > 8) {
-                    d->swiping = true;
-                    d->tracker->pauseTimeouts();
-                }
-                if (d->swiping) {
-                    const qint64 ms = qMax<qint64>(1, d->moveClock.restart());
-                    d->velocity = 0.6 * d->velocity + 0.4 * (x - d->lastX) * 1000.0 / ms;
-                    d->lastX = x;
-                    d->slide->snapTo(SC_DPI(9) + dx);
-                }
-                return true;
-            }
-            case QEvent::MouseButtonRelease: {
-                if (!d->pressed) break;
-                d->pressed = false;
-                if (!d->swiping) return false;
-                const double dx = d->lastX - d->pressX;
-                const double width = ui->mainFrame->width();
-                if (qAbs(dx) > width / 3 || qAbs(d->velocity) > 900) {
-                    // Off it goes, the way it was going, then the gap closes
-                    d->flung = true;
-                    const double direction = (qAbs(d->velocity) > 900 ? d->velocity : dx) > 0 ? 1 : -1;
-                    d->slide->animateTo(SC_DPI(9) + direction * (width + SC_DPI(40)));
-                    d->tracker->resumeTimeouts();
-                    QTimer::singleShot(260, this, [this] {
-                        d->n->dismiss(Notification::NotificationUserDismissed);
-                    });
-                } else {
-                    d->swiping = false;
-                    d->slide->animateTo(double(SC_DPI(9)));
-                    d->effect->setOpacity(1);
-                    d->effect->setEnabled(false);
-                    // Still hovered: the hover keeps them paused (Leave
-                    // resumes them)
-                    if (!ui->mainFrame->rect().contains(ui->mainFrame->mapFromGlobal(QCursor::pos()))) d->tracker->resumeTimeouts();
-                }
-                return true;
-            }
-            default:
-                break;
-        }
-    }
-    if (watched == ui->mainFrame) {
-        switch (event->type()) {
-            case QEvent::Enter:
-                showButtons();
-                break;
-            case QEvent::Leave:
-                hideButtons();
-                break;
-            default:
-                break;
-        }
-    }
-    return false;
+    d->glyph = Pebble::glyph(d->n->application(), 26, this->devicePixelRatioF(), d->bg, d->fg);
+
+    const QString name = d->n->application() ? d->n->application()->getProperty(QStringLiteral("Name")).toString() : QString();
+    d->app->setText(needsAnswer() ? tr("%1 · needs an answer").arg(name) : tr("%1 · now").arg(name));
+    QPalette pal = d->app->palette();
+    for (auto group : {QPalette::Active, QPalette::Inactive}) pal.setColor(group, QPalette::WindowText, needsAnswer() ? s.error : s.onSurfaceVariant);
+    d->app->setPalette(pal);
+    this->update();
 }
 
 void NotificationsDrawerWidget::setupActions() {
-    for (QPushButton* button : d->actions) {
-        ui->actionsLayout->removeWidget(button);
-        button->deleteLater();
-    }
-    d->actions.clear();
-
-    for (Notification::Action action : d->n->actions()) {
-        QPushButton* button = new QPushButton();
+    qDeleteAll(d->buttons);
+    d->buttons.clear();
+    const bool critical = d->n->urgency() == Notification::Critical;
+    for (const Notification::Action& action : d->n->actions()) {
+        auto* button = new QPushButton(d->actions);
         button->setText(action.text);
         button->setIcon(action.icon);
-        connect(button, &QPushButton::clicked, this, [ = ] {
+        button->setProperty("m3ButtonSize", QStringLiteral("xs"));
+        // a critical one's answer is the filled one
+        button->setProperty("m3ButtonStyle", critical && d->buttons.isEmpty() ? QStringLiteral("filled") : QStringLiteral("tonal"));
+        connect(button, &QPushButton::clicked, this, [this, action] {
+            if (d->gone || d->answered) return;
             emit d->n->actionInvoked(action);
-            this->animateDismiss();
+            if (d->n->urgency() != Notification::Critical) {
+                animateDismiss();
+                return;
+            }
+            // Answered: its shape morphs into a circle with a check, then it
+            // folds and goes
+            d->answered = true;
+            d->timeout->stop();
+            d->morph.target = 1;
+            d->actions->setEnabled(false);
+            emit animate();
+            QTimer::singleShot(100, this, [this] {
+                d->folded = true;
+                emit animate();
+            });
+            QTimer::singleShot(450, this, &NotificationsDrawerWidget::animateDismiss);
         });
-        ui->actionsLayout->addWidget(button);
-        d->actions.append(button);
+        d->actions->layout()->addWidget(button);
+        d->buttons.append(button);
     }
+    d->actions->setVisible(!d->buttons.isEmpty());
+    // A critical notification with actions (a pairing code, a call) waits
+    // for its answer: it stays unfurled, its buttons showing
     if (needsAnswer()) {
         d->timeout->setDuration(-1);
-        ui->actionsWidget->setFixedHeight(ui->actionsWidget->sizeHint().height());
+        d->turn.start();
     }
+    updateApplication();
+    measure();
 }
 
-void NotificationsDrawerWidget::showButtons() {
-    d->tracker->pauseTimeouts();
-    ui->buttonBox->setVisible(true);
-
-    d->actionsWidgetHeight->stop();
-    d->actionsWidgetHeight->setStartValue(ui->actionsWidget->height());
-    d->actionsWidgetHeight->setEndValue(ui->actionsWidget->sizeHint().height());
-    d->actionsWidgetHeight->start();
+void NotificationsDrawerWidget::measure() {
+    const int width = NotificationsDrawerWidget::CardWidth - TextLeft - 16;
+    d->content->setFixedWidth(width);
+    d->content->layout()->activate();
+    const int height = d->content->layout()->totalHeightForWidth(width);
+    d->content->setFixedHeight(height); // the window's mask cuts it to the plate as it unfurls
+    d->cardHeight = qMax(88, 12 + height + 14);
+    emit animate();
 }
 
-bool NotificationsDrawerWidget::needsAnswer() {
+bool NotificationsDrawerWidget::needsAnswer() const {
     return d->n->urgency() == Notification::Critical && !d->n->actions().isEmpty();
 }
 
-void NotificationsDrawerWidget::hideButtons() {
-    d->tracker->resumeTimeouts();
-    ui->buttonBox->setVisible(false);
-    if (needsAnswer()) return; // its buttons stay
-
-    d->actionsWidgetHeight->stop();
-    d->actionsWidgetHeight->setStartValue(ui->actionsWidget->height());
-    d->actionsWidgetHeight->setEndValue(0);
-    d->actionsWidgetHeight->start();
+void NotificationsDrawerWidget::setFront(bool front) {
+    d->front = front;
 }
 
-void NotificationsDrawerWidget::on_closeButton_clicked() {
-    d->n->dismiss(Notification::NotificationUserDismissed);
+bool NotificationsDrawerWidget::leaving() const {
+    return d->gone;
 }
 
-void NotificationsDrawerWidget::on_dismissButton_clicked() {
-    this->animateDismiss();
+bool NotificationsDrawerWidget::done() const {
+    return d->gone && d->hk.target == 0 && d->hk.value < 0.01;
+}
+
+void NotificationsDrawerWidget::animateDismiss() {
+    if (d->gone) return;
+    d->gone = true;
+    d->shouldTimeoutRun = false;
+    d->timeout->stop();
+    d->close->hide();
+    if (!d->flung) {
+        // it folds and spins away to nothing
+        d->alpha.target = 0;
+        d->enter.target = 0;
+        d->rot.target += 120;
+    }
+    QTimer::singleShot(200, this, [this] {
+        d->hk.target = 0;
+        emit animate();
+    });
+    emit animate();
+}
+
+QRectF NotificationsDrawerWidget::plate() const {
+    const double u = d->u.value;
+    const double w = lerp(Folded, CardWidth, u), h = lerp(Folded, d->cardHeight, u);
+    return QRectF(this->width() - Edge - w + d->x.value, 0, w, h);
+}
+
+QPointF NotificationsDrawerWidget::coin() const {
+    const QRectF p = plate();
+    const double u = d->u.value;
+    return QPointF(p.left() + 36 + 8 * u, p.top() + 36 + 8 * u);
+}
+
+int NotificationsDrawerWidget::plateHeight() const {
+    return qCeil(lerp(Folded, d->cardHeight, qMax(0.0, d->u.value))) + 1;
+}
+
+double NotificationsDrawerWidget::slot() const {
+    return (lerp(Folded, d->cardHeight, d->u.value) + Gap) * d->hk.value;
+}
+
+QPainterPath NotificationsDrawerWidget::outline() const {
+    const double sc = qMax(0.0, d->enter.value);
+    if (sc < 0.01 || (d->gone && d->alpha.value < 0.01 && !d->flung)) return {};
+    const QPointF c = coin();
+    QTransform t;
+    t.translate(c.x(), c.y());
+    t.scale(sc, sc);
+    t.translate(-c.x(), -c.y());
+    return t.map(rounded(plate(), lerp(36, 28, d->u.value)));
+}
+
+bool NotificationsDrawerWidget::step(double dt) {
+    const bool open = d->hovered || needsAnswer() || (d->front && d->born.elapsed() >= 220);
+    d->u.target = d->gone || d->folded ? (d->flung ? d->u.target : 0) : (open ? 1 : 0);
+    bool moving = false;
+    for (Pebble::Spring* spring : {&d->hk, &d->u, &d->enter, &d->x, &d->morph, &d->rot, &d->alpha}) moving |= spring->step(dt);
+    if (d->front && d->born.elapsed() < 220) moving = true; // about to unfurl
+
+    // The words show once it's mostly a card
+    const QRectF p = plate();
+    const double away = d->flung || d->swiping ? qBound(0.0, 1 - qAbs(d->x.value) / CardWidth * 1.2, 1.0) : d->alpha.value;
+    const double words = qBound(0.0, (d->u.value - 0.55) / 0.45, 1.0) * away;
+    d->content->setVisible(words > 0.01);
+    d->contentOpacity->setOpacity(words);
+    d->contentOpacity->setEnabled(words < 0.999);
+    d->content->move(qRound(p.left() + TextLeft), qRound(p.top() + 12));
+    d->close->setVisible(d->hovered && d->u.value > 0.9 && !d->gone);
+    d->close->move(qRound(p.right() - 12 - d->close->width()), qRound(p.top() + 12));
+    this->update();
+    return moving;
+}
+
+void NotificationsDrawerWidget::paintEvent(QPaintEvent* event) {
+    Q_UNUSED(event)
+    const double sc = qMax(0.0, d->enter.value), u = d->u.value;
+    const double alpha = d->flung || d->swiping ? qBound(0.0, 1 - qAbs(d->x.value) / CardWidth * 1.2, 1.0) : d->alpha.value;
+    if (sc < 0.01 || alpha < 0.005) return;
+    const M3::Scheme s = M3::currentScheme();
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setRenderHint(QPainter::SmoothPixmapTransform);
+    p.setOpacity(qBound(0.0, alpha, 1.0));
+    const QPointF c = coin();
+
+    // the plate grows out of the pebble
+    p.save();
+    p.translate(c);
+    p.scale(sc, sc);
+    p.translate(-c);
+    p.fillPath(rounded(plate(), lerp(36, 28, u)), mix(s.surfaceContainer, s.surfaceContainerHigh, u));
+    p.restore();
+
+    // its countdown, a ring round the pebble
+    if (d->n->timeout() != 0 && d->timeout->state() != QAbstractAnimation::Stopped && !d->gone) {
+        const double left = qBound(0.0, d->timeout->currentValue().toDouble(), 1.0);
+        p.setPen(QPen(s.primary, 3, Qt::SolidLine, Qt::RoundCap));
+        p.setBrush(Qt::NoBrush);
+        p.drawArc(QRectF(c.x() - 33, c.y() - 33, 66, 66), 90 * 16, int(left * 360 * 16));
+        p.setPen(Qt::NoPen);
+    }
+
+    // its shape: a critical one is a soft burst that turns into a check
+    if (d->n->urgency() == Notification::Critical) {
+        static const m3shapes::Morph answered(MaterialShapes::softBurst(), MaterialShapes::circle());
+        const double k = qBound(0.0, d->morph.value, 1.0);
+        p.fillPath(Pebble::shapePath(m3shapes::toPath(answered, float(k)), c, ShapeSize * sc, d->rot.value), mix(s.errorContainer, s.primaryContainer, k));
+        if (k > 0.5) {
+            p.setFont(Pebble::symbols(26 * sc));
+            p.setPen(s.onPrimaryContainer);
+            p.drawText(QRectF(c.x() - 26, c.y() - 26, 52, 52), Qt::AlignCenter, QStringLiteral("check"));
+            return;
+        }
+    } else {
+        p.fillPath(Pebble::shapePath(d->shape, c, ShapeSize * sc, d->rot.value), d->bg);
+    }
+    if (sc > 0.2) Pebble::drawCentred(p, c, d->glyph, 26 * sc);
+}
+
+void NotificationsDrawerWidget::enterEvent(QEnterEvent* event) {
+    Q_UNUSED(event)
+    d->hovered = true;
+    d->tracker->pauseTimeouts();
+    emit animate();
+}
+
+void NotificationsDrawerWidget::leaveEvent(QEvent* event) {
+    Q_UNUSED(event)
+    d->hovered = false;
+    if (!d->swiping) d->tracker->resumeTimeouts();
+    emit animate();
+}
+
+// Swipe sideways to dismiss: the card follows the pointer and fades; let go
+// past a third of its width (or flick it) and it flies off, otherwise it
+// springs back. Hovering a pebble in the rail unfurls it
+void NotificationsDrawerWidget::mousePressEvent(QMouseEvent* event) {
+    if (event->button() != Qt::LeftButton || d->flung || d->gone) return;
+    d->pressed = true;
+    d->swiping = false;
+    d->pressX = d->lastX = event->globalPosition().x();
+    d->velocity = 0;
+    d->moveClock.start();
+}
+
+void NotificationsDrawerWidget::mouseMoveEvent(QMouseEvent* event) {
+    if (!d->pressed) return;
+    const double x = event->globalPosition().x();
+    const double dx = x - d->pressX;
+    if (!d->swiping && qAbs(dx) > 8) {
+        d->swiping = true;
+        d->tracker->pauseTimeouts();
+    }
+    if (!d->swiping) return;
+    const qint64 ms = qMax<qint64>(1, d->moveClock.restart());
+    d->velocity = 0.6 * d->velocity + 0.4 * (x - d->lastX) * 1000.0 / ms;
+    d->lastX = x;
+    d->x.snap(dx);
+    emit animate();
+}
+
+void NotificationsDrawerWidget::mouseReleaseEvent(QMouseEvent* event) {
+    Q_UNUSED(event)
+    if (!d->pressed) return;
+    d->pressed = false;
+    if (!d->swiping) return;
+    const double dx = d->lastX - d->pressX;
+    const double width = plate().width();
+    if (qAbs(dx) > width / 3 || qAbs(d->velocity) > 900) {
+        // Off it goes, the way it was going, then the gap closes
+        d->flung = true;
+        const double direction = (qAbs(d->velocity) > 900 ? d->velocity : dx) > 0 ? 1 : -1;
+        d->x.target = direction * (width + 40);
+        d->tracker->resumeTimeouts();
+        QTimer::singleShot(260, this, [this] {
+            d->n->dismiss(Notification::NotificationUserDismissed);
+            animateDismiss(); // (already dismissed elsewhere: it still goes)
+        });
+    } else {
+        d->x.target = 0;
+        // Still hovered: the hover keeps them paused (Leave resumes them)
+        if (!this->rect().contains(this->mapFromGlobal(QCursor::pos()))) d->tracker->resumeTimeouts();
+    }
+    d->swiping = false;
+    emit animate();
 }
