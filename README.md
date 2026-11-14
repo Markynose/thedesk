@@ -20,6 +20,10 @@ dotfiles for that machine (a ThinkPad T460).
 
 > Upstream: [theCheeseboard/thedesk](https://github.com/theCheeseboard/thedesk), by Victor Tran and contributors.
 
+> **Note:** theDesk 4.0 redesigned the bar, Status Center, notifications, volume, Overview,
+> Settings, Plymouth, the loading screen and the wallpaper. Some pictures and text below still
+> show the earlier design; updated ones will be added.
+
 ---
 
 ## A desktop that follows the day
