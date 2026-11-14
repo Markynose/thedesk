@@ -14,7 +14,9 @@ struct AssistantCard {
             Code,   // path (or a language) + lines, each starting with ' ', '+' or '-'
             File,   // path + subtitle
             Ask,    // a permission ask: title, lines (what it wants to do); value 0 asking, 1 allowed, -1 not
-            Image   // path: a file or a URL; title: a caption
+            Image,  // path: a file or a URL; title: a caption
+            Storage // a disk: title, subtitle ("41 GB free of 238 GB"), value = used 0..1,
+                    // path = where it's mounted, lines = its biggest folders ("name\tbytes\tpath")
         };
         QString id;
         Kind kind = Level;

@@ -2,6 +2,10 @@
 #include "pebblerules.h"
 #include "docsearch.h"
 #include <QThread>
+#include <QDirIterator>
+#include <QElapsedTimer>
+#include <QLocale>
+#include <QStorageInfo>
 
 #include <QBuffer>
 #include <QDateTime>
@@ -92,6 +96,7 @@ namespace {
             {"undo_last", "Undo what you changed in your last answer: desk settings, file edits, files moved or put in the trash.", AssistantTools::schemaOf({}), false},
             {"trash", "Put files or folders in the trash (never delete them for good). They can be restored with undo_last.", AssistantTools::schemaOf({{"paths", "array: full paths"}}), true},
             {"search_documents", "Find documents by what's inside them (PDFs, Word and LibreOffice files, text), newest first. words: what must appear, space separated. folder: optional, else Documents, Downloads and Desktop.", AssistantTools::schemaOf({{"words", "string"}, {"folder", "string: full path"}}, {"folder"}), false},
+            {"disk_space", "How full the disk is and which folders in the home folder take the most space, shown as cards. Use it for any question about disk space or storage instead of df or du.", AssistantTools::schemaOf({}), false},
             {"move", "Move or rename a file or folder. Won't replace an existing one. Can be undone with undo_last.", AssistantTools::schemaOf({{"from", "string: full path"}, {"to", "string: full path"}}), true},
         };
     }
@@ -448,6 +453,7 @@ QString ClaudeBrain::stepText(const QString& tool, const QJsonObject& input, boo
             {"trash", {QT_TR_NOOP("Putting it in the trash"), QT_TR_NOOP("In the trash")}},
             {"move", {QT_TR_NOOP("Moving it"), QT_TR_NOOP("Moved it")}},
             {"search_documents", {QT_TR_NOOP("Searching your documents"), QT_TR_NOOP("Searched your documents")}},
+            {"disk_space", {QT_TR_NOOP("Measuring your disk"), QT_TR_NOOP("Measured your disk")}},
             {"clipboard_history", {QT_TR_NOOP("Looking through what you copied"), QT_TR_NOOP("Looked through what you copied")}},
             {"quick_switch", {QT_TR_NOOP("Flipping %1"), QT_TR_NOOP("Flipped %1")}},
             {"set_theme", {QT_TR_NOOP("Changing the theme"), QT_TR_NOOP("Changed the theme")}},
@@ -560,6 +566,58 @@ void ClaudeBrain::handleControl(const QJsonObject& message) {
                 d->mcpCards["search_documents"].append(false);
                 write(QJsonObject{{"type", "control_response"}, {"response", QJsonObject{{"subtype", "success"}, {"request_id", requestId}, {"response", QJsonObject{{"mcp_response", reply}}}}}});
                 delete found;
+                worker->deleteLater();
+            });
+            worker->start();
+            return;
+        }
+        if (mcp.value("method") == "tools/call" && params.value("name") == "disk_space") {
+            // adding up folders takes a moment: off the desktop's thread
+            struct Folder {
+                    QString name, path;
+                    qint64 bytes = 0;
+            };
+            auto* folders = new QList<Folder>();
+            QThread* worker = QThread::create([folders] {
+                // the home folder's own folders, and the two hidden ones that grow big; a few seconds at most
+                QElapsedTimer spent;
+                spent.start();
+                QStringList paths;
+                for (const QFileInfo& info : QDir::home().entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks)) paths.append(info.absoluteFilePath());
+                for (const char* hidden : {".cache", ".local/share"}) paths.append(QDir::homePath() + '/' + hidden);
+                for (const QString& path : std::as_const(paths)) {
+                    Folder folder{QFileInfo(path).fileName(), path};
+                    if (path.endsWith(QStringLiteral("/.local/share"))) folder.name = QStringLiteral(".local/share");
+                    QDirIterator it(path, QDir::Files | QDir::Hidden | QDir::NoSymLinks, QDirIterator::Subdirectories);
+                    while (it.hasNext() && spent.elapsed() < 6000) folder.bytes += it.nextFileInfo().size();
+                    folders->append(folder);
+                }
+                std::sort(folders->begin(), folders->end(), [](const Folder& a, const Folder& b) { return a.bytes > b.bytes; });
+            });
+            connect(worker, &QThread::finished, this, [this, worker, folders, mcp, requestId] {
+                const QStorageInfo disk(QDir::homePath());
+                const qint64 total = disk.bytesTotal(), free = disk.bytesAvailable();
+                const QLocale locale;
+                AssistantCard card;
+                card.id = QStringLiteral("disk%1").arg(d->nextRequest++);
+                card.kind = AssistantCard::Storage;
+                card.title = tr("Disk");
+                card.subtitle = tr("%1 free of %2").arg(locale.formattedDataSize(free, 0, QLocale::DataSizeTraditionalFormat), locale.formattedDataSize(total, 0, QLocale::DataSizeTraditionalFormat));
+                card.value = total > 0 ? double(total - free) / total : 0;
+                card.path = disk.rootPath();
+                QStringList told{QStringLiteral("Disk (%1): %2 free of %3, %4% used.").arg(disk.rootPath(), locale.formattedDataSize(free, 1, QLocale::DataSizeTraditionalFormat), locale.formattedDataSize(total, 1, QLocale::DataSizeTraditionalFormat)).arg(qRound(card.value * 100)), QStringLiteral("Biggest folders in the home folder:")};
+                for (int i = 0; i < folders->size() && i < 6; i++) {
+                    const Folder& folder = folders->at(i);
+                    if (i < 3) card.lines.append(folder.name + '\t' + QString::number(folder.bytes) + '\t' + folder.path);
+                    told.append(QStringLiteral("- %1: %2").arg(folder.path, locale.formattedDataSize(folder.bytes, 1, QLocale::DataSizeTraditionalFormat)));
+                }
+                told.append(QStringLiteral("The card already shows these numbers; say the gist in a sentence."));
+                takeText(QString(), true);
+                emit cardAdded(card);
+                d->mcpCards["disk_space"].append(true);
+                const QJsonObject reply{{"jsonrpc", "2.0"}, {"id", mcp.value("id")}, {"result", QJsonObject{{"content", QJsonArray{QJsonObject{{"type", "text"}, {"text", told.join('\n')}}}}}}};
+                write(QJsonObject{{"type", "control_response"}, {"response", QJsonObject{{"subtype", "success"}, {"request_id", requestId}, {"response", QJsonObject{{"mcp_response", reply}}}}}});
+                delete folders;
                 worker->deleteLater();
             });
             worker->start();

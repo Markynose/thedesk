@@ -1505,12 +1505,17 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
     struct Slot {
             int item = -1; // -1: the Read card
             qint64 born = 0;
+            int folder = -1; // a disk card's folders come as tiles of their own
     };
     QList<Slot> tiles;
     if (pendingAsk >= 0) tiles.append({pendingAsk, d->items.at(pendingAsk).born});
     if (long_) tiles.append({-1, d->items.at(answers.first()).born + 300});
-    for (int i : std::as_const(cards))
-        if (i != pendingAsk) tiles.append({i, d->items.at(i).born});
+    for (int i : std::as_const(cards)) {
+        if (i == pendingAsk) continue;
+        tiles.append({i, d->items.at(i).born});
+        if (d->items.at(i).card.kind == AssistantCard::Storage)
+            for (int f = 0; f < d->items.at(i).card.lines.size(); f++) tiles.append({i, d->items.at(i).born + 90 * (f + 1), f});
+    }
 
     const double readPx = 16;
     auto readHeight = [&](double w) {
@@ -1533,6 +1538,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
                 return lerp(full, 64, settle);
             }
             case AssistantCard::Level: return 140;
+            case AssistantCard::Storage: return 200;
             case AssistantCard::Switch: return 96;
             case AssistantCard::Code: return 48 + card.lines.size() * 23 + 12;
             case AssistantCard::Image: {
@@ -1664,6 +1670,32 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
                     animateFor(300);
                 });
             }
+        } else if (card.kind == AssistantCard::Storage) {
+            // the disk: what's free, big, and a bar of what's used
+            p.setPen(Qt::NoPen);
+            p.setBrush(s.surfaceContainerHigh);
+            p.drawRect(r);
+            const QPointF disc(r.left() + 40, r.top() + 40);
+            p.setBrush(s.primaryContainer);
+            p.drawEllipse(disc, 20, 20);
+            icon(p, QRectF(disc.x() - 20, disc.y() - 20, 40, 40), QStringLiteral("hard_drive"), s.onPrimaryContainer, 22, true);
+            text(p, QRectF(r.left() + 72, r.top() + 20, r.width() - 92, 40), card.title, flex(16, 600), s.onSurface);
+            const QString free = card.subtitle.section(' ', 0, 1), rest = card.subtitle.section(' ', 2);
+            const double age = (d->now() - item.born) / 1000.0;
+            const QFont big = flex(34, 700, 110);
+            text(p, QRectF(r.left() + 24, r.top() + 74, r.width() - 48, 44), free, big, s.onSurface);
+            text(p, QRectF(r.left() + 24 + textWidth(free, big) + 10, r.top() + 74, r.width() - 48, 48), rest, flex(15, 500), s.onSurfaceVariant);
+            // the bar fills on a spring: used in primary, the gap, what's free, a stop dot
+            const QRectF bar(r.left() + 24, r.bottom() - 48, r.width() - 48, 16);
+            const double used = c01(card.value) * c01(springAt(M3Motion::SpatialSlow, age - 0.2));
+            const double edge = bar.left() + bar.width() * used;
+            p.setBrush(c01(card.value) > 0.9 ? s.error : s.primary);
+            p.drawRoundedRect(QRectF(bar.left(), bar.top(), qMax(bar.height(), edge - bar.left() - 3), bar.height()), 8, 8);
+            p.setBrush(s.secondaryContainer);
+            if (bar.right() - edge > 12) p.drawRoundedRect(QRectF(edge + 3, bar.top(), bar.right() - edge - 3, bar.height()), 8, 8);
+            p.setBrush(s.onSecondaryContainer);
+            p.drawEllipse(QPointF(bar.right() - 8, bar.center().y()), 2, 2);
+            text(p, QRectF(bar.left(), bar.top() - 24, bar.width(), 20), tr("%1% used").arg(qRound(c01(card.value) * 100)), flex(13, 500), s.onSurfaceVariant, Qt::AlignRight | Qt::AlignVCenter);
         } else if (card.kind == AssistantCard::Image) {
             // A picture: a file, or fetched from the web
             const QString source = card.path;
@@ -1774,7 +1806,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
         if (slot.item >= 0) {
             const AssistantCard& card = d->items.at(slot.item).card;
             title = card.title;
-            ic = card.kind == AssistantCard::Ask ? QStringLiteral("shield_question") : card.kind == AssistantCard::Code ? QStringLiteral("code") : card.kind == AssistantCard::Image ? QStringLiteral("image") : card.kind == AssistantCard::Level ? (card.icon.isEmpty() ? QStringLiteral("tune") : card.icon) : card.kind == AssistantCard::Switch ? (card.icon.isEmpty() ? QStringLiteral("toggle_on") : card.icon) : QStringLiteral("description");
+            ic = card.kind == AssistantCard::Ask ? QStringLiteral("shield_question") : card.kind == AssistantCard::Code ? QStringLiteral("code") : card.kind == AssistantCard::Image ? QStringLiteral("image") : card.kind == AssistantCard::Storage ? QStringLiteral("hard_drive") : card.kind == AssistantCard::Level ? (card.icon.isEmpty() ? QStringLiteral("tune") : card.icon) : card.kind == AssistantCard::Switch ? (card.icon.isEmpty() ? QStringLiteral("toggle_on") : card.icon) : QStringLiteral("description");
         }
         if (r.width() < 110) {
             icon(p, QRectF(r.center().x() - 16, r.center().y() - 16, 32, 32), ic, ink, 26);
@@ -1826,7 +1858,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             tile.addRoundedRect(r, 28, 28);
             p.setClipPath(tile, Qt::IntersectClip);
             const bool picture = slot.item >= 0 && d->items.at(slot.item).card.kind == AssistantCard::Image;
-            const double full = picture ? 1 : c01((w - (large - 60)) / 50); // only the large one shows the whole card
+            const double full = picture || slot.folder >= 0 ? 1 : c01((w - (large - 60)) / 50); // only the large one shows the whole card
             if (full < 1) {
                 p.save();
                 p.setOpacity(p.opacity() * (1 - full));
@@ -1837,7 +1869,26 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
                 p.save();
                 p.setOpacity(p.opacity() * full);
                 const int hitsBefore = int(d->hits.size());
-                if (slot.item >= 0) paintCard(slot.item, r);
+                if (slot.folder >= 0) {
+                    // one of the disk's biggest folders: its name, its size big
+                    const QStringList parts = d->items.at(slot.item).card.lines.at(slot.folder).split('\t');
+                    const bool tonal = slot.folder % 2 == 0;
+                    const QColor bg = tonal ? s.secondaryContainer : s.tertiaryContainer, ink = tonal ? s.onSecondaryContainer : s.onTertiaryContainer;
+                    p.setPen(Qt::NoPen);
+                    p.setBrush(hovered(r) ? mix(bg, ink, 0.08) : bg);
+                    p.drawRect(r);
+                    const QString size = QLocale().formattedDataSize(parts.value(1).toLongLong(), 0, QLocale::DataSizeTraditionalFormat);
+                    if (r.width() < 110) icon(p, QRectF(r.center().x() - 16, r.top() + 20, 32, 32), QStringLiteral("folder"), ink, 26, true);
+                    else {
+                        icon(p, QRectF(r.left() + 20, r.top() + 20, 32, 32), QStringLiteral("folder"), ink, 28, true);
+                        text(p, QRectF(r.left() + 22, r.bottom() - 92, r.width() - 44, 24), QFontMetricsF(flex(16, 600)).elidedText(parts.value(0), Qt::ElideRight, r.width() - 44), flex(16, 600), ink);
+                        text(p, QRectF(r.left() + 22, r.bottom() - 66, r.width() - 44, 44), size, flex(30, 700, 110), ink);
+                    }
+                    const QString path = parts.value(2);
+                    hit(r, [path](QPointF) {
+                        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+                    });
+                } else if (slot.item >= 0) paintCard(slot.item, r);
                 else {
                     p.setPen(Qt::NoPen);
                     p.setBrush(s.surfaceContainerHigh);
