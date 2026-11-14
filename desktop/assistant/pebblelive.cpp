@@ -25,10 +25,13 @@ namespace {
     constexpr int Height = 26, Lead = 4, Face = 20, Gap = 7, Trail = 12;
 
     QFont label() {
-        QFont font(QStringLiteral("Roboto Flex"));
-        font.setPixelSize(13);
-        font.setVariableAxis(QFont::Tag("wght"), 600);
-        font.setFeature(QFont::Tag("tnum"), 1);
+        static const QFont font = [] {
+            QFont font(QStringLiteral("Roboto Flex"));
+            font.setPixelSize(13);
+            font.setVariableAxis(QFont::Tag("wght"), 600);
+            font.setFeature(QFont::Tag("tnum"), 1);
+            return font;
+        }();
         return font;
     }
 
@@ -51,9 +54,12 @@ namespace {
                 this->setCursor(Qt::PointingHandCursor);
                 clock.start();
                 frame.setInterval(16);
+                // a watch can run for hours: only its face moves (the width has its own spring)
                 connect(&frame, &QTimer::timeout, this, [this] {
-                    this->updateGeometry();
-                    this->update();
+                    if (!this->isVisible()) return;
+                    const Live* item = shown();
+                    if (item && !item->due) this->update(QRect(Lead - 1, this->height() / 2 - Face / 2 - 1, Face + 2, Face + 2));
+                    else this->update();
                 });
                 textWidth = new M3SpringAnimation(this);
                 textWidth->setToken(M3Motion::SpatialDefault);

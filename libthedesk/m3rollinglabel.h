@@ -33,6 +33,8 @@ class LIBTHEDESK_EXPORT M3RollingLabel : public QLabel {
     private:
         QString shown, from;
         M3SpringAnimation* roll;
+        QRect tail;          // what moves while it rolls
+        double travel = 0, lastK = 0;
 };
 
 #endif // M3ROLLINGLABEL_H

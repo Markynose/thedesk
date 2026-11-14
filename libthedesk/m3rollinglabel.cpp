@@ -11,6 +11,7 @@
 #include "m3rollinglabel.h"
 
 #include <QPainter>
+#include <cmath>
 #include <QStyle>
 #include <m3motion.h>
 
@@ -19,7 +20,19 @@ M3RollingLabel::M3RollingLabel(QWidget* parent) :
     roll = new M3SpringAnimation(this);
     roll->setToken(M3Motion::SpatialFast);
     roll->snapTo(1.0);
-    connect(roll, &M3SpringAnimation::valueChanged, this, qOverload<>(&QWidget::update));
+    // The seconds roll every second for as long as the bar is up: only the rolling tail repaints,
+    // and the spring stops once what's left of its travel is under a twentieth of a pixel
+    connect(roll, &M3SpringAnimation::valueChanged, this, [this](const QVariant& value) {
+        const double k = value.toDouble();
+        if (roll->state() == QAbstractAnimation::Running && std::abs(1 - k) * travel < 0.05 && std::abs(k - lastK) * travel < 0.05) {
+            roll->snapTo(1.0);
+            return;
+        }
+        lastK = k;
+        if (tail.isEmpty()) this->update();
+        else this->update(tail);
+    });
+    connect(roll, &QAbstractAnimation::finished, this, qOverload<>(&QWidget::update)); // the settled label, as QLabel draws it
 }
 
 void M3RollingLabel::paintEvent(QPaintEvent* event) {
@@ -28,6 +41,9 @@ void M3RollingLabel::paintEvent(QPaintEvent* event) {
     if (now != shown) {
         if (!shown.isEmpty() && !now.isEmpty()) {
             from = shown;
+            tail = QRect();
+            lastK = 0;
+            travel = QFontMetricsF(this->font()).height() * 0.7;
             roll->snapTo(0.0);
             roll->animateTo(1.0);
         }
@@ -57,9 +73,9 @@ void M3RollingLabel::paintEvent(QPaintEvent* event) {
 
     // The tail: the old one leaves upwards as the new one comes up from below
     const double k = roll->currentValue().toDouble();
-    const double travel = metrics.height() * 0.7;
     const double tailX = x + metrics.horizontalAdvance(now.left(same));
     painter.setClipRect(QRectF(tailX - 1, r.top(), r.right() - tailX + 2, r.height()));
+    tail = QRectF(tailX - 1, r.top(), r.right() - tailX + 2, r.height()).toAlignedRect();
     QColor old = colour;
     old.setAlphaF(colour.alphaF() * qBound(0.0, 1 - k, 1.0));
     painter.setPen(old);

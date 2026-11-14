@@ -486,6 +486,7 @@ struct AssistantPanel::Private {
 
         QElapsedTimer clock;
         QTimer frame;
+        QTimer fresh; // a new thread after a while away
         qint64 animateUntil = 0;
         qint64 openedAt = -1, toBarAt = -1, fromBarAt = -1, closedAt = -1;
         bool open = false, inBar = false, busy = false, harder = false, deep = false;
@@ -602,6 +603,11 @@ AssistantPanel::AssistantPanel() :
     this->setMouseTracking(true);
     this->setWindowTitle(Name);
     d->clock.start();
+    d->fresh.setSingleShot(true);
+    d->fresh.setInterval(int(FreshThreadAfterMs));
+    connect(&d->fresh, &QTimer::timeout, this, [this] {
+        if (!d->open && !d->inBar && !d->busy) freshThread();
+    });
 
     d->field = new QLineEdit(this);
     d->field->setFrame(false);
@@ -776,18 +782,21 @@ QRectF AssistantPanel::sheetRect() const {
     return QRectF((this->width() - w) / 2 - 24, pill.top() - 24, w + 48, this->height() - pill.top());
 }
 
+void AssistantPanel::freshThread() {
+    d->items.clear();
+    d->turnSteps = d->turnAnswer = d->turnChips = -1;
+    d->readTurn = d->readAutoTurn = -1;
+    d->brain->forget();
+    d->field->setPlaceholderText(tr("Ask %1").arg(Name));
+}
+
 void AssistantPanel::open() {
+    d->fresh.stop();
     const bool fromBar = d->inBar;
     if (!fromBar) {
         d->previous = DesktopWm::activeWindow();
         // a new thread after a while away
-        if (!d->busy && d->closedAt >= 0 && d->now() - d->closedAt > FreshThreadAfterMs) {
-            d->items.clear();
-            d->turnSteps = d->turnAnswer = d->turnChips = -1;
-            d->readTurn = d->readAutoTurn = -1;
-            d->brain->forget();
-            d->field->setPlaceholderText(tr("Ask %1").arg(Name));
-        }
+        if (!d->busy && d->closedAt >= 0 && d->now() - d->closedAt > FreshThreadAfterMs) freshThread();
         // What it may see, as chips under the field (each can be dismissed)
         d->sees.clear();
         d->screen = QImage();
@@ -977,6 +986,7 @@ void AssistantPanel::close() {
     }
     d->open = false;
     d->closedAt = d->now();
+    d->fresh.start(); // its claude process doesn't idle for hours either
     if (Compositor::isActive() && M3Motion::expressive()) d->leave->start();
     else {
         QDialog::hide();
