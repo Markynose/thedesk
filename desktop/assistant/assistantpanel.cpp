@@ -401,6 +401,19 @@ struct AssistantPanel::Private {
         qint64 flipAt = -1;
         int flipDir = 0;
         bool listOpen = false;        // the earlier turns, as a list
+        // layout on springs: where things go glides there instead of jumping
+        struct Glide {
+                double value = 0, velocity = 0, target = 0;
+                M3Motion::Token token = M3Motion::SpatialDefault;
+                qint64 used = 0;
+        };
+        QHash<QString, Glide> glides;
+        int leavingStart = -1;        // the turn on its way out as a new one starts
+        qint64 leftAt = -1;
+        double leavingPos = 0;
+        double echoFrom = 0;          // how far above the stage the pill's words are
+        const m3shapes::RoundedPolygon* burstShape = nullptr; // small talk: little shapes pop off the face
+        qint64 burstAt = -1;
         qint64 listAt = -1;
         qint64 sendPressedAt = -1;
         QList<QRectF> solid;           // what's drawn; a click anywhere else closes
@@ -883,6 +896,7 @@ void AssistantPanel::sendText(QString text) {
     }
     d->brain->setScreen(screen ? d->screen : QImage());
     if (!d->items.isEmpty()) d->items.last().greeting = false;
+    markLeaving();
     d->items.append({Private::Item::User, d->now(), text});
     d->turnSteps = d->turnAnswer = d->turnChips = -1;
     d->viewBack = 0;
@@ -920,6 +934,7 @@ bool AssistantPanel::smallTalk(const QString& text) {
         if (!words.match(said).hasMatch()) continue;
         d->field->clear();
         if (!d->items.isEmpty()) d->items.last().greeting = false;
+        markLeaving();
         d->items.append({Private::Item::User, d->now(), text});
         d->turnSteps = d->turnAnswer = d->turnChips = -1;
         d->viewBack = 0;
@@ -949,6 +964,9 @@ void AssistantPanel::react(const QString& kind) {
     const auto [shape, turn] = shapes.value(kind);
     const int generation = ++d->reactGeneration;
     d->reactShape = shape();
+    d->burstShape = kind == "gn" ? nullptr : kind == "hi" ? &MaterialShapes::sunny() : d->reactShape;
+    d->burstAt = d->now();
+    animateFor(1900);
     d->reactMorph->animateTo(1.0);
     d->reactSpin->snapTo(0.0);
     d->reactSpin->animateTo(turn);
@@ -1002,8 +1020,22 @@ void AssistantPanel::tick() {
     const M3Motion::SpringState state = M3Motion::stepSpring(d->scroll, d->scrollVelocity, d->scrollTarget, M3Motion::spring(M3Motion::SpatialFast), 0.016);
     d->scroll = state.value;
     d->scrollVelocity = state.velocity;
-    const bool settled = std::abs(d->scroll - d->scrollTarget) < 0.5 && std::abs(d->scrollVelocity) < 1;
+    bool settled = std::abs(d->scroll - d->scrollTarget) < 0.5 && std::abs(d->scrollVelocity) < 1;
     if (settled) d->scroll = d->scrollTarget;
+    for (auto glide = d->glides.begin(); glide != d->glides.end();) {
+        if (d->now() - glide->used > 5000) { // not drawn for a while
+            glide = d->glides.erase(glide);
+            continue;
+        }
+        const M3Motion::SpringState next = M3Motion::stepSpring(glide->value, glide->velocity, glide->target, M3Motion::spring(glide->token), 0.016);
+        glide->value = next.value;
+        glide->velocity = next.velocity;
+        if (std::abs(glide->value - glide->target) < 0.3 && std::abs(glide->velocity) < 1) {
+            glide->value = glide->target;
+            glide->velocity = 0;
+        } else settled = false;
+        ++glide;
+    }
     redraw();
     if ((d->now() > d->animateUntil && !d->busy && settled) || this->isHidden()) d->frame.stop();
 }
@@ -1093,6 +1125,21 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
         p.drawPath(m3shapes::toPath(*morph, float(qBound(-0.1, reaction, 1.1)), QRectF(-inner / 2, -inner / 2, inner, inner)));
         p.restore();
     } else M3LoadingIndicator::paintDeterminate(&p, face, float(lerp(0.1, 1, c01(d->field->text().size() / 40.0))), faceInk, faceFill);
+    if (d->burstShape && d->burstAt >= 0) {
+        const double t = d->since(d->burstAt) - 0.12;
+        if (t > 0 && t < 1.6) {
+            const double out = springAt(M3Motion::SpatialDefault, t), fade = 1 - springAt(M3Motion::EffectsSlow, t - 0.35);
+            p.save();
+            p.setPen(Qt::NoPen);
+            for (int i = 0; i < 8; i++) {
+                const double angle = i * M_PI / 4 + 0.3, size = (i % 2 ? 7 : 10) * c01(out);
+                const QPointF at = face.center() + QPointF(std::cos(angle), std::sin(angle)) * (26 + out * 24);
+                p.setBrush(alpha(i % 2 ? s.tertiary : s.primary, c01(fade)));
+                p.drawPath(m3shapes::toPath(*d->burstShape, QRectF(at.x() - size / 2, at.y() - size / 2, size, size)));
+            }
+            p.restore();
+        }
+    }
     const double tx = pill.left() + 70;
     if (toward == 0 && !d->busy) d->field->setGeometry(QRectF(tx - 2, cy - 20, pill.width() - 70 - 64, 40).toRect());
     else if (toward == 0) d->field->setGeometry(-2000, -2000, 10, 10); // what they type meanwhile waits there
@@ -1219,14 +1266,40 @@ void AssistantPanel::paintEvent(QPaintEvent* event) {
     // The stage: the turn being looked at (the latest, or one flipped back to)
     const QRectF view(this->width() / 2.0 - stageWidth() / 2, pill.bottom() + 64, stageWidth(), this->height() - pill.bottom() - 64 - 24);
     d->viewHeight = view.height();
+    d->echoFrom = view.top() - cy;
     p.save();
     p.setClipRect(view.adjusted(-24, -60, 24, 0), Qt::IntersectClip);
+    // the turn before falls away as the new one comes in
+    const double leaving = d->since(d->leftAt);
+    if (d->leavingStart >= 0 && leaving >= 0 && leaving < 0.7 && starts.contains(d->leavingStart)) {
+        const qsizetype hits = d->hits.size(), solid = d->solid.size();
+        p.save();
+        p.setOpacity(p.opacity() * (1 - c01(springAt(M3Motion::EffectsFast, leaving))));
+        p.translate(0, 22 * springAt(M3Motion::SpatialDefault, leaving));
+        paintStage(p, view, starts, 0, int(starts.indexOf(d->leavingStart)), true);
+        p.restore();
+        d->hits.resize(hits); // it's going: nothing on it answers clicks
+        d->solid.resize(solid);
+    }
     d->contentHeight = paintStage(p, view, starts, seesK);
     p.restore();
     if (d->items.isEmpty() && d->introToPanelAt < 0) {
         text(p, view.adjusted(0, 4, 0, 0), tr("Ask me to change a setting, explain what you copied, or find a file."), flex(17, 450), s.onSurfaceVariant, Qt::AlignHCenter | Qt::AlignTop);
     }
     paintFocus(p);
+}
+
+double AssistantPanel::glide(const QString& key, double target, M3Motion::Token token) {
+    // a layout value on a spring: the first time it's simply there, then it glides to each new place
+    auto it = d->glides.find(key);
+    if (it == d->glides.end()) it = d->glides.insert(key, {target, 0, target, token, d->now()});
+    it->used = d->now();
+    it->token = token;
+    if (std::abs(it->target - target) > 0.01) {
+        it->target = target;
+        animateFor(900);
+    }
+    return it->value;
 }
 
 QRectF AssistantPanel::pillRect() const {
@@ -1247,6 +1320,15 @@ QList<int> AssistantPanel::turnStarts() const {
     return starts;
 }
 
+void AssistantPanel::markLeaving() {
+    // the turn being looked at falls away as the new one comes in
+    const QList<int> starts = turnStarts();
+    if (starts.isEmpty() || d->listOpen) return;
+    d->leavingStart = starts.at(qBound(0, int(starts.size()) - 1 - d->viewBack, int(starts.size()) - 1));
+    d->leftAt = d->now();
+    d->leavingPos = d->carousel->currentValue().toDouble();
+}
+
 void AssistantPanel::showTurn(int back) {
     // a turn picked from the list of earlier ones (0: the latest)
     d->listOpen = false;
@@ -1257,10 +1339,12 @@ void AssistantPanel::showTurn(int back) {
     animateFor(900);
 }
 
-double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<int>& starts, double seesK) {
+double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<int>& starts, double seesK, int only, bool leaving) {
     const M3::Scheme s = M3::currentScheme();
     if (starts.isEmpty()) return 0;
-    const int turn = qBound(0, int(starts.size()) - 1 - d->viewBack, int(starts.size()) - 1);
+    const int turn = only >= 0 ? only : qBound(0, int(starts.size()) - 1 - d->viewBack, int(starts.size()) - 1);
+    const QString key = QString::number(starts.at(turn)) + QLatin1Char('.'); // its layout springs
+    if (leaving && d->listOpen) return 0;
     const int from = starts.at(turn), to = turn + 1 < starts.size() ? starts.at(turn + 1) : int(d->items.size());
     const double W = view.width();
 
@@ -1300,7 +1384,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
     QList<int> asked; // turn numbers
     for (int t = int(starts.size()) - 1; t >= 0; t--)
         if (d->items.at(starts.at(t)).kind == Private::Item::User) asked.append(t);
-    if (d->listOpen) {
+    if (d->listOpen && !leaving) {
         // a grouped list: the outer corners round, the rows joined by small ones
         double y = 0;
         const double since = d->since(d->listAt);
@@ -1404,13 +1488,12 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
             solid(QRectF(0, y, W, h)); // clicking the words doesn't close it
             y += (h + 22) * (1 - lineGone);
         }
-    } else if (user >= 0 && d->busy && d->viewBack == 0) {
-        const QFont f = flex(20, 450);
-        const QRectF r = QFontMetricsF(f).boundingRect(QRectF(0, 0, W * 0.8, 1e6), Qt::AlignHCenter | Qt::TextWordWrap, d->items.at(user).text);
-        p.save();
-        rise(p, QRectF(0, y, W, r.height()), (d->now() - d->items.at(user).born) / 1000.0);
-        text(p, QRectF(W * 0.1, y, W * 0.8, r.height() + 4), d->items.at(user).text, f, alpha(s.onSurfaceVariant, 0.7), Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap);
-        p.restore();
+    } else if (user >= 0 && d->busy && d->viewBack == 0 && !leaving) {
+        // the question drops out of the pill to where the answer will land, and waits there
+        const double k = springAt(M3Motion::SpatialDefault, (d->now() - d->items.at(user).born) / 1000.0);
+        const QFont f = flex(lerp(17, 20, c01(k)), lerp(560, 450, c01(k)));
+        const QRectF r = QFontMetricsF(flex(20, 450)).boundingRect(QRectF(0, 0, W * 0.8, 1e6), Qt::AlignHCenter | Qt::TextWordWrap, d->items.at(user).text);
+        text(p, QRectF(W * 0.1, y - (d->echoFrom + 12) * (1 - k), W * 0.8, r.height() + 4), d->items.at(user).text, f, mix(s.onSurface, alpha(s.onSurfaceVariant, 0.7), c01(k)), Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap);
         y += r.height() + 24;
     } else if (user >= 0) {
         // an earlier question with no words back (only cards, or stopped)
@@ -1704,19 +1787,22 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
     // Multi-browse: the focused item large, the next one medium, one small at the edge
     if (!tiles.isEmpty()) {
         const int n = int(tiles.size());
-        const double pos = qBound(0.0, d->carousel->currentValue().toDouble(), double(n - 1));
+        const double pos = qBound(0.0, leaving ? d->leavingPos : d->carousel->currentValue().toDouble(), double(n - 1));
         const double gap = 8, small = 56;
+        // the small one at the edge arrives wide and shrinks into place
+        const double smallIn = lerp(150, small, c01(springAt(M3Motion::SpatialSlow, (d->now() - tiles.first().born) / 1000.0 - 0.35)));
         const double large = n == 1 ? W : n == 2 ? W * 0.64 : W * 0.56;
         const double medium = n == 2 ? W - large - gap : W - large - small - 2 * gap;
         auto widthAt = [&](double off) {
             auto at = [&](int k) {
-                return k <= -2 ? 0.0 : k == -1 ? small : k == 0 ? large : k == 1 ? medium : k == 2 ? small : 0.0;
+                return k <= -2 ? 0.0 : k == -1 ? small : k == 0 ? large : k == 1 ? medium : k == 2 ? smallIn : 0.0;
             };
             const int lo = int(std::floor(off));
             return lerp(at(lo), at(lo + 1), off - lo);
         };
         const int lo = int(std::floor(pos)), hi = qMin(n - 1, lo + 1);
-        const double height = qMax(n == 1 ? 0.0 : 120.0, lerp(heightOf(tiles.at(lo), large), heightOf(tiles.at(hi), large), pos - lo));
+        const double height = glide(key + QStringLiteral("carouselHeight"), qMax(n == 1 ? 0.0 : 120.0, lerp(heightOf(tiles.at(lo), large), heightOf(tiles.at(hi), large), pos - lo)));
+        y = glide(key + QStringLiteral("carouselTop"), y);
         double total = -gap;
         for (int i = 0; i < n; i++) {
             const double w = widthAt(i - pos);
@@ -1780,6 +1866,7 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
 
     // Follow-ups: a connected button group, the outer ends round, the joins tight
     if (chips >= 0 && !d->items.at(chips).chips.isEmpty()) {
+        y = glide(key + QStringLiteral("chipsTop"), y);
         Private::Item& item = d->items[chips];
         const double age = (d->now() - item.born) / 1000.0;
         const QFont f = flex(14, 560);
@@ -1827,7 +1914,8 @@ double AssistantPanel::paintStage(QPainter& p, const QRectF& view, const QList<i
 
     // "N earlier": opens the questions asked before as a list
     const int earlier = int(asked.size()) - (user >= 0 ? 1 : 0);
-    if (earlier > 0) {
+    if (earlier > 0 && !leaving) {
+        y = glide(key + QStringLiteral("earlierTop"), y);
         const QString label = d->viewBack > 0 ? tr("Back to the latest") : earlier == 1 ? tr("1 earlier") : tr("%1 earlier").arg(earlier);
         const QString ic = d->viewBack > 0 ? QStringLiteral("arrow_downward") : QStringLiteral("history");
         const QRectF r((W - chipWidth(ic, label) - 8) / 2, y, chipWidth(ic, label) + 8, 36);
