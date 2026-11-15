@@ -47,6 +47,7 @@ class LoadChunk : public Chunk {
         void updateCovered();
         void fit();
         void recolour();
+        void figure();
         QRect shapeRect() const;
 };
 

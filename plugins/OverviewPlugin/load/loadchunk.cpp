@@ -76,18 +76,6 @@ namespace {
         return font;
     }
 
-    // The load as a shape: circle -> Cookie9 -> SoftBurst, made once in steps of 0.05, in a unit square around 0
-    const QPainterPath& loadShape(double load) {
-        static const QVector<QPainterPath> shapes = [] {
-            const m3shapes::Morph calm(MaterialShapes::circle(), MaterialShapes::cookie9Sided()), busy(MaterialShapes::cookie9Sided(), MaterialShapes::softBurst());
-            const QRectF box(-0.5, -0.5, 1, 1);
-            QVector<QPainterPath> all;
-            for (int i = 0; i <= 20; i++) all.append(i < 10 ? m3shapes::toPath(calm, i / 10.f, box) : m3shapes::toPath(busy, (i - 10) / 10.f, box));
-            return all;
-        }();
-        return shapes.at(qRound(clamp01(load) * 20));
-    }
-
     // A spring stepped by the owner's frame timer; it rests (snapped) once it's within `still` and slow
     struct Spring {
             double value = 0, velocity = 0, target = 0;
@@ -101,6 +89,47 @@ namespace {
                     return false;
                 }
                 return true;
+            }
+    };
+
+    // A load's shape (the chunk's, a thread's): the morph circle -> Cookie9 -> SoftBurst and the turn on spatial
+    // springs (they overshoot a little), its colour on an effects spring (it doesn't)
+    struct LoadMotion {
+            Spring level, heat, angle;
+            QPainterPath path; // the morph at pathAt, in a unit square around 0
+            double pathAt = -1;
+
+            // A new reading; busier than a fifth it also turns on a little, further the busier
+            void aim(double load, double turn) {
+                level.target = load;
+                heat.target = load;
+                if (M3Motion::expressive() && load > 0.2) angle.target += (load - 0.2) / 0.8 * turn;
+            }
+
+            void snap() {
+                level.value = level.target;
+                heat.value = heat.target;
+                angle.value = angle.target;
+                level.velocity = heat.velocity = angle.velocity = 0;
+            }
+
+            bool step(double dt) {
+                bool moving = level.step(M3Motion::SpatialFast, dt, 0.002); // the load's reaction: fast, with its overshoot
+                moving = heat.step(M3Motion::EffectsDefault, dt, 0.004) || moving;
+                if (angle.step(M3Motion::SpatialDefault, dt, 0.1)) return true; // a tenth of a degree
+                angle.value = angle.target = std::fmod(angle.target, 360.0);
+                return moving;
+            }
+
+            const QPainterPath& shape() {
+                if (level.value != pathAt) {
+                    static const m3shapes::Morph calm(MaterialShapes::circle(), MaterialShapes::cookie9Sided()), busy(MaterialShapes::cookie9Sided(), MaterialShapes::softBurst());
+                    const QRectF box(-0.5, -0.5, 1, 1);
+                    const double k = clamp01(level.value);
+                    path = k < 0.5 ? m3shapes::toPath(calm, float(k * 2), box) : m3shapes::toPath(busy, float(k * 2 - 1), box);
+                    pathAt = level.value;
+                }
+                return path;
             }
     };
 
@@ -180,60 +209,54 @@ namespace {
             }
 
             void setReading(const QVector<double>& loads, qint64 used, qint64 total, const QList<Program>& busiest) {
-                const bool snap = fresh; // just opened: no springing from the last time
+                const bool snap = fresh; // just opened: nothing springs from the last time
                 fresh = false;
                 const double cpu = loads.first();
                 figure->setText(QStringLiteral("%1%").arg(qRound(cpu * 100)));
-                const QFont font = figureFont(48, cpu, 1000, 125);
-                if (font != figure->font()) figure->setFont(font);
-                QPalette palette = figure->palette();
-                palette.setColor(QPalette::WindowText, mix(scheme.onSurface, scheme.primary, (cpu - 0.5) * 2));
-                figure->setPalette(palette);
 
+                // The springs only move for a change that shows: a step of a shape, a tenth of a GB
+                whole.aim(qRound(cpu * 20) / 20.0, 0);
                 threads.resize(loads.size() - 1);
-                angles.resize(threads.size());
-                // The springs only move for a change that shows: a tenth of a GB, two steps of a shape (one step,
-                // a thread's usual flicker, just steps)
-                bool stepped = false;
-                for (int i = 0; i < threads.size(); i++) {
-                    Spring& thread = threads[i];
-                    thread.target = qRound(loads.at(i + 1) * 20) / 20.0;
-                    if (snap || (std::abs(thread.target - thread.value) < 0.06 && thread.value != thread.target)) {
-                        thread.value = thread.target;
-                        thread.velocity = 0;
-                        stepped = true;
-                    }
+                for (int i = 0; i < threads.size(); i++) threads[i].aim(qRound(loads.at(i + 1) * 20) / 20.0, 30);
+                if (gigabytes(used) != gigabytes(this->used) || snap) ram.target = total > 0 ? double(used) / total : 0;
+                if (snap) {
+                    whole.snap();
+                    for (LoadMotion& thread : threads) thread.snap();
+                    ram.value = ram.target;
                 }
-                if (stepped) this->update(threadStrip().toAlignedRect());
-                if (gigabytes(used) != gigabytes(this->used) || snap) {
-                    ram.target = total > 0 ? double(used) / total : 0;
-                    this->update(memoryRect());
-                }
-                if (snap) ram.value = ram.target;
+                if (gigabytes(used) != gigabytes(this->used)) this->update(memoryRect());
                 this->used = used;
                 this->total = total;
 
-                // The rows glide to their rank; newcomers rise in, leavers fade
+                // The rows glide to their rank; newcomers rise in, leavers fade; the bars spring to their share
                 for (auto& [name, row] : rows) row.a.target = 0;
                 for (int i = 0; i < busiest.size(); i++) {
                     Row& row = rows[busiest.at(i).name];
                     if (row.a.value < 0.02) {
-                        row.y.value = snap ? i : i + 0.6;
+                        row.y.value = i + 0.6;
                         row.y.velocity = 0;
                     }
                     row.y.target = i;
                     row.a.target = 1;
-                    if (snap) row.a.value = 1;
+                    row.bar.target = clamp01(busiest.at(i).share * threads.size() / 100);
+                    row.tint.target = busiest.at(i).share < 5 ? 0 : 1;
                     row.program = busiest.at(i);
                 }
                 start();
-                if (snap) this->update();
-                else this->update(rowsRect()); // their figures change every reading; the rest repaints as it moves
+                this->update(rowsRect()); // their figures change every reading; the rest repaints as it moves
             }
 
         protected:
             void showEvent(QShowEvent* event) override {
                 QWidget::showEvent(event);
+                // The contents come in one after another as the panel grows
+                for (int i = 0; i < Sections; i++) {
+                    rise[i] = Spring{1, 0, 1};
+                    shown[i] = Spring{0, 0, 0};
+                }
+                entered.start();
+                place();
+                start();
                 if (shownChanged) shownChanged(true);
             }
 
@@ -248,8 +271,7 @@ namespace {
 
             void resizeEvent(QResizeEvent* event) override {
                 QWidget::resizeEvent(event);
-                const QSize button = seeAll->sizeHint();
-                seeAll->setGeometry(this->width() - 8 - button.width(), this->height() - 8 - button.height(), button.width(), button.height());
+                place();
             }
 
             void changeEvent(QEvent* event) override {
@@ -263,27 +285,36 @@ namespace {
                 const M3::Scheme& s = scheme;
                 QPainter p(this);
                 p.setRenderHint(QPainter::Antialiasing);
+                const auto section = [&](int i) {
+                    p.restore();
+                    p.save();
+                    p.translate(0, Rise * rise[i].value);
+                    p.setOpacity(clamp01(shown[i].value));
+                };
+                p.save();
 
-                if (dirty.intersects(QRectF(16, 64, 160, 18))) {
+                section(0);
+                if (dirty.intersects(QRectF(16, 64, 160, 18 + Rise))) {
                     p.setPen(s.onSurfaceVariant);
                     p.setFont(captionFont);
                     p.drawText(QRectF(16, 64, 160, 18), Qt::AlignLeft | Qt::AlignVCenter, LoadChunk::tr("CPU, %n threads", nullptr, int(threads.size())));
                 }
 
                 // One shape per thread, each spiking and turning with its own load
+                section(1);
                 const QRectF strip = threadStrip();
                 if (dirty.intersects(strip)) {
                     const double step = threads.isEmpty() ? 0 : qMin(46.0, strip.width() / threads.size()), size = qMin(38.0, step - 8);
                     for (int i = 0; i < threads.size(); i++) {
+                        LoadMotion& thread = threads[i];
                         const QPointF c(strip.left() + step * (i + 0.5), 44);
-                        const double load = threads.at(i).value;
                         p.setPen(Qt::NoPen);
-                        p.setBrush(mix(s.secondaryContainer, s.primary, load));
+                        p.setBrush(mix(s.secondaryContainer, s.primary, thread.heat.value));
                         p.save();
                         p.translate(c);
-                        p.rotate(angles.at(i));
+                        p.rotate(thread.angle.value);
                         p.scale(size, size);
-                        p.drawPath(loadShape(load));
+                        p.drawPath(thread.shape());
                         p.restore();
                         if (step >= 20) {
                             p.setPen(s.onSurfaceVariant);
@@ -294,6 +325,7 @@ namespace {
                 }
 
                 // Memory: the M3E wavy bar, waving only while it climbs or falls
+                section(2);
                 const QRectF track(16, 112, this->width() - 32, 10);
                 if (dirty.intersects(QRectF(0, 100, this->width(), 84))) {
                     paintWave(&p, track, ram.value, waving(), phase, s.tertiary, s.secondaryContainer);
@@ -307,48 +339,55 @@ namespace {
                 }
 
                 // The rows: bars as long as their share of a thread
+                section(3);
                 const QRectF area = rowsRect();
-                if (!dirty.intersects(area)) return;
-                p.setClipRect(area);
-                for (auto& [name, row] : rows) {
-                    if (row.a.value < 0.01) continue;
-                    p.setOpacity(clamp01(row.a.value));
-                    const QRectF r(area.left(), area.top() + row.y.value * RowHeight, area.width(), RowHeight);
-                    const QRectF b = r.adjusted(0, 3, 0, -3);
-                    const double round = b.height() / 2, share = row.program.share;
-                    p.setPen(Qt::NoPen);
-                    p.setBrush(s.surfaceContainerHighest);
-                    p.drawRoundedRect(b, round, round);
-                    p.setBrush(share < 5 ? s.secondaryContainer : s.primaryContainer);
-                    p.drawRoundedRect(QRectF(b.left(), b.top(), qMax(b.height(), b.width() * clamp01(share * threads.size() / 100)), b.height()), round, round);
-                    p.drawPixmap(QPointF(b.left() + round - 8, b.center().y() - 8), icon(name));
+                if (dirty.intersects(area)) {
+                    p.setClipRect(area);
+                    const double opacity = p.opacity();
+                    for (auto& [name, row] : rows) {
+                        if (row.a.value < 0.01) continue;
+                        p.setOpacity(opacity * clamp01(row.a.value));
+                        const QRectF r(area.left(), area.top() + row.y.value * RowHeight, area.width(), RowHeight);
+                        const QRectF b = r.adjusted(0, 3, 0, -3);
+                        const double round = b.height() / 2;
+                        p.setPen(Qt::NoPen);
+                        p.setBrush(s.surfaceContainerHighest);
+                        p.drawRoundedRect(b, round, round);
+                        p.setBrush(mix(s.secondaryContainer, s.primaryContainer, row.tint.value));
+                        p.drawRoundedRect(QRectF(b.left(), b.top(), qMax(b.height(), b.width() * qMax(0.0, row.bar.value)), b.height()), round, round);
+                        p.drawPixmap(QPointF(b.left() + round - 8, b.center().y() - 8), icon(name));
 
-                    const double x = b.left() + 34;
-                    p.setPen(s.onSurface);
-                    p.setFont(nameFont);
-                    p.drawText(QRectF(x, b.top(), 200, b.height()), Qt::AlignLeft | Qt::AlignVCenter, name);
-                    p.setPen(s.onSurfaceVariant);
-                    p.setFont(memoryFont);
-                    p.drawText(QRectF(x + QFontMetricsF(nameFont).horizontalAdvance(name) + 8, b.top(), 120, b.height()), Qt::AlignLeft | Qt::AlignVCenter, amount(row.program.memory));
-                    p.setPen(s.onSurface);
-                    p.setFont(shareFont);
-                    p.drawText(b.adjusted(0, 0, -14, 0), Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("%1%").arg(qRound(share)));
+                        const double x = b.left() + 34;
+                        p.setPen(s.onSurface);
+                        p.setFont(nameFont);
+                        p.drawText(QRectF(x, b.top(), 200, b.height()), Qt::AlignLeft | Qt::AlignVCenter, name);
+                        p.setPen(s.onSurfaceVariant);
+                        p.setFont(memoryFont);
+                        p.drawText(QRectF(x + QFontMetricsF(nameFont).horizontalAdvance(name) + 8, b.top(), 120, b.height()), Qt::AlignLeft | Qt::AlignVCenter, amount(row.program.memory));
+                        p.setPen(s.onSurface);
+                        p.setFont(shareFont);
+                        p.drawText(b.adjusted(0, 0, -14, 0), Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("%1%").arg(qRound(row.program.share)));
+                    }
                 }
+                p.restore();
             }
 
         private:
-            static constexpr double RowHeight = 32;
+            static constexpr double RowHeight = 32, Rise = 16;
+            static constexpr int Sections = 5; // the figure, the threads, memory, the rows, the button
             struct Row {
-                    Spring y, a;
+                    Spring y, a, bar, tint;
                     Program program;
             };
 
             M3::Scheme scheme;
             M3RollingLabel* figure;
             const QFont captionFont = flex(13, 500), numberFont = flex(12, 600), headerFont = flex(14, 650), nameFont = flex(14, 550), memoryFont = flex(12, 450), shareFont = flex(14, 650);
-            QVector<Spring> threads;
-            QVector<double> angles;
+            LoadMotion whole; // the big figure's weight and colour
+            QVector<LoadMotion> threads;
             Spring ram;
+            Spring rise[Sections], shown[Sections];
+            QElapsedTimer entered;
             double phase = 0;
             qint64 used = 0, total = 0;
             std::map<QString, Row> rows;
@@ -380,6 +419,13 @@ namespace {
                 return *found;
             }
 
+            // The child widgets ride their sections in
+            void place() {
+                figure->move(14, qRound(4 + Rise * rise[0].value));
+                const QSize button = seeAll->sizeHint();
+                seeAll->setGeometry(this->width() - 8 - button.width(), qRound(this->height() - 8 - button.height() + Rise * rise[4].value), button.width(), button.height());
+            }
+
             void start() {
                 if (frames.isActive()) return;
                 lastFrame = clock.elapsed();
@@ -390,29 +436,53 @@ namespace {
                 const qint64 now = clock.elapsed();
                 const double dt = qBound(0.001, (now - lastFrame) / 1000.0, 0.05);
                 lastFrame = now;
-                // Each part repaints only while it moves; the shapes alone turning tick at 20 fps
-                const bool waves = ram.step(M3Motion::SpatialSlow, dt, 0.0005); // a tenth of a pixel of the track
-                if (waving() > 0) phase += dt; // the wave flows back towards the start
-                bool shapes = false, turning = false, ranks = false;
-                for (int i = 0; i < threads.size(); i++) {
-                    shapes = threads[i].step(M3Motion::SpatialSlow, dt, 0.004) || shapes;
-                    if (M3Motion::expressive() && threads.at(i).value > 0.2) {
-                        angles[i] = std::fmod(angles.at(i) + (threads.at(i).value - 0.2) / 0.8 * 120 * dt, 360.0);
-                        turning = true;
+
+                // The sections rise in on the spatial spring and fade in on the effects one, 50 ms apart
+                bool entering = false;
+                for (int i = 0; i < Sections; i++) {
+                    if (entered.elapsed() >= 60 + 50 * i) {
+                        rise[i].target = 0;
+                        shown[i].target = 1;
+                    } else {
+                        entering = true;
                     }
+                    entering = rise[i].step(M3Motion::SpatialDefault, dt, 0.005) || entering; // a tenth of a pixel
+                    entering = shown[i].step(M3Motion::EffectsDefault, dt, 0.005) || entering;
                 }
+                if (entering) place();
+
+                // Each part repaints only while it moves
+                const bool figures = whole.step(dt);
+                const QFont font = figureFont(48, whole.level.value, 1000, 125);
+                if (font != figure->font()) figure->setFont(font);
+                const QColor ink = mix(scheme.onSurface, scheme.primary, (whole.heat.value - 0.5) * 2);
+                if (ink != figure->palette().color(QPalette::WindowText)) {
+                    QPalette palette = figure->palette();
+                    palette.setColor(QPalette::WindowText, ink);
+                    figure->setPalette(palette);
+                }
+                const bool waves = ram.step(M3Motion::SpatialDefault, dt, 0.0005); // a tenth of a pixel of the track
+                if (waving() > 0) phase += dt; // the wave flows back towards the start
+                bool shapes = false, ranks = false;
+                for (LoadMotion& thread : threads) shapes = thread.step(dt) || shapes;
                 for (auto it = rows.begin(); it != rows.end();) {
-                    const bool y = it->second.y.step(M3Motion::SpatialDefault, dt, 0.003), a = it->second.a.step(M3Motion::EffectsDefault, dt, 0.005);
-                    ranks = y || a || ranks;
-                    if (!a && it->second.a.target == 0) it = rows.erase(it);
+                    Row& row = it->second;
+                    bool moving = row.y.step(M3Motion::SpatialDefault, dt, 0.003);
+                    moving = row.bar.step(M3Motion::SpatialDefault, dt, 0.0005) || moving;
+                    moving = row.tint.step(M3Motion::EffectsDefault, dt, 0.004) || moving;
+                    const bool fading = row.a.step(M3Motion::EffectsDefault, dt, 0.005);
+                    ranks = moving || fading || ranks;
+                    if (!fading && row.a.target == 0) it = rows.erase(it);
                     else ++it;
                 }
-                if (shapes || turning) this->update(threadStrip().toAlignedRect());
-                if (waves) this->update(memoryRect());
-                if (ranks) this->update(rowsRect());
-                const bool moving = waves || shapes || ranks;
-                if (!moving && !turning) frames.stop();
-                else if (frames.interval() != (moving ? 16 : 50)) frames.setInterval(moving ? 16 : 50);
+                if (entering) {
+                    this->update();
+                } else {
+                    if (shapes) this->update(threadStrip().toAlignedRect());
+                    if (waves) this->update(memoryRect());
+                    if (ranks) this->update(rowsRect());
+                }
+                if (!entering && !figures && !waves && !shapes && !ranks) frames.stop();
             }
     };
 } // namespace
@@ -428,8 +498,8 @@ struct LoadChunk::Private {
         LoadPanel* panel;
         bool panelShown = false;
 
-        Spring level, memory, kick;
-        double angle = 0;
+        LoadMotion load;
+        Spring memory, kick;
         QTimer frames;
         QElapsedTimer clock;
         qint64 lastFrame = 0;
@@ -584,9 +654,9 @@ void LoadChunk::sample() {
         changed = true;
     }
     const double level = qRound(loads.first() * 20) / 20.0; // the shape's steps
-    if (level != d->level.target) {
-        if (d->percent >= 0 && M3Motion::expressive()) d->kick.velocity += 9; // a small kick as it turns spikier or calmer
-        d->level.target = level;
+    if (level != d->load.level.target || level > 0.2) { // busy, each reading turns it on
+        if (level != d->load.level.target && d->percent >= 0 && M3Motion::expressive()) d->kick.velocity += 9; // a small kick as it turns spikier or calmer
+        d->load.aim(level, 45);
         changed = true;
     }
     d->percent = percent;
@@ -621,18 +691,28 @@ void LoadChunk::startFrames() {
 }
 
 void LoadChunk::frame() {
-    // The springs settle and rest; busier than a fifth the shape also turns, faster the busier (20 fps is enough for that alone)
+    // The springs settle and rest
     const qint64 now = d->clock.elapsed();
     const double dt = qBound(0.001, (now - d->lastFrame) / 1000.0, 0.05);
     d->lastFrame = now;
-    bool moving = d->level.step(M3Motion::SpatialSlow, dt, 0.004); // a tenth of a pixel of the shape
-    moving = d->memory.step(M3Motion::SpatialSlow, dt, 0.004) || moving;
+    bool moving = d->load.step(dt);
+    moving = d->memory.step(M3Motion::SpatialDefault, dt, 0.004) || moving; // a tenth of a pixel of the shape, with a little overshoot
     moving = d->kick.step(M3Motion::SpatialFast, dt, 0.01) || moving;
-    const double spin = M3Motion::expressive() ? qMax(0.0, d->level.value - 0.2) / 0.8 * 120 : 0; // degrees a second
-    d->angle = std::fmod(d->angle + spin * dt, 360.0);
-    if (!moving && spin <= 0) d->frames.stop();
-    else if (d->frames.interval() != (moving ? 16 : 50)) d->frames.setInterval(moving ? 16 : 50);
+    if (!moving) d->frames.stop();
+    figure();
     this->update(shapeRect());
+}
+
+void LoadChunk::figure() {
+    // The figure follows the shape: heavier and wider as it springs busier, primary as it warms
+    const QFont font = figureFont(d->open >= 0.5 ? 15 : 13, d->load.level.value, 900, 115);
+    if (font != d->cpu->font()) d->cpu->setFont(font);
+    const QColor ink = mix(d->scheme.onSurface, d->scheme.primary, (d->load.heat.value - 0.5) * 2);
+    if (ink != d->cpu->palette().color(QPalette::WindowText)) {
+        QPalette palette = d->cpu->palette();
+        palette.setColor(QPalette::WindowText, ink);
+        d->cpu->setPalette(palette);
+    }
 }
 
 void LoadChunk::fit() {
@@ -645,7 +725,6 @@ void LoadChunk::fit() {
         label->setFixedWidth(width);
         label->setVisible(width > 0);
     }
-    d->cpu->setFont(figureFont(full ? 15 : 13, d->level.target, 900, 115));
     this->layout()->setContentsMargins(qRound(4 + lerp(20, 28, e) + 6), 0, 4, 0);
     recolour();
 }
@@ -660,7 +739,7 @@ void LoadChunk::recolour() {
     colour(d->cpuWord, faded(s.onSurfaceVariant, d->open));
     colour(d->ramWord, faded(s.onSurfaceVariant, d->open));
     colour(d->ram, faded(s.onSurface, d->open));
-    colour(d->cpu, mix(s.onSurface, s.primary, (d->level.target - 0.5) * 2)); // primary when it's hot
+    figure();
 }
 
 QRect LoadChunk::shapeRect() const {
@@ -685,14 +764,14 @@ void LoadChunk::paintEvent(QPaintEvent* event) {
     p.setPen(Qt::NoPen);
 
     // The shape, its colour warming with the load, filled from the bottom with the memory in use
-    const double size = lerp(20, 28, d->open), load = d->level.value, scale = size * (1 + 0.08 * d->kick.value);
+    const double size = lerp(20, 28, d->open), scale = size * (1 + 0.08 * d->kick.value);
     const QPointF c(4 + size / 2, this->height() / 2.0);
     QTransform transform;
     transform.translate(c.x(), c.y());
-    transform.rotate(d->angle);
+    transform.rotate(d->load.angle.value);
     transform.scale(scale, scale);
-    const QPainterPath shape = transform.map(loadShape(load));
-    p.setBrush(mix(s.secondaryContainer, s.primaryContainer, load));
+    const QPainterPath shape = transform.map(d->load.shape());
+    p.setBrush(mix(s.secondaryContainer, s.primaryContainer, d->load.heat.value));
     p.drawPath(shape);
     QPainterPath filled;
     filled.addRect(QRectF(c.x() - size, c.y() + size / 2 - size * clamp01(d->memory.value), 2 * size, 2 * size));
