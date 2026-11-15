@@ -20,6 +20,7 @@
 #include "plugin.h"
 
 #include "claude/claudechunk.h"
+#include "load/loadchunk.h"
 #include <claude/claudeusage.h>
 
 #include "OverviewPane/overviewpane.h"
@@ -40,6 +41,7 @@
 struct PluginPrivate {
         ClaudeChunk* claude = nullptr;
         ClockChunk* chunk;
+        LoadChunk* load;
         OverviewPane* overviewPane;
 };
 
@@ -58,6 +60,8 @@ void Plugin::activate() {
 
     d->chunk = new ClockChunk();
     StateManager::barManager()->addChunk(d->chunk);
+    d->load = new LoadChunk();
+    StateManager::barManager()->addChunk(d->load);
 
     d->overviewPane = new OverviewPane();
     StateManager::statusCenterManager()->addPane(d->overviewPane);
@@ -83,6 +87,8 @@ void Plugin::deactivate() {
     }
     StateManager::statusCenterManager()->removePane(d->overviewPane);
     StateManager::barManager()->removeChunk(d->chunk);
+    StateManager::barManager()->removeChunk(d->load);
+    d->load->deleteLater();
 
     d->overviewPane->deleteLater();
     d->chunk->deleteLater();

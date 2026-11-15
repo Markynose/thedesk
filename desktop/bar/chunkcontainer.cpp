@@ -37,6 +37,7 @@ struct ChunkContainerPrivate {
             "OverviewClock",
             "Power",
             "PowerStretch",
+            "SystemLoad",
             "flight-mode",
             "network-cellular",
             "Network",

@@ -55,6 +55,7 @@ class PowerManager : public QObject {
         void powerOffConfirmationRequested(PowerOperation operation, QString message, QStringList flags, tPromiseFunctions<void>::SuccessFunction cb);
         void powerOffOperationCommencing(PowerOperation operation);
         void lockedChanged(bool locked); // the lock screen came up or went away
+        void screenOffChanged(bool off); // the idle timer turned the screen off, or it woke
 
     protected:
         friend EndSession;

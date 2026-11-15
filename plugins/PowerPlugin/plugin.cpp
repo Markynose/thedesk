@@ -43,6 +43,7 @@
 #include <barmanager.h>
 #include <icontextchunk.h>
 #include <localemanager.h>
+#include <powermanager.h>
 #include <quickswitch.h>
 #include <statemanager.h>
 #include <statuscentermanager.h>
@@ -146,6 +147,7 @@ void Plugin::activate() {
     d->logind = new EventHandler();
     d->logind->setBatteryChunk(d->powerChunk);
     connect(d->logind, &EventHandler::screenOffChanged, d->powerChunk, &BatteryChunk::setScreenOff);
+    connect(d->logind, &EventHandler::screenOffChanged, StateManager::powerManager(), &PowerManager::screenOffChanged);
     RichTip::attach(d->powerChunk, [this] {
         return RichTip::Content{tr("Battery"), d->upower->overallStateDescription(), tr("Power settings"), [] {
             StateManager::statusCenterManager()->showWithPane(QStringLiteral("PowerSettings"));

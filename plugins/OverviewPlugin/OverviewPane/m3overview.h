@@ -15,6 +15,9 @@
 
 struct M3OverviewPagePrivate;
 
+// M3 Expressive wavy progress (WavyProgressIndicator); `amplitude` 0..1 (0 flat)
+void paintWave(QPainter* p, const QRectF& track, double value, double amplitude, double phase, QColor active, QColor inactive, double stroke = 4);
+
 /**
  * The Status Center overview: your day as a ribbon on the living horizon's
  * clock with the big clock riding the "now" line, world clocks as pins at

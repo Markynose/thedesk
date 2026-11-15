@@ -110,34 +110,38 @@ namespace {
         return QString::fromLatin1(file.readAll()).trimmed();
     }
 
-    // M3 Expressive wavy progress (WavyProgressIndicator): the wave up to
-    // `value`, a 4 dp gap, the flat inactive track and its stop dot.
-    // `amplitude` 0..1 scales the 3 dp wave (0 = flat, as when paused).
-    void paintWave(QPainter* p, const QRectF& track, double value, double amplitude, double phase, QColor active, QColor inactive, double stroke = 4) {
-        const double y = track.center().y(), wavelength = 40, gap = 4;
-        const double end = track.left() + track.width() * qBound(0.0, value, 1.0);
-        p->save();
-        p->setBrush(Qt::NoBrush);
-        if (end > track.left() + 0.5) {
-            QPainterPath wave;
-            for (double x = track.left(); x <= end; x += 1) {
-                double wy = y + 3 * amplitude * qSin(((x - track.left()) / wavelength + phase) * 2 * M_PI);
-                if (x == track.left()) wave.moveTo(x, wy);
-                else wave.lineTo(x, wy);
-            }
-            p->setPen(QPen(active, stroke, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-            p->drawPath(wave);
+} // namespace
+
+// M3 Expressive wavy progress (WavyProgressIndicator): the wave up to
+// `value`, a 4 dp gap, the flat inactive track and its stop dot.
+// `amplitude` 0..1 scales the 3 dp wave (0 = flat, as when paused).
+void paintWave(QPainter* p, const QRectF& track, double value, double amplitude, double phase, QColor active, QColor inactive, double stroke) {
+    const double y = track.center().y(), wavelength = 40, gap = 4;
+    const double end = track.left() + track.width() * qBound(0.0, value, 1.0);
+    p->save();
+    p->setBrush(Qt::NoBrush);
+    if (end > track.left() + 0.5) {
+        QPainterPath wave;
+        for (double x = track.left(); x <= end; x += 1) {
+            double wy = y + 3 * amplitude * qSin(((x - track.left()) / wavelength + phase) * 2 * M_PI);
+            if (x == track.left()) wave.moveTo(x, wy);
+            else wave.lineTo(x, wy);
         }
-        double rest = end > track.left() + 0.5 ? end + gap + stroke : track.left();
-        if (rest < track.right()) {
-            p->setPen(QPen(inactive, stroke, Qt::SolidLine, Qt::RoundCap));
-            p->drawLine(QPointF(rest, y), QPointF(track.right(), y));
-            p->setPen(Qt::NoPen);
-            p->setBrush(active);
-            p->drawEllipse(QPointF(track.right(), y), stroke / 2, stroke / 2);
-        }
-        p->restore();
+        p->setPen(QPen(active, stroke, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p->drawPath(wave);
     }
+    double rest = end > track.left() + 0.5 ? end + gap + stroke : track.left();
+    if (rest < track.right()) {
+        p->setPen(QPen(inactive, stroke, Qt::SolidLine, Qt::RoundCap));
+        p->drawLine(QPointF(rest, y), QPointF(track.right(), y));
+        p->setPen(Qt::NoPen);
+        p->setBrush(active);
+        p->drawEllipse(QPointF(track.right(), y), stroke / 2, stroke / 2);
+    }
+    p->restore();
+}
+
+namespace {
 
     void paintLinear(QPainter* p, const QRectF& track, double value, QColor active, QColor inactive, double stroke = 4) {
         const double end = track.width() * qBound(0.0, value, 1.0), gap = 4;

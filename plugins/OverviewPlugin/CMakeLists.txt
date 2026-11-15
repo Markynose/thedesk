@@ -9,6 +9,7 @@ set(SOURCES
     OverviewPane/m3overview.cpp
     clockchunk.cpp
     claude/claudechunk.cpp
+    load/loadchunk.cpp
     plugin.cpp
 
     OverviewPane/overviewpane.ui
@@ -22,6 +23,7 @@ set(HEADERS
     OverviewPane/m3overview.h
     clockchunk.h
     claude/claudechunk.h
+    load/loadchunk.h
     plugin.h
 )
 
