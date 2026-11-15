@@ -1241,6 +1241,8 @@ namespace {
     //                   tool buttons; default standard when auto-raised)
     //   m3IconButtonWidth  narrow | default | wide
     //   m3ButtonGroup="connected" on a container: its buttons join up
+    //   m3ToggleShapeOnly  true: a toggle icon button keeps its colours, only
+    //                   its shape morphs (a media play/pause)
     // Checkable buttons are toggle buttons: the shape morphs (round to square,
     // or square to round) and the colours change when selected.
 
@@ -1524,9 +1526,10 @@ void M3Style::drawToolButton(const QStyleOptionComplex* option, QPainter* painte
     if (split) kind = kindFromString(widget ? widget->property("m3ButtonStyle").toString() : QString(), ButtonKind::Tonal);
     else if (iconOnly) kind = kindFromString(widget ? widget->property("m3IconButtonStyle").toString() : QString(), raised ? ButtonKind::Tonal : ButtonKind::Standard);
     else kind = kindFromString(widget ? widget->property("m3ButtonStyle").toString() : QString(), raised ? ButtonKind::Tonal : ButtonKind::Standard);
-    ButtonColours colours = !enabled(option) ? disabledColours(kind, s)
-                          : toggle           ? blend(kindColours(kind, true, false, s), kindColours(kind, true, true, s), checked)
-                                             : kindColours(kind, false, false, s);
+    const bool shapeOnly = widget && widget->property("m3ToggleShapeOnly").toBool();
+    ButtonColours colours = !enabled(option)     ? disabledColours(kind, s)
+                          : toggle && !shapeOnly ? blend(kindColours(kind, true, false, s), kindColours(kind, true, true, s), checked)
+                                                 : kindColours(kind, false, false, s);
     const QColor content = colours.content;
 
     QPainterPath shape;

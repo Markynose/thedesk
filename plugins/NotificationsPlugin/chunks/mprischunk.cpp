@@ -25,6 +25,7 @@
 #include <QMenu>
 #include <QPainter>
 #include <QPainterPath>
+#include <QToolButton>
 #include <m3scheme.h>
 #include <barmanager.h>
 #include <libcontemporary_global.h>
@@ -42,7 +43,13 @@ struct MprisChunkPrivate {
         QMap<QString, QAction*> playerActions;
 
         BarManager::BarLockPtr barLocker;
+        double open = 0; // the bar: 0 closed, 1 open
+        QColor pill;
 };
+
+namespace {
+    constexpr int Closed = 26, Open = 30; // the pill's height, as the battery chip's
+}
 
 MprisChunk::MprisChunk() :
     Chunk(),
@@ -95,26 +102,37 @@ MprisChunk::MprisChunk() :
     }
 
     connect(StateManager::barManager(), &BarManager::barHeightTransitioning, this, [=](qreal percentage) {
-        if (qFuzzyCompare(percentage, 1)) {
-            ui->buttonWidget->setFixedWidth(QWIDGETSIZE_MAX);
-            ui->playersButton->setFixedWidth(QWIDGETSIZE_MAX);
-            ui->stateIcon->setFixedWidth(0);
-        } else if (qFuzzyIsNull(percentage)) {
-            ui->buttonWidget->setFixedWidth(0);
-            ui->playersButton->setFixedWidth(0);
-            ui->stateIcon->setFixedWidth(QWIDGETSIZE_MAX);
-        } else {
-            ui->buttonWidget->setFixedWidth(static_cast<int>(ui->buttonWidget->sizeHint().width() * percentage));
-            ui->playersButton->setFixedWidth(static_cast<int>(ui->playersButton->sizeHint().width() * percentage));
-            ui->stateIcon->setFixedWidth(static_cast<int>(ui->stateIcon->sizeHint().width() * (1 - percentage)));
-        }
+        d->open = percentage;
+        this->update();
+        // The controls grow in as the bar opens (a fixed QWIDGETSIZE_MAX would ask for more room than there is,
+        // and they'd be laid over the title)
+        ui->buttonWidget->setFixedWidth(qRound(ui->buttonWidget->sizeHint().width() * percentage));
+        ui->playersButton->setFixedWidth(qRound(28 * percentage));
+        ui->stateIcon->setFixedWidth(qRound(ui->stateIcon->sizeHint().width() * (1 - percentage)));
     });
 
     ui->stateIcon->setFixedWidth(0);
     ui->stateIcon->setPixmap(QIcon::fromTheme("media-playback-start").pixmap(SC_DPI_T(QSize(16, 16), QSize)));
 
-    // M3E: what's playing sits in its own TertiaryContainer pill
-    this->layout()->setContentsMargins(10, 0, 6, 0);
+    // M3E: what's playing and its controls in one TertiaryContainer pill; the controls a connected
+    // button group inset in it, play/pause the emphasized toggle (round paused, square playing)
+    this->layout()->setContentsMargins(10, 0, 3, 0);
+    ui->buttonWidget->layout()->setContentsMargins(4, 0, 0, 0);
+    ui->playerControlsWidget->setProperty("m3ButtonGroup", QStringLiteral("connected"));
+    ui->playerControlsLayout->setSpacing(2);
+    for (QToolButton* button : {ui->backButton, ui->playPauseButton, ui->forwardButton, ui->playersButton}) {
+        button->setProperty("m3ButtonSize", QStringLiteral("xs"));
+        button->setProperty("m3IconButtonStyle", QStringLiteral("tonal"));
+        button->setProperty("m3IconButtonWidth", QStringLiteral("narrow"));
+        button->setFixedSize(28, 24);
+        button->setIconSize(QSize(16, 16));
+    }
+    ui->playersButton->setProperty("m3IconButtonStyle", QStringLiteral("standard"));
+    ui->playPauseButton->setProperty("m3IconButtonStyle", QStringLiteral("filled"));
+    ui->playPauseButton->setProperty("m3IconButtonWidth", QStringLiteral("wide"));
+    ui->playPauseButton->setProperty("m3ToggleShapeOnly", true); // stays the emphasized one, paused or playing
+    ui->playPauseButton->setCheckable(true);
+    ui->playPauseButton->setFixedSize(40, 24);
     applyColours();
 
     // Ensure that the player controls are always LTR
@@ -175,13 +193,13 @@ void MprisChunk::updateMetadata() {
     if (meta.contains("xesam:artist")) parts.append(QLocale().createSeparatedList(meta.value("xesam:artist").toStringList()));
 
     if (parts.isEmpty()) {
-        if (d->currentPlayerApplication) {
-            parts.append(d->currentPlayerApplication->getProperty("Name").toString());
-        } else {
-            parts.append(d->currentPlayer->identity());
-        }
+        const QString app = d->currentPlayerApplication ? d->currentPlayerApplication->getProperty("Name").toString() : QString();
+        parts.append(app.isEmpty() ? d->currentPlayer->identity() : app); // no desktop entry: its own name
     }
-    ui->metadataLabel->setText(parts.join(" · "));
+    // Long titles elide, so the controls always have their room in the pill
+    const QString text = parts.join(" · ");
+    ui->metadataLabel->setText(ui->metadataLabel->fontMetrics().elidedText(text, Qt::ElideRight, 280));
+    ui->metadataLabel->setToolTip(text);
 }
 
 void MprisChunk::updateApplication() {
@@ -195,14 +213,17 @@ void MprisChunk::updateApplication() {
 void MprisChunk::updateState() {
     switch (d->currentPlayer->playbackStatus()) {
         case MprisPlayerInterface::Playing:
+            ui->playPauseButton->setChecked(true);
             ui->stateIcon->setPixmap(QIcon::fromTheme("media-playback-start").pixmap(SC_DPI_T(QSize(16, 16), QSize)));
             ui->playPauseButton->setIcon(QIcon::fromTheme("media-playback-pause"));
             break;
         case MprisPlayerInterface::Paused:
+            ui->playPauseButton->setChecked(false);
             ui->stateIcon->setPixmap(QIcon::fromTheme("media-playback-pause").pixmap(SC_DPI_T(QSize(16, 16), QSize)));
             ui->playPauseButton->setIcon(QIcon::fromTheme("media-playback-start"));
             break;
         case MprisPlayerInterface::Stopped:
+            ui->playPauseButton->setChecked(false);
             ui->stateIcon->setPixmap(QIcon::fromTheme("media-playback-stop").pixmap(SC_DPI_T(QSize(16, 16), QSize)));
             ui->playPauseButton->setIcon(QIcon::fromTheme("media-playback-start"));
             break;
@@ -214,11 +235,11 @@ QString MprisChunk::name() {
 }
 
 int MprisChunk::expandedHeight() {
-    return this->sizeHint().height();
+    return Open + 8;
 }
 
 int MprisChunk::statusBarHeight() {
-    return ui->metadataLabel->sizeHint().height();
+    return Closed;
 }
 
 void MprisChunk::on_playPauseButton_clicked() {
@@ -235,6 +256,7 @@ void MprisChunk::on_forwardButton_clicked() {
 
 void MprisChunk::applyColours() {
     const M3::Scheme s = M3::currentScheme();
+    d->pill = s.tertiaryContainer;
     QPalette pal = ui->metadataLabel->palette();
     pal.setColor(QPalette::WindowText, s.onTertiaryContainer);
     ui->metadataLabel->setPalette(pal);
@@ -249,9 +271,9 @@ void MprisChunk::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    const double height = qMin(this->height() - 4.0, 32.0);
+    const double height = Closed + (Open - Closed) * d->open;
     const QRectF pill(0, (this->height() - height) / 2, this->width(), height);
     QPainterPath shape;
     shape.addRoundedRect(pill, pill.height() / 2, pill.height() / 2);
-    painter.fillPath(shape, M3::currentScheme().tertiaryContainer);
+    painter.fillPath(shape, d->pill);
 }
